@@ -1,4 +1,5 @@
 import { AudioFX } from './audio';
+import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
 import { LORE_TABLETS, NPCS_DEF, RELICS_POOL, WEAPONS_DEF } from './data';
 import { InputHub } from './input';
 import { generateRoom } from './levelGen';
@@ -44,6 +45,7 @@ export class CendresEngine {
   private cb: EngineCallbacks;
   private input = new InputHub();
   private particles = new ParticlePool();
+  private blood = new BloodSystem();
 
   private rafId: number | null = null;
   private timeoutId: number | null = null;
@@ -105,7 +107,7 @@ export class CendresEngine {
       if (isAutomated) {
         this.timeoutId = window.setTimeout(() => {
           if (!this.destroyed) this.rafId = requestAnimationFrame(tick);
-        }, 75);
+        }, 120);
       } else {
         this.rafId = requestAnimationFrame(tick);
       }
@@ -368,6 +370,7 @@ export class CendresEngine {
 
     this.player = this.createPlayer(110, this.room.groundY - 48);
     this.particles.clear();
+    this.blood.clear();
     this.camera.x = 0;
     this.camera.y = 0;
 
@@ -899,6 +902,14 @@ export class CendresEngine {
             isRiposte ? 18 : 11,
             240
           );
+          this.blood.spawnImpact(
+            e.x + e.w / 2,
+            e.y + e.h * 0.45,
+            player.facing,
+            blockedByShield ? 0.45 : isRiposte ? 1.75 : isHeavy || stats.isCrit ? 1.35 : 0.95,
+            room.platforms,
+            getBloodToneForEnemy(e.kind)
+          );
 
           if (!blockedByShield) {
             const label = isRiposte
@@ -1165,8 +1176,9 @@ export class CendresEngine {
     // Interactions (Chests, Braziers, Shrines, Merchants, Lore, NPCs, Exit)
     this.handlePropsInteraction(inp);
 
-    // Update particles & camera
+    // Update particles, blood decals/droplets & camera
     this.particles.update(dt);
+    this.blood.update(dt, room.platforms);
     const targetCamX = Math.max(0, Math.min(room.width - this.width, player.x + player.w / 2 - this.width * 0.42));
     const targetCamY = Math.max(0, Math.min(room.height - this.height, player.y + player.h / 2 - this.height * 0.56));
     this.camera.x += (targetCamX - this.camera.x) * Math.min(1, dt * 8);
@@ -1365,6 +1377,14 @@ export class CendresEngine {
     this.hitStop = 0.055;
     this.trauma = 0.62;
     this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
+    this.blood.spawnImpact(
+      player.x + player.w / 2,
+      player.y + player.h * 0.5,
+      player.x < sourceX ? -1 : 1,
+      1.15,
+      this.room.platforms,
+      'crimson'
+    );
 
     // Second Wind talent check
     if (run.hp <= 0 && (this.save.talents.second_wind || 0) > 0 && !run.secondWindUsed) {
@@ -1410,6 +1430,14 @@ export class CendresEngine {
       '#d4a853',
       e.isBoss ? 48 : 18,
       280
+    );
+    this.blood.spawnImpact(
+      e.x + e.w / 2,
+      e.y + e.h * 0.55,
+      this.player ? this.player.facing : -e.facing,
+      e.isBoss ? 2.2 : 1.55,
+      this.room.platforms,
+      getBloodToneForEnemy(e.kind)
     );
 
     const mult = getLootMultiplier(this.save, this.run);
@@ -1495,6 +1523,14 @@ export class CendresEngine {
           run.loot.larmes += 1;
           AudioFX.parry();
           this.particles.spawnBurst(pr.x + pr.w / 2, pr.y, '#c4303e', 18, 180);
+          this.blood.spawnImpact(
+            pr.x + pr.w / 2,
+            pr.y + pr.h * 0.5,
+            1,
+            0.95,
+            this.room.platforms,
+            'crimson'
+          );
           this.particles.addText(pr.x, pr.y - 22, `+55🔥 +1💧`, '#7ab8ff');
         }
       } else if (pr.type === 'merchant') {
@@ -1626,6 +1662,7 @@ export class CendresEngine {
       run: this.run,
       weapon: this.save.weapon,
       particles: this.particles,
+      blood: this.blood,
     });
   }
 }

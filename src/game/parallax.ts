@@ -257,7 +257,7 @@ export function getParallaxMistStrip(biome: BiomeDef): HTMLCanvasElement | null 
 }
 
 /**
- * Renders Plan 1 (Distant Horizon Silhouettes) and Plan 2 (Drifting Volumetric Mist).
+ * Renders Plan 1 (Distant Horizon Silhouettes). Volumetric fog strata are handled by atmosphere.ts.
  */
 export function renderDeepParallaxLayers(
   ctx: CanvasRenderingContext2D,
@@ -278,19 +278,6 @@ export function renderDeepParallaxLayers(
     ctx.globalAlpha = PARALLAX_LAYERS.horizon.alpha;
     for (let x = startX; x < W; x += horizonStrip.width) {
       ctx.drawImage(horizonStrip, x, dy);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // Plan 2: Drifting Low Atmospheric Mist Bank
-  const mistStrip = getParallaxMistStrip(biome);
-  if (mistStrip) {
-    const p2 = computeParallaxOffset(camX, camY, time, PARALLAX_LAYERS.mist, mistStrip.width, trauma);
-    const startX = -Math.round(p2.wrapX);
-    const my = Math.round(H * 0.56 - p2.offsetY * 0.55);
-    ctx.globalAlpha = PARALLAX_LAYERS.mist.alpha;
-    for (let x = startX; x < W; x += mistStrip.width) {
-      ctx.drawImage(mistStrip, x, my);
     }
     ctx.globalAlpha = 1;
   }

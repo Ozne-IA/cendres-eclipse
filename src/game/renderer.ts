@@ -5,6 +5,15 @@ import {
   drawWeaponSprite,
   getTorchGlow,
 } from './artSprites';
+import {
+  renderDeepAtmosphericDecor,
+  renderMidAtmosphereAndDust,
+} from './atmosphere';
+import {
+  renderBloodDecals,
+  renderBloodDroplets,
+  type BloodSystem,
+} from './bloodDecals';
 import { BIOMES } from './data';
 import type { ParticlePool } from './particles';
 import {
@@ -34,6 +43,7 @@ export interface RenderContextState {
   run: RunState | null;
   weapon: WeaponKey;
   particles: ParticlePool;
+  blood?: BloodSystem;
 }
 
 let coronaCanvas: HTMLCanvasElement | null = null;
@@ -131,8 +141,9 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   ctx.stroke();
   ctx.lineWidth = 1;
 
-  // Plan 1 & 2: Distant Gothic Horizon Silhouettes (0.14x) + Drifting Low Mist (0.24x)
+  // Plan 1: Distant Gothic Horizon Silhouettes (0.14x) + Plan 2: Animated Volumetric God-Rays & Deep/Mid Fog
   renderDeepParallaxLayers(ctx, b, W, H, camX, isTitle ? 0 : camY, time, st.trauma);
+  renderDeepAtmosphericDecor(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle);
 
   // Plan 3: Midground Gothic Colonnade (0.42x H & 0.18x V for clear 2.5D separation)
   const midTileW = 540;
@@ -200,16 +211,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
-  // Drifting Atmospheric Embers anchored at 0.35x parallax depth
-  for (let i = 0; i < 24; i++) {
-    const mx = (((i * 97 - camX * 0.35 + time * (15 + (i % 5) * 3)) % (W + 40)) + (W + 40)) % (W + 40) - 20;
-    const my = (((i * 61 - camY * 0.18 - time * (21 + (i % 4) * 5)) % H) + H) % H;
-    const sz = i % 4 === 0 ? 2.4 : 1.4;
-    ctx.fillStyle = i % 3 === 0 ? 'rgba(255, 206, 120, 0.65)' : 'rgba(235, 130, 62, 0.5)';
-    ctx.beginPath();
-    ctx.arc(mx, my, sz, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Abyssal Volumetric Fog & Multi-Plane Floating Dust Motes, Ash Flakes & Luminous Embers
+  renderMidAtmosphereAndDust(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle);
 
   // Title Screen Vignette Showcase
   if (isTitle) {
@@ -370,6 +373,11 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
+  // 8b. Persistent Floor Blood Splatter Decals (anchored on stone cornices beneath props & actors)
+  if (st.blood) {
+    renderBloodDecals(ctx, st.blood, room.platforms, camX, W);
+  }
+
   // 9. Props
   for (const pr of room.props) {
     if (pr.x + pr.w < camX - 100 || pr.x > camX + W + 100) continue;
@@ -456,6 +464,10 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
+
+  if (st.blood) {
+    renderBloodDroplets(ctx, st.blood, camX, W);
+  }
 
   ctx.textAlign = 'center';
   for (const ft of st.particles.texts) {
