@@ -1,0 +1,6 @@
+{
+  "name": "Cendres de l'Éclipse",
+  "description": "Action-roguelike dark fantasy avec parade à la Sekiro, boss multi-phases, buildcraft et gestion du Bastion du Crépuscule.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

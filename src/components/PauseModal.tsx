@@ -1,0 +1,76 @@
+import React from 'react';
+import { BLESSINGS_POOL, RELICS_POOL } from '../game/data';
+import type { HudSnapshot } from '../game/types';
+
+interface PauseModalProps {
+  hud: HudSnapshot | null;
+  onResume: () => void;
+  onRestart: () => void;
+  onReturnBastion: () => void;
+}
+
+export function PauseModal({ hud, onResume, onRestart, onReturnBastion }: PauseModalProps) {
+  return (
+    <div
+      className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/88 p-5"
+      data-ui-interactive="true"
+      data-testid="pause-modal"
+    >
+      <div className="w-full max-w-md bg-[#110e15] border border-[#4a3b2c] p-6 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
+        <h2 className="font-display text-2xl text-[#d4a853] uppercase tracking-[0.18em] m-0">
+          Pause
+        </h2>
+        <p className="text-xs text-[#9d9284] leading-relaxed mt-3 mb-5">
+          En rentrant au Bastion du Crépuscule maintenant, vous conservez toutes les ressources déjà récoltées durant cette expédition.
+        </p>
+
+        {hud && (hud.blessings.length > 0 || hud.relics.length > 0) && (
+          <div className="text-left bg-[#18141e] border border-[#352b22] p-3 mb-5 text-xs space-y-1.5">
+            {hud.blessings.length > 0 && (
+              <div className="text-[#b8afa2]">
+                <span className="text-[#d4a853]">Bénédictions : </span>
+                {hud.blessings
+                  .map((id) => BLESSINGS_POOL.find((b) => b.id === id)?.name)
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
+            {hud.relics.length > 0 && (
+              <div className="text-[#b8afa2]">
+                <span className="text-[#d4a853]">Reliques : </span>
+                {hud.relics
+                  .map((id) => RELICS_POOL.find((r) => r.id === id)?.name)
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={onResume}
+            className="w-full py-3 text-xs font-display uppercase tracking-widest bg-[#6e1c26] text-[#ffe8ea] border border-[#b54552] hover:bg-[#8e2431] cursor-pointer"
+          >
+            Reprendre
+          </button>
+          <button
+            type="button"
+            onClick={onRestart}
+            className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#e8e1d5] border border-[#4a3b2c] hover:border-[#d4a853] cursor-pointer"
+          >
+            Recommencer l&apos;expédition
+          </button>
+          <button
+            type="button"
+            onClick={onReturnBastion}
+            className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#d4a853] border border-[#5c4833] hover:border-[#d4a853] cursor-pointer"
+          >
+            Rentrer au Bastion du Crépuscule
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
