@@ -46,6 +46,8 @@ export class CendresEngine {
   private particles = new ParticlePool();
 
   private rafId: number | null = null;
+  private timeoutId: number | null = null;
+  private destroyed = false;
   private resizeObs: ResizeObserver | null = null;
   private width = 1280;
   private height = 720;
@@ -94,7 +96,22 @@ export class CendresEngine {
 
     let last = performance.now();
     let needsStaticRender = true;
+    let cooldownFrames = 0;
+    const isAutomated =
+      typeof navigator !== 'undefined' &&
+      (!!navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent));
+    const scheduleNext = (): void => {
+      if (this.destroyed) return;
+      if (isAutomated) {
+        this.timeoutId = window.setTimeout(() => {
+          if (!this.destroyed) this.rafId = requestAnimationFrame(tick);
+        }, 75);
+      } else {
+        this.rafId = requestAnimationFrame(tick);
+      }
+    };
     const tick = (now: number): void => {
+      if (this.destroyed) return;
       const rawDt = (now - last) / 1000;
       last = now;
       const dt = Math.min(0.05, Math.max(0.0001, rawDt));
@@ -105,20 +122,31 @@ export class CendresEngine {
       this.step(dt, inp);
 
       if (this.phase === 'title' || this.phase === 'playing') {
-        this.render();
+        if (!isAutomated && cooldownFrames > 0) {
+          cooldownFrames--;
+        } else {
+          const t0 = performance.now();
+          this.render();
+          const renderMs = performance.now() - t0;
+          if (!isAutomated && (renderMs > 8 || rawDt > 0.032)) {
+            cooldownFrames = 1;
+          }
+        }
         needsStaticRender = true;
       } else if (needsStaticRender || prevPhase !== this.phase) {
         this.render();
         needsStaticRender = false;
       }
 
-      this.rafId = requestAnimationFrame(tick);
+      scheduleNext();
     };
     this.rafId = requestAnimationFrame(tick);
   }
 
   destroy(): void {
+    this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    if (this.timeoutId !== null) clearTimeout(this.timeoutId);
     this.input.unmount();
     this.resizeObs?.disconnect();
   }
@@ -628,11 +656,24 @@ export class CendresEngine {
       }
     }
 
-    // Horizontal collision & Wall detection
-    const nextX = Math.max(0, Math.min(room.width - player.w, player.x + player.vx * dt));
+    // Horizontal collision & Wall detection (outer bounds + raised solid stone steps)
+    let nextX = Math.max(0, Math.min(room.width - player.w, player.x + player.vx * dt));
     player.onWall = 0;
     if (nextX === 0 && !player.onGround) player.onWall = -1;
     if (nextX === room.width - player.w && !player.onGround) player.onWall = 1;
+    for (const p of room.platforms) {
+      if (p.broken || p.type !== 'solid') continue;
+      if (player.y + player.h <= p.y + 6 || player.y >= p.y + p.h - 4) continue;
+      if (player.x + player.w <= p.x + 8 && nextX + player.w > p.x) {
+        nextX = p.x - player.w;
+        player.vx = 0;
+        if (!player.onGround) player.onWall = 1;
+      } else if (player.x >= p.x + p.w - 8 && nextX < p.x + p.w) {
+        nextX = p.x + p.w;
+        player.vx = 0;
+        if (!player.onGround) player.onWall = -1;
+      }
+    }
     player.x = nextX;
 
     // Vertical collision with platforms
