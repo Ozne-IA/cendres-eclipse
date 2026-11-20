@@ -35,6 +35,30 @@ if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   process.exit(1);
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isValidSavePayload(save) {
+  if (!isPlainObject(save) || !isPlainObject(save.res) || !isPlainObject(save.buildings)) {
+    return false;
+  }
+  if (save.version !== undefined
+    && (!Number.isInteger(save.version) || save.version < 1 || save.version > 2)) {
+    return false;
+  }
+  for (const key of ['cendres', 'fer', 'larmes']) {
+    if (save.res[key] !== undefined
+      && (typeof save.res[key] !== 'number' || !Number.isFinite(save.res[key]) || save.res[key] < 0)) {
+      return false;
+    }
+  }
+  for (const value of Object.values(save.buildings)) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return false;
+  }
+  return true;
+}
+
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -75,7 +99,7 @@ const server = http.createServer((req, res) => {
         if (aborted) return;
         try {
           const parsed = JSON.parse(body);
-          if (!parsed || typeof parsed !== 'object' || !parsed.res) {
+          if (!isValidSavePayload(parsed)) {
             return sendJson(res, 400, { ok: false, error: 'Format invalide' });
           }
           // Sauvegarde sécurisée : backup préalable + écriture atomique (.tmp -> rename)
@@ -101,7 +125,13 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 405, { ok: false });
   }
 
-  let safeRel = path.normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '');
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(urlPath);
+  } catch {
+    return sendJson(res, 400, { ok: false, error: 'URL invalide' });
+  }
+  let safeRel = path.normalize(decodedPath).replace(/^(\.\.[/\\])+/, '');
   if (safeRel === '/' || safeRel === '\\') safeRel = 'index.html';
 
   let filePath = path.join(distDir, safeRel);
