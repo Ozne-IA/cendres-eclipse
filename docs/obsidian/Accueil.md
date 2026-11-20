@@ -1,0 +1,26 @@
+---
+title: Accueil
+aliases:
+  - Cendres de l'Éclipse
+tags:
+  - cendres-eclipse
+  - projet
+---
+
+# Cendres de l’Éclipse
+
+Cendres de l’Éclipse est un roguelike d’action 2D. Le joueur alterne entre les expéditions dans l’Abîme et la préparation au Bastion du Crépuscule. La Cour d’entraînement est accessible depuis l’écran titre. [Présentation et commandes du jeu](https://github.com/Ozne-IA/cendres-eclipse#readme)
+
+- [[Architecture]] répertorie les fichiers où modifier le jeu, ses commandes et ses sauvegardes.
+- [[Decisions|Décisions]] conserve les changements intégrés et leur raison d’être.
+- [[Validation]] décrit les contrôles à effectuer avant de fusionner une modification.
+
+## Graphe du code
+
+Depuis la racine du dépôt, exécuter la commande suivante lorsque le skill Graphify est en place. Les notes générées apparaissent dans le dossier `Graphify/` de ce coffre.
+
+```sh
+python .agents/skills/graphify/scripts/run.py obsidian
+```
+
+Le graphe généré décrit les dépendances du code. Les notes de ce coffre documentent les choix et les vérifications du projet.

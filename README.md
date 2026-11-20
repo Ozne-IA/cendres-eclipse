@@ -137,6 +137,14 @@ cendres-eclipse/
 
 ---
 
+## Documentation du projet dans Obsidian
+
+Ouvrez le dossier `docs/obsidian` comme coffre local dans Obsidian, puis ouvrez [Accueil.md](docs/obsidian/Accueil.md). Le coffre est versionné et fonctionne sans compte Obsidian. Les réglages personnels du coffre et l’export généré par Graphify sont exclus de Git.
+
+Codex peut utiliser le skill `obsidian-markdown` depuis `.agents/skills/obsidian-markdown/` lorsque ce dépôt est son dossier de travail. Le skill est distribué sous licence MIT et provient de la [version officielle épinglée](https://github.com/obsidianmd/obsidian-skills/tree/462a27fa456e43a68bd645fef457217326bfd369/plugins/obsidian/skills/obsidian-markdown).
+
+---
+
 ## 📜 Licence & Droits
 
 Projet créé pour **Cendres de l'Éclipse**. Tous droits réservés.
