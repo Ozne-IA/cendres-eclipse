@@ -89,9 +89,9 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function safeNumber(value: unknown, fallback: number, min = 0, max = 1_000_000_000): number {
+function safeNumber(value: unknown, fallback: number, min = 0, max = 1_000_000_000, integer = true): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, Math.floor(value)));
+  return Math.min(max, Math.max(min, integer ? Math.floor(value) : value));
 }
 
 function mergeNumericRecord<T extends Record<string, number>>(
@@ -203,7 +203,7 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
         musicVolume: [0, 1], screenShakeScale: [0, 3], pcLauncherPort: [1, 65535],
       };
       const [min, max] = limits[key] ?? [0, 1];
-      (settings as Record<string, unknown>)[key] = safeNumber(value, fallback, min, max);
+      (settings as Record<string, unknown>)[key] = safeNumber(value, fallback, min, max, key === 'pcLauncherPort');
     } else if (key === 'difficulty' && typeof value === 'string' && value in DIFFICULTIES_DEF) {
       (settings as Record<string, unknown>)[key] = value;
     } else if (['bloodIntensity', 'fogQuality', 'vfxQuality'].includes(key)
