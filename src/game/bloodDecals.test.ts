@@ -96,3 +96,24 @@ test('BloodSystem spawns impacts, lands droplets onto floors, ages decals, and e
   sys.update(45, SAMPLE_PLATFORMS, () => 0.5);
   assert.equal(sys.decals.length, 0);
 });
+
+test('decals reuse the oldest slot on overflow and keep expired geometry for the next impact', () => {
+  const sys = new BloodSystem();
+  const stamp = (tone: 'crimson' | 'ichor') =>
+    sys.spawnImpact(150, 485, 1, 1, SAMPLE_PLATFORMS, tone, () => 0.4);
+  for (let i = 0; i < MAX_BLOOD_DECALS; i++) stamp('crimson');
+  const oldest = sys.decals[0];
+  const lobe = oldest.lobes[0];
+  stamp('ichor');
+  assert.equal(sys.decals.at(-1), oldest);
+  assert.equal(oldest.lobes[0], lobe);
+  assert.equal(oldest.tone, 'ichor');
+  sys.update(45, []);
+  assert.equal(sys.decals.length, 0);
+  stamp('crimson');
+  assert.equal(sys.decals[0], oldest);
+  assert.equal(oldest.life, oldest.maxLife);
+  sys.clear();
+  stamp('ichor');
+  assert.equal(sys.decals[0], oldest);
+});
