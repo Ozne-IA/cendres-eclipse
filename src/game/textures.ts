@@ -1,11 +1,33 @@
 import type { BiomeDef } from './types';
 
+// === Classic (original) backdrop paths — kept intact ===
 const BIOME_BACKDROP_URLS: Record<string, string> = {
   catacombes: '/src/assets/images/biome_catacombes_bg_1795125904324.jpg',
   viaduc: '/src/assets/images/biome_viaduc_bg_1795125905664.jpg',
   fleche: '/src/assets/images/biome_fleche_bg_1795125905927.jpg',
   sanctuaire: '/src/assets/images/biome_sanctuaire_bg_1795125905684.jpg',
 };
+
+// === NEW cinematic v2 backdrops (non-destructive) ===
+// Place the files under src/assets/images/v2/ to enable them.
+// If a v2 file is missing, the system automatically falls back to the classic version.
+const BIOME_BACKDROP_V2_URLS: Record<string, string> = {
+  catacombes: '/src/assets/images/v2/biome_catacombes_v2.jpg',
+  viaduc: '/src/assets/images/v2/biome_viaduc_v2.jpg',
+  fleche: '/src/assets/images/v2/biome_fleche_v2.jpg',
+  sanctuaire: '/src/assets/images/v2/biome_sanctuaire_v2.jpg',
+};
+
+/** Feature flag for the cinematic art style. Can later be driven by GameSettings. */
+let preferCinematicArt = true;
+
+export function setPreferCinematicArt(value: boolean): void {
+  preferCinematicArt = value;
+}
+
+export function getPreferCinematicArt(): boolean {
+  return preferCinematicArt;
+}
 
 const TITLE_HERO_ARTWORK_URL = '/assets/aistudio/Creating_video_game_hero_concept_082510a8_2K_39b1471f.webp';
 let titleArtworkImg: HTMLImageElement | null = null;
@@ -30,9 +52,42 @@ const loadedBackdrops = new Map<string, HTMLImageElement>();
 const backdropReady = new Set<string>();
 const bakedSeamlessCache = new Map<string, HTMLCanvasElement>();
 
+/**
+ * Loads a biome backdrop.
+ * Preferential order when preferCinematicArt is true:
+ *   1. v2 cinematic version (if present and successfully loaded)
+ *   2. Classic original version (always available as fallback)
+ * This guarantees the game never breaks if v2 assets are missing.
+ */
 export function getBiomeBackdrop(biomeId: string): HTMLImageElement | null {
   if (typeof Image === 'undefined') return null;
   const key = BIOME_BACKDROP_URLS[biomeId] ? biomeId : 'catacombes';
+
+  // --- Try cinematic v2 first ---
+  if (preferCinematicArt && BIOME_BACKDROP_V2_URLS[key]) {
+    const v2Key = `v2:${key}`;
+    if (loadedBackdrops.has(v2Key)) {
+      if (backdropReady.has(v2Key)) {
+        return loadedBackdrops.get(v2Key)!;
+      }
+      // v2 is still loading or failed → fall through to classic
+    } else {
+      const imgV2 = new Image();
+      imgV2.decoding = 'async';
+      imgV2.onload = () => {
+        backdropReady.add(v2Key);
+      };
+      imgV2.onerror = () => {
+        // Explicitly do not mark ready so we keep falling back
+        console.info(`[textures] cinematic backdrop not found for "${key}", using classic`);
+      };
+      imgV2.src = BIOME_BACKDROP_V2_URLS[key];
+      loadedBackdrops.set(v2Key, imgV2);
+      // This frame returns null / classic; next frames will pick v2 once ready
+    }
+  }
+
+  // --- Classic fallback (original behaviour) ---
   if (loadedBackdrops.has(key)) {
     return backdropReady.has(key) ? loadedBackdrops.get(key)! : null;
   }
@@ -55,12 +110,12 @@ export function getSeamlessBakedBackdrop(
   if (typeof document === 'undefined') return null;
   const img = getBiomeBackdrop(biome.id);
   const hasImg = !!(img && img.naturalWidth > 0);
-  const cacheKey = `${biome.id}|${W}|${H}|${hasImg ? 1 : 0}|${isTitle ? 1 : 0}`;
+  const cacheKey = `${biome.id}|${W}|${H}|${hasImg ? 1 : 0}|${isTitle ? 1 : 0}|${preferCinematicArt ? 'c' : 'o'}`;
   const existing = bakedSeamlessCache.get(cacheKey);
   if (existing) return existing;
 
   // Keep cache bounded to avoid memory bloat on window resize
-  if (bakedSeamlessCache.size > 6) {
+  if (bakedSeamlessCache.size > 8) {
     bakedSeamlessCache.clear();
   }
 
