@@ -1,0 +1,24 @@
+---
+title: Validation
+tags:
+  - cendres-eclipse
+  - validation
+---
+
+# Validation
+
+Depuis la racine du dépôt, utiliser Node.js 22.12 ou une version LTS plus récente. Les commandes reprennent les contrôles GitHub Actions. [Workflow CI](https://github.com/Ozne-IA/cendres-eclipse/blob/main/.github/workflows/verify.yml)
+
+```sh
+npm ci
+npm run lint
+npm test
+npm run build
+node --check launcher/server-pc.mjs
+```
+
+Pour un changement de commandes, vérifier le trajet écran titre → Cour → pause → Bastion → expédition. Contrôler le focus visible, les appuis maintenus, la fermeture des options et la conservation de la progression après l’entraînement. La validation de la PR #6 utilisait une manette simulée dans Chromium. [Scénarios et vérifications de la PR #6](https://github.com/Ozne-IA/cendres-eclipse/pull/6)
+
+Pour un changement de sauvegarde, faire les essais avec des fichiers de test. Les tests du dépôt couvrent la récupération depuis `.bak` et le rafraîchissement de la page servie par le service worker. [Sauvegarde PC](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/pc-save.test.mjs) · [Cache web](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/service-worker.test.mjs)
+
+Revenir à [[Accueil]] ou consulter [[Architecture]].

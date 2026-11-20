@@ -13,3 +13,6 @@ cendres-eclipse-save.json
 cendres-eclipse-save.json
 *.bak
 *.tmp
+
+/.graphify-venv/
+/graphify-out/
