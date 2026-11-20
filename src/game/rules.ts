@@ -581,8 +581,17 @@ export function exportSaveJson(save: SaveData): string {
 
 export function importSaveJson(rawText: string): SaveData | null {
   try {
-    const parsed = JSON.parse(rawText);
-    if (!parsed || typeof parsed !== 'object' || !parsed.res || !parsed.buildings) {
+    if (typeof rawText !== 'string' || rawText.length === 0 || rawText.length > 512 * 1024) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(rawText);
+    if (!isPlainRecord(parsed) || !isPlainRecord(parsed.res) || !isPlainRecord(parsed.buildings)) {
+      return null;
+    }
+    // Older saves without a version are treated as legacy v2 exports.
+    if (parsed.version !== undefined
+      && (typeof parsed.version !== 'number' || !Number.isInteger(parsed.version)
+        || parsed.version < 1 || parsed.version > 2)) {
       return null;
     }
     return mergeSave(parsed as Partial<SaveData>);
