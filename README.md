@@ -74,6 +74,12 @@ Explorez les strates de l'Abîme, affrontez des cohortes d'ennemis corrompus et 
 | **Interagir** | `A` ou `D-Pad Haut` | `Croix` ou `D-Pad Haut` |
 | **Pause** | `Start` / `Menu` | `Options` |
 
+#### Navigation dans les menus
+
+- Sur l’écran titre, dans le menu Pause et au Bastion, utilisez le stick gauche ou la croix directionnelle pour sélectionner une action. Validez avec `A` / `Croix`. Sur l’écran titre, si aucune action n’est sélectionnée, le premier appui sur `A` / `Croix` sélectionne « Descendre dans l’Abîme ». Un second appui lance l’expédition.
+- `B` / `Rond` reprend la partie depuis le menu Pause, revient à l’écran titre depuis le Bastion et ferme les options ou le lanceur PC.
+- `Start` / `Options` met la partie en pause ou la reprend.
+
 ---
 
 ## 🚀 Installation & Lancement

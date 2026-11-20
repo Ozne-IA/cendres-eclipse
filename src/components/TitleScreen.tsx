@@ -6,6 +6,7 @@ import { EclipseTitleEmblem, SoundIcon } from './GameIcons';
 import type { BeforeInstallPromptEvent } from './LauncherModal';
 
 interface TitleScreenProps {
+  inactive: boolean;
   save: SaveData;
   installPrompt?: BeforeInstallPromptEvent | null;
   onStartRun: () => void;
@@ -17,6 +18,7 @@ interface TitleScreenProps {
 }
 
 export function TitleScreen({
+  inactive,
   save,
   installPrompt,
   onStartRun,
@@ -50,13 +52,16 @@ export function TitleScreen({
     <div
       className="fixed inset-0 z-10 flex flex-col justify-between gap-4 overflow-y-auto p-5 md:p-12"
       data-testid="title-screen"
+      data-gamepad-menu="title"
       data-ui-interactive="true"
+      inert={inactive}
     >
       {/* Top Bar: PWA Install, Launcher PC, Menu & Audio Toggle */}
       <div className="flex flex-wrap justify-end items-center gap-2.5">
         {installPrompt && (
           <button
             type="button"
+            data-gamepad-ignore
             onClick={(e) => {
               e.currentTarget.blur();
               void handleInstall();
@@ -131,6 +136,7 @@ export function TitleScreen({
           <button
             type="button"
             data-start="true"
+            data-gamepad-default
             onClick={(e) => {
               e.currentTarget.blur();
               onStartRun();
@@ -168,6 +174,9 @@ export function TitleScreen({
           </li>
         ))}
       </ul>
+      <p className="m-0 self-start rounded-sm bg-[#0c0910]/95 px-3 py-2 text-xs text-[#ded6ca]">
+        Manette · Stick gauche ou croix directionnelle · A / × pour valider
+      </p>
     </div>
   );
 }

@@ -19,6 +19,7 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/90 p-5"
       data-ui-interactive="true"
       data-testid="gameover-modal"
+      data-gamepad-menu="summary"
     >
       <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto dark-scroll bg-[#110e15] border border-[#4a3b2c] p-7 text-center shadow-[0_0_60px_rgba(0,0,0,0.95)]">
         <h2
@@ -105,6 +106,8 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
           </button>
           <button
             type="button"
+            data-gamepad-back
+            data-gamepad-default
             onClick={onOpenBastion}
             className="flex-1 py-3 px-4 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#d4a853] border border-[#5c4833] hover:border-[#d4a853] cursor-pointer whitespace-nowrap"
           >

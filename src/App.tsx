@@ -9,6 +9,7 @@ import { MerchantModal } from './components/MerchantModal';
 import { PauseModal } from './components/PauseModal';
 import { TitleScreen } from './components/TitleScreen';
 import { CendresEngine } from './game/engine';
+import { focusGamepadMenu, handleGamepadMenu } from './game/menuNavigation';
 import { defaultSave } from './game/rules';
 import type {
   BlessingDef,
@@ -21,6 +22,7 @@ import type {
 } from './game/types';
 
 export default function App() {
+  const appRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<CendresEngine | null>(null);
 
@@ -71,6 +73,10 @@ export default function App() {
       onBlessingChoices: (choices) => setBlessingChoices(choices),
       onMerchantOpen: (run) => setMerchantRun(run),
       onRunSummary: (summary) => setRunSummary(summary),
+      isOverlayOpen: () => !!appRef.current?.querySelector('[data-gamepad-menu="overlay"]'),
+      onGamepadMenu: (command) => {
+        if (appRef.current) handleGamepadMenu(appRef.current, command);
+      },
     });
 
     const fogParam = params.get('fog') as QualityLevel | null;
@@ -91,8 +97,12 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (appRef.current && engineRef.current?.isUsingGamepad()) focusGamepadMenu(appRef.current);
+  }, [phase, menuOpen, launcherOpen]);
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#070609]">
+    <div ref={appRef} className="relative w-screen h-screen overflow-hidden bg-[#070609]">
       {/* Isolated Canvas Mount: React HUD updates never unmount or reset the 60fps loop */}
       <div className="absolute inset-0">
         <canvas
@@ -114,6 +124,7 @@ export default function App() {
 
       {phase === 'title' && (
         <TitleScreen
+          inactive={menuOpen || launcherOpen}
           save={save}
           installPrompt={installPrompt}
           onStartRun={() => engineRef.current?.startNewRun()}

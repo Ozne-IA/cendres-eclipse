@@ -26,6 +26,7 @@ export function BlessingModal({
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/88 p-5"
       data-ui-interactive="true"
       data-testid="blessing-modal"
+      data-gamepad-menu="blessing"
     >
       <div className="w-full max-w-3xl bg-[#110e15] border border-[#4a3b2c] p-6 md:p-7 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
         <div className="flex flex-wrap justify-between items-baseline border-b border-[#332920] pb-3 mb-4 gap-2">

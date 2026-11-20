@@ -63,3 +63,9 @@
 .dark-scroll::-webkit-scrollbar-thumb:hover {
   background: #d4a853;
 }
+
+[data-gamepad-focus]:focus {
+  outline: 2px solid #ffdd8f;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px #0c0910;
+}

@@ -36,6 +36,7 @@ import type {
   BlessingDef,
   Enemy,
   GamePhase,
+  GamepadMenuCommand,
   GameSettings,
   HudSnapshot,
   InputState,
@@ -53,6 +54,8 @@ export interface EngineCallbacks {
   onBlessingChoices: (choices: BlessingDef[]) => void;
   onMerchantOpen: (run: RunState) => void;
   onRunSummary: (summary: RunSummary | null) => void;
+  onGamepadMenu?: (command: GamepadMenuCommand) => void;
+  isOverlayOpen?: () => boolean;
 }
 
 export class CendresEngine {
@@ -219,7 +222,7 @@ export class CendresEngine {
         if (this.achievementToastT <= 0) this.achievementToast = '';
       }
 
-      const inp = this.input.poll();
+      const inp = this.input.poll(this.phase !== 'playing');
       const prevPhase = this.phase;
       this.step(dt, inp);
 
@@ -271,10 +274,15 @@ export class CendresEngine {
       next === 'blessing' || next === 'merchant' ? 'playing' : next;
     document.body.dataset.state = bodyState;
     this.input.clearAll();
+    this.input.blockHeldGamepad();
     if (next === 'playing') {
       this.canvas.focus();
     }
     this.cb.onPhaseChange(next);
+  }
+
+  isUsingGamepad(): boolean {
+    return this.input.lastInputMode === 'Manette';
   }
 
   getSave(): SaveData {
@@ -611,14 +619,19 @@ export class CendresEngine {
       this.toggleMute();
     }
 
+    if (inp.gamepadMenuCommand) {
+      this.cb.onGamepadMenu?.(inp.gamepadMenuCommand);
+      return;
+    }
+
     if (this.phase === 'title') {
-      if (inp.jump || inp.interact) {
+      if ((inp.jump || inp.interact) && !this.cb.isOverlayOpen?.()) {
         this.startNewRun();
       }
       return;
     }
 
-    if (inp.pause && (this.phase === 'playing' || this.phase === 'paused')) {
+    if (inp.pause && (this.phase === 'playing' || this.phase === 'paused') && !this.cb.isOverlayOpen?.()) {
       if (this.phase === 'playing') {
         AudioFX.ui();
         this.setPhase('paused');

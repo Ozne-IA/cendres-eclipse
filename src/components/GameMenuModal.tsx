@@ -165,6 +165,7 @@ export function GameMenuModal({
       className="fixed inset-0 z-30 flex items-center justify-center bg-[#070609]/92 p-4 md:p-8"
       data-ui-interactive="true"
       data-testid="game-menu-modal"
+      data-gamepad-menu="overlay"
     >
       <div className="w-full max-w-4xl h-[min(86vh,720px)] flex flex-col bg-[#110e15] border border-[#5c4835] shadow-[0_0_80px_rgba(0,0,0,0.95)]">
         {/* Header */}
@@ -192,6 +193,8 @@ export function GameMenuModal({
             )}
             <button
               type="button"
+              data-gamepad-back
+              data-gamepad-default
               onClick={() => {
                 AudioFX.ui();
                 onClose();

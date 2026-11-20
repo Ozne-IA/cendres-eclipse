@@ -1,5 +1,5 @@
 import { DEFAULT_KEY_BINDINGS } from './data';
-import type { InputState, KeyBindings } from './types';
+import type { GamepadMenuCommand, InputState, KeyBindings } from './types';
 
 export function formatKeyLabel(code: string): string {
   if (!code) return '?';
@@ -25,6 +25,10 @@ export class InputHub {
   private mouseJust = new Set<number>();
   private prevJumpHeld = false;
   private prevPadButtons: boolean[] = [];
+  private blockedPadButtons: boolean[] = [];
+  private padAxesInUse = false;
+  private blockedPadAxes = false;
+  private previousMenuDirection: GamepadMenuCommand | null = null;
   private active = false;
   private bindings: KeyBindings = { ...DEFAULT_KEY_BINDINGS };
   public lastInputMode = 'Clavier / Souris';
@@ -34,6 +38,7 @@ export class InputHub {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.defaultPrevented) return;
     const target = e.target instanceof Element ? e.target : null;
     const k = e.code;
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -41,7 +46,7 @@ export class InputHub {
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
       e.preventDefault();
     }
-    if (!this.keys.has(k)) this.keysJust.add(k);
+    if (!e.repeat && !this.keys.has(k)) this.keysJust.add(k);
     this.keys.add(k);
     this.lastInputMode = 'Clavier / Souris';
   };
@@ -108,6 +113,12 @@ export class InputHub {
     this.prevJumpHeld = false;
   }
 
+  blockHeldGamepad(): void {
+    this.blockedPadButtons = this.prevPadButtons.slice();
+    this.blockedPadAxes ||= this.padAxesInUse;
+    this.previousMenuDirection = null;
+  }
+
   rumble(weak = 0.25, strong = 0.45, durationMs = 110, enabled = true): void {
     if (!enabled || typeof navigator === 'undefined' || !navigator.getGamepads) return;
     try {
@@ -129,7 +140,7 @@ export class InputHub {
     }
   }
 
-  poll(): InputState {
+  poll(inMenu = false): InputState {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = pads ? Array.from(pads).find(Boolean) : undefined;
     const b = this.bindings;
@@ -174,48 +185,13 @@ export class InputHub {
     if (this.keysJust.has('KeyM')) inp.mute = true;
 
     if (pad) {
-      const ax = Math.abs(pad.axes[0]) > 0.22 ? pad.axes[0] : 0;
-      if (ax !== 0) {
-        inp.moveX = Math.sign(ax);
-        this.lastInputMode = 'Manette';
-      }
-      if (pad.buttons[14]?.pressed) {
-        inp.moveX = -1;
-        this.lastInputMode = 'Manette';
-      }
-      if (pad.buttons[15]?.pressed) {
-        inp.moveX = 1;
-        this.lastInputMode = 'Manette';
-      }
-      if (pad.buttons[13]?.pressed || pad.axes[1] > 0.6) inp.down = true;
-      if (pad.axes[1] < -0.6) inp.upHeld = true;
-
-      const just = (idx: number): boolean => {
-        const cur = !!pad.buttons[idx]?.pressed;
-        const prev = !!this.prevPadButtons[idx];
-        if (cur) this.lastInputMode = 'Manette';
-        return cur && !prev;
-      };
-
-      if (pad.buttons[0]?.pressed) inp.jumpHeld = true;
-      if (just(0)) {
-        inp.jump = true;
-        inp.interact = true; // Permet d'interagir facilement avec le bouton A
-      }
-      if (just(1)) inp.dash = true; // B = Roulade / Dash
-      if (just(2)) inp.attack = true; // X = Attaque légère
-      if (just(3) || just(7)) inp.heavy = true; // Y ou RT = Attaque lourde
-      if (just(4)) inp.parry = true; // LB = Parade
-      if (pad.buttons[4]?.pressed || pad.buttons[6]?.pressed) inp.parryHeld = true;
-      if (just(6)) inp.parry = true; // LT = Parade alternative
-      if (just(5)) inp.skill = true; // RB = Art d'Éclipse (Skill)
-      if (just(12)) {
-        inp.heal = true; // D-Pad Haut = Fiole de Sève (Soin)
-        inp.interact = true;
-      }
-      if (just(8) || just(9)) inp.pause = true; // Start ou Select = Pause
-
-      this.prevPadButtons = pad.buttons.map((btn) => !!btn.pressed);
+      this.pollGamepad(pad, inp, inMenu);
+    } else {
+      this.prevPadButtons = [];
+      this.blockedPadButtons = [];
+      this.padAxesInUse = false;
+      this.blockedPadAxes = false;
+      this.previousMenuDirection = null;
     }
 
     inp.jumpReleased = this.prevJumpHeld && !inp.jumpHeld;
@@ -225,5 +201,75 @@ export class InputHub {
     this.mouseJust.clear();
     return inp;
   }
+  private pollGamepad(pad: Gamepad, inp: InputState, inMenu: boolean): void {
+    const buttons = pad.buttons.map((button) => button.pressed);
+    const rawX = pad.axes[0] ?? 0;
+    const rawY = pad.axes[1] ?? 0;
+    const stickStrength = Math.max(Math.abs(rawX), Math.abs(rawY));
+    this.padAxesInUse = inMenu ? stickStrength >= 0.55 : Math.abs(rawX) > 0.22 || Math.abs(rawY) > 0.6;
+
+    // A transition can happen while a confirm button or stick is still held.
+    // Ignore only those held controls, leaving unrelated new presses available.
+    if (this.blockedPadAxes && stickStrength <= 0.22) this.blockedPadAxes = false;
+    const x = this.blockedPadAxes ? 0 : rawX;
+    const y = this.blockedPadAxes ? 0 : rawY;
+    for (let index = 0; index < this.blockedPadButtons.length; index++) {
+      if (!buttons[index]) this.blockedPadButtons[index] = false;
+    }
+    const held = (index: number) => !!buttons[index] && !this.blockedPadButtons[index];
+    const just = (index: number) => held(index) && !this.prevPadButtons[index];
+
+    if (buttons.some((_, index) => held(index)) || (!this.blockedPadAxes && this.padAxesInUse)) {
+      this.lastInputMode = 'Manette';
+    }
+    if (inMenu) {
+      const direction = gamepadMenuDirection(held, x, y);
+      if (just(1)) inp.gamepadMenuCommand = 'back';
+      else if (just(8) || just(9)) inp.gamepadMenuCommand = 'pause';
+      else if (just(0)) inp.gamepadMenuCommand = 'confirm';
+      else if (direction && direction !== this.previousMenuDirection) inp.gamepadMenuCommand = direction;
+      this.previousMenuDirection = direction;
+    } else {
+      this.previousMenuDirection = null;
+      if (Math.abs(x) > 0.22) inp.moveX = Math.sign(x);
+      if (held(14)) inp.moveX = -1;
+      if (held(15)) inp.moveX = 1;
+      if (held(13) || y > 0.6) inp.down = true;
+      if (y < -0.6) inp.upHeld = true;
+
+      if (held(0)) inp.jumpHeld = true;
+      if (just(0)) {
+        inp.jump = true;
+        inp.interact = true;
+      }
+      if (just(1)) inp.dash = true;
+      if (just(2)) inp.attack = true;
+      if (just(3) || just(7)) inp.heavy = true;
+      if (just(4) || just(6)) inp.parry = true;
+      if (held(4) || held(6)) inp.parryHeld = true;
+      if (just(5)) inp.skill = true;
+      if (just(12)) {
+        inp.heal = true;
+        inp.interact = true;
+      }
+      if (just(8) || just(9)) inp.pause = true;
+    }
+
+    this.prevPadButtons = buttons;
+  }
 }
 
+
+function gamepadMenuDirection(
+  held: (button: number) => boolean,
+  x: number,
+  y: number
+): GamepadMenuCommand | null {
+  if (held(12)) return 'up';
+  if (held(13)) return 'down';
+  if (held(14)) return 'left';
+  if (held(15)) return 'right';
+  if (Math.max(Math.abs(x), Math.abs(y)) < 0.55) return null;
+  if (Math.abs(x) >= Math.abs(y)) return x < 0 ? 'left' : 'right';
+  return y < 0 ? 'up' : 'down';
+}

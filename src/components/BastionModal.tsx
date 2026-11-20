@@ -74,6 +74,7 @@ export function BastionModal({
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/92 p-4 md:p-6"
       data-ui-interactive="true"
       data-testid="bastion-modal"
+      data-gamepad-menu="bastion"
     >
       <div className="w-full max-w-5xl max-h-[92vh] flex flex-col bg-[#110e15] border border-[#4a3b2c] shadow-[0_0_70px_rgba(0,0,0,0.95)]">
         {/* Header */}
@@ -117,6 +118,7 @@ export function BastionModal({
             <button
               key={id}
               type="button"
+              data-gamepad-default={tab === id || undefined}
               onClick={() => {
                 AudioFX.ui();
                 setTab(id);
@@ -672,6 +674,7 @@ export function BastionModal({
             {!confirmReset ? (
               <button
                 type="button"
+                data-gamepad-ignore
                 onClick={() => setConfirmReset(true)}
                 className="px-3.5 py-2 text-xs text-[#c97c84] border border-[#5a262c] bg-[#181014] hover:border-[#c97c84] cursor-pointer"
               >
@@ -682,6 +685,7 @@ export function BastionModal({
                 <span className="text-xs text-[#ff8a97]">Confirmer la remise à zéro ?</span>
                 <button
                   type="button"
+                  data-gamepad-ignore
                   onClick={() => {
                     onResetSave();
                     setConfirmReset(false);
@@ -692,6 +696,7 @@ export function BastionModal({
                 </button>
                 <button
                   type="button"
+                  data-gamepad-back
                   onClick={() => setConfirmReset(false)}
                   className="px-3 py-1.5 text-xs bg-[#1b161f] text-[#b8afa2] border border-[#4a3b2c] cursor-pointer"
                 >
@@ -702,6 +707,7 @@ export function BastionModal({
 
             <button
               type="button"
+              data-gamepad-back={!confirmReset || undefined}
               onClick={onReturnTitle}
               className="px-3.5 py-2 text-xs text-[#9d9284] border border-[#3a2f24] bg-[#15121a] hover:text-[#e8e1d5] cursor-pointer"
             >
