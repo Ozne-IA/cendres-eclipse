@@ -196,7 +196,7 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
     const value = rawSettings[key];
     const fallback = DEFAULT_SETTINGS[key];
     if (typeof fallback === 'boolean') {
-      if (typeof value === 'boolean') (settings as Record<string, unknown>)[key] = value;
+      if (typeof value === 'boolean') (settings as unknown as Record<string, unknown>)[key] = value;
     } else if (typeof fallback === 'number') {
       const limits: Record<string, [number, number]> = {
         masterVolume: [0, 1], sfxVolume: [0, 1], ambientVolume: [0, 1],
@@ -597,7 +597,7 @@ export function importSaveJson(rawText: string): SaveData | null {
         || parsed.version < 1 || parsed.version > 2)) {
       return null;
     }
-    return mergeSave(parsed as Partial<SaveData>);
+    return mergeSave(parsed as unknown as Partial<SaveData>);
   } catch {
     return null;
   }
