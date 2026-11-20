@@ -197,16 +197,22 @@ export class InputHub {
       };
 
       if (pad.buttons[0]?.pressed) inp.jumpHeld = true;
-      if (just(0)) inp.jump = true;
-      if (just(1)) inp.dash = true;
-      if (just(2)) inp.attack = true;
-      if (just(3)) inp.heal = true;
-      if (just(4)) inp.parry = true;
-      if (pad.buttons[4]?.pressed) inp.parryHeld = true;
-      if (just(6)) inp.skill = true;
-      if (just(5) || just(7)) inp.heavy = true;
-      if (just(12)) inp.interact = true;
-      if (just(9)) inp.pause = true;
+      if (just(0)) {
+        inp.jump = true;
+        inp.interact = true; // Permet d'interagir facilement avec le bouton A
+      }
+      if (just(1)) inp.dash = true; // B = Roulade / Dash
+      if (just(2)) inp.attack = true; // X = Attaque légère
+      if (just(3) || just(7)) inp.heavy = true; // Y ou RT = Attaque lourde
+      if (just(4)) inp.parry = true; // LB = Parade
+      if (pad.buttons[4]?.pressed || pad.buttons[6]?.pressed) inp.parryHeld = true;
+      if (just(6)) inp.parry = true; // LT = Parade alternative
+      if (just(5)) inp.skill = true; // RB = Art d'Éclipse (Skill)
+      if (just(12)) {
+        inp.heal = true; // D-Pad Haut = Fiole de Sève (Soin)
+        inp.interact = true;
+      }
+      if (just(8) || just(9)) inp.pause = true; // Start ou Select = Pause
 
       this.prevPadButtons = pad.buttons.map((btn) => !!btn.pressed);
     }

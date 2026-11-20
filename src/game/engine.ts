@@ -1429,6 +1429,12 @@ export class CendresEngine {
             e.vy = 0;
           }
         }
+      } else {
+        // Ennemi volant : oscillation organique & flottement vertical adaptatif
+        const hoverTargetY = Math.max(room.groundY - 140, Math.min(room.groundY - 50, player.y - 28));
+        const hoverOffset = Math.sin(this.simTime * 2.8 + e.id) * 16;
+        const targetY = hoverTargetY + hoverOffset;
+        e.y += (targetY - e.y) * Math.min(1, dt * 2.5);
       }
     }
 

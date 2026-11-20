@@ -702,6 +702,36 @@ export function BastionModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Sélecteur de Pacte d'Ascension */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#17131d] border border-[#4a3b2c] text-xs">
+              <span className="text-[#d4a853] font-display uppercase tracking-wider text-[11px] whitespace-nowrap">
+                Pacte d&apos;Ascension :
+              </span>
+              <select
+                value={save.ascensionLevel || 0}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  onUpdateSave((s) => ({ ...s, ascensionLevel: val }));
+                  AudioFX.ui();
+                }}
+                className="bg-[#0e0b12] text-[#ffe8ea] border border-[#5a4838] px-2 py-1 text-xs outline-none cursor-pointer"
+              >
+                <option value={0}>Rang 0 · Normal (Butin ×1.0)</option>
+                {Array.from({ length: Math.min(5, Math.max(1, save.maxAscensionUnlocked || 0)) }, (_, i) => i + 1).map(
+                  (lvl) => {
+                    const isUnlocked = lvl <= (save.maxAscensionUnlocked || 0);
+                    return (
+                      <option key={lvl} value={lvl} disabled={!isUnlocked}>
+                        {isUnlocked
+                          ? `Rang ${lvl} · Affliction (+${lvl * 15}% Butin)`
+                          : `Rang ${lvl} · Verrouillé (Terminer Rang ${lvl - 1})`}
+                      </option>
+                    );
+                  }
+                )}
+              </select>
+            </div>
+
             <button
               type="button"
               data-testid="start-training-btn"

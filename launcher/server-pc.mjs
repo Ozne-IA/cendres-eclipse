@@ -78,7 +78,18 @@ const server = http.createServer((req, res) => {
           if (!parsed || typeof parsed !== 'object' || !parsed.res) {
             return sendJson(res, 400, { ok: false, error: 'Format invalide' });
           }
-          fs.writeFileSync(saveFilePath, JSON.stringify(parsed, null, 2), 'utf8');
+          // Sauvegarde sécurisée : backup préalable + écriture atomique (.tmp -> rename)
+          const tmpFilePath = `${saveFilePath}.tmp`;
+          const bakFilePath = `${saveFilePath}.bak`;
+          if (fs.existsSync(saveFilePath)) {
+            try {
+              fs.copyFileSync(saveFilePath, bakFilePath);
+            } catch {
+              // ignorer si impossible de faire le backup
+            }
+          }
+          fs.writeFileSync(tmpFilePath, JSON.stringify(parsed, null, 2), 'utf8');
+          fs.renameSync(tmpFilePath, saveFilePath);
           return sendJson(res, 200, { ok: true, path: saveFilePath });
         } catch {
           return sendJson(res, 400, { ok: false, error: 'JSON invalide' });
@@ -106,19 +117,63 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
-server.listen(port, '127.0.0.1', () => {
-  const url = `http://127.0.0.1:${port}/?pc_launcher=1`;
-  console.log(`[Cendres PC] Jeu pret sur ${url}`);
-  console.log(`[Cendres PC] Sauvegarde disque locale : ${saveFilePath}`);
-  if (noOpen) return;
-
+function openBrowser(targetUrl) {
   const platform = process.platform;
   if (platform === 'win32') {
-    const cmd = appMode ? `start msedge --app=${url}` : `start ${url}`;
-    execFile('cmd.exe', ['/c', cmd], () => {});
+    const candidates = [
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft\\Edge\\Application\\msedge.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft\\Edge\\Application\\msedge.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Google\\Chrome\\Application\\chrome.exe'),
+      path.join(process.env.LocalAppData || '', 'Google\\Chrome\\Application\\chrome.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'),
+    ];
+
+    let chosenExe = null;
+    for (const c of candidates) {
+      if (c && fs.existsSync(c)) {
+        chosenExe = c;
+        break;
+      }
+    }
+
+    if (chosenExe) {
+      const argsList = appMode
+        ? [`--app=${targetUrl}`, '--window-size=1440,840']
+        : ['--new-window', targetUrl];
+      execFile(chosenExe, argsList, () => {});
+    } else {
+      const cmd = `start "" "${targetUrl}"`;
+      execFile('cmd.exe', ['/c', cmd], () => {});
+    }
   } else if (platform === 'darwin') {
-    execFile('open', [url], () => {});
+    execFile('open', [targetUrl], () => {});
   } else {
-    execFile('xdg-open', [url], () => {});
+    execFile('xdg-open', [targetUrl], () => {});
   }
-});
+}
+
+let currentPort = port;
+
+function startListening(p) {
+  server.once('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`[Cendres PC] Port ${p} déjà occupé. Tentative sur le port ${p + 1}...`);
+      currentPort = p + 1;
+      startListening(currentPort);
+    } else {
+      console.error('[Cendres PC] Erreur serveur:', err.message);
+      process.exit(1);
+    }
+  });
+
+  server.listen(p, '127.0.0.1', () => {
+    const url = `http://127.0.0.1:${p}/?pc_launcher=1`;
+    console.log(`[Cendres PC] Jeu prêt sur ${url}`);
+    console.log(`[Cendres PC] Sauvegarde disque locale : ${saveFilePath}`);
+    if (!noOpen) {
+      openBrowser(url);
+    }
+  });
+}
+
+startListening(currentPort);

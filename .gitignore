@@ -3,6 +3,10 @@ build/
 dist/
 coverage/
 .DS_Store
+.aistudio/
 *.log
+*.tmp
+*.bak
+cendres-eclipse-save.json
 .env*
 !.env.example
