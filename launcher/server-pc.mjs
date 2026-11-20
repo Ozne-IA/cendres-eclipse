@@ -9,10 +9,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const saveFilePath = path.join(rootDir, 'cendres-eclipse-save.json');
+const backupFilePath = `${saveFilePath}.bak`;
 
 const args = process.argv.slice(2);
 const portArg = args.find((a) => a.startsWith('--port='));
-const port = Number(portArg ? portArg.split('=')[1] : process.env.PORT || 4173) || 4173;
+const port = portArg === '--port=0'
+  ? 0
+  : Number(portArg ? portArg.split('=')[1] : process.env.PORT || 4173) || 4173;
 const noOpen = args.includes('--no-open');
 const appMode = !args.includes('--browser');
 
@@ -26,6 +29,7 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
@@ -59,6 +63,32 @@ function isValidSavePayload(save) {
   return true;
 }
 
+function readSave(filePath) {
+  let raw;
+  try {
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return undefined;
+    throw error;
+  }
+  try {
+    const save = JSON.parse(raw);
+    return isValidSavePayload(save) ? save : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSaveAtomically(filePath, save) {
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(save, null, 2), 'utf8');
+    fs.renameSync(temporaryPath, filePath);
+  } finally {
+    fs.rmSync(temporaryPath, { force: true });
+  }
+}
+
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -73,14 +103,17 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/api/save') {
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(saveFilePath)) {
+        const primary = readSave(saveFilePath);
+        if (primary) return sendJson(res, 200, { exists: true, save: primary });
+
+        const backup = readSave(backupFilePath);
+        if (backup) return sendJson(res, 200, { exists: true, save: backup });
+        if (primary === undefined && backup === undefined) {
           return sendJson(res, 200, { exists: false });
         }
-        const raw = fs.readFileSync(saveFilePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        return sendJson(res, 200, { exists: true, save: parsed });
+        return sendJson(res, 422, { ok: false, error: 'Sauvegarde illisible' });
       } catch {
-        return sendJson(res, 200, { exists: false });
+        return sendJson(res, 500, { ok: false, error: 'Lecture de la sauvegarde impossible' });
       }
     }
 
@@ -97,26 +130,22 @@ const server = http.createServer((req, res) => {
       });
       req.on('end', () => {
         if (aborted) return;
+        let parsed;
         try {
-          const parsed = JSON.parse(body);
-          if (!isValidSavePayload(parsed)) {
-            return sendJson(res, 400, { ok: false, error: 'Format invalide' });
-          }
-          // Sauvegarde sécurisée : backup préalable + écriture atomique (.tmp -> rename)
-          const tmpFilePath = `${saveFilePath}.tmp`;
-          const bakFilePath = `${saveFilePath}.bak`;
-          if (fs.existsSync(saveFilePath)) {
-            try {
-              fs.copyFileSync(saveFilePath, bakFilePath);
-            } catch {
-              // ignorer si impossible de faire le backup
-            }
-          }
-          fs.writeFileSync(tmpFilePath, JSON.stringify(parsed, null, 2), 'utf8');
-          fs.renameSync(tmpFilePath, saveFilePath);
-          return sendJson(res, 200, { ok: true, path: saveFilePath });
+          parsed = JSON.parse(body);
         } catch {
           return sendJson(res, 400, { ok: false, error: 'JSON invalide' });
+        }
+        if (!isValidSavePayload(parsed)) {
+          return sendJson(res, 400, { ok: false, error: 'Format invalide' });
+        }
+        try {
+          const primary = readSave(saveFilePath);
+          if (primary) writeSaveAtomically(backupFilePath, primary);
+          writeSaveAtomically(saveFilePath, parsed);
+          return sendJson(res, 200, { ok: true, path: saveFilePath });
+        } catch {
+          return sendJson(res, 500, { ok: false, error: 'Écriture de la sauvegarde impossible' });
         }
       });
       return;
@@ -197,7 +226,7 @@ function startListening(p) {
   });
 
   server.listen(p, '127.0.0.1', () => {
-    const url = `http://127.0.0.1:${p}/?pc_launcher=1`;
+    const url = `http://127.0.0.1:${server.address().port}/?pc_launcher=1`;
     console.log(`[Cendres PC] Jeu prêt sur ${url}`);
     console.log(`[Cendres PC] Sauvegarde disque locale : ${saveFilePath}`);
     if (!noOpen) {

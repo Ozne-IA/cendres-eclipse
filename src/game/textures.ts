@@ -7,7 +7,7 @@ const BIOME_BACKDROP_URLS: Record<string, string> = {
   sanctuaire: '/src/assets/images/biome_sanctuaire_bg_1795125905684.jpg',
 };
 
-const TITLE_HERO_ARTWORK_URL = '/assets/aistudio/Creating_video_game_hero_concept_082510a8_2K_39b1471f.png';
+const TITLE_HERO_ARTWORK_URL = '/assets/aistudio/Creating_video_game_hero_concept_082510a8_2K_39b1471f.webp';
 let titleArtworkImg: HTMLImageElement | null = null;
 let titleArtworkReady = false;
 
