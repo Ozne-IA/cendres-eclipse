@@ -17,6 +17,7 @@ export function MerchantModal({ run, onBuy, onClose }: MerchantModalProps) {
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/88 p-5"
       data-ui-interactive="true"
       data-testid="merchant-modal"
+      data-gamepad-menu="merchant"
     >
       <div className="w-full max-w-2xl bg-[#110e15] border border-[#4a3b2c] p-6 shadow-[0_0_60px_rgba(0,0,0,0.9)]">
         <div className="flex flex-wrap justify-between items-center border-b border-[#332920] pb-3 mb-4 gap-2">
@@ -109,6 +110,8 @@ export function MerchantModal({ run, onBuy, onClose }: MerchantModalProps) {
         <div className="mt-5 flex justify-end">
           <button
             type="button"
+            data-gamepad-back
+            data-gamepad-default
             onClick={onClose}
             className="px-5 py-2.5 text-xs font-display uppercase tracking-wider bg-[#1f1914] text-[#d4a853] border border-[#6b5235] hover:border-[#d4a853] cursor-pointer"
           >

@@ -22,6 +22,7 @@ export function PauseModal({
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/88 p-5"
       data-ui-interactive="true"
       data-testid="pause-modal"
+      data-gamepad-menu="pause"
     >
       <div className="w-full max-w-md bg-[#110e15] border border-[#4a3b2c] p-6 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
         <h2 className="font-display text-2xl text-[#d4a853] uppercase tracking-[0.18em] m-0">
@@ -80,6 +81,8 @@ export function PauseModal({
         <div className="flex flex-col gap-2.5">
           <button
             type="button"
+            data-gamepad-back
+            data-gamepad-default
             onClick={onResume}
             className="w-full py-3 text-xs font-display uppercase tracking-widest bg-[#6e1c26] text-[#ffe8ea] border border-[#b54552] hover:bg-[#8e2431] cursor-pointer"
           >
@@ -94,6 +97,7 @@ export function PauseModal({
           </button>
           <button
             type="button"
+            data-gamepad-ignore={!hud?.isTraining || undefined}
             onClick={onRestart}
             className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#e8e1d5] border border-[#4a3b2c] hover:border-[#d4a853] cursor-pointer"
           >

@@ -44,8 +44,8 @@ export function LauncherModal({
         onClose();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   const cfg: PcLauncherConfig = {
@@ -89,6 +89,7 @@ export function LauncherModal({
       className="fixed inset-0 z-30 flex items-center justify-center bg-[#070609]/92 p-4 md:p-8"
       data-ui-interactive="true"
       data-testid="launcher-modal"
+      data-gamepad-menu="overlay"
     >
       <div className="w-full max-w-3xl max-h-[88vh] flex flex-col bg-[#110e15] border border-[#5c4835] shadow-[0_0_80px_rgba(0,0,0,0.95)]">
         {/* Header */}
@@ -103,6 +104,8 @@ export function LauncherModal({
           </div>
           <button
             type="button"
+            data-gamepad-back
+            data-gamepad-default
             onClick={() => {
               AudioFX.ui();
               onClose();

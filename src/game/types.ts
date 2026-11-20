@@ -505,7 +505,10 @@ export interface HudSnapshot {
   };
 }
 
+export type GamepadMenuCommand = 'up' | 'down' | 'left' | 'right' | 'confirm' | 'back' | 'pause';
+
 export interface InputState {
+  gamepadMenuCommand?: GamepadMenuCommand;
   moveX: number;
   jump: boolean;
   jumpHeld: boolean;
