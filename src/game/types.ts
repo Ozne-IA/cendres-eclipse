@@ -15,7 +15,59 @@ export type NpcKey = 'vaelen' | 'meryl' | 'orin' | 'kaelith' | 'lyra';
 
 export type OathKey = 'argile' | 'sang' | 'airain' | 'eclipse' | 'pelerin';
 
-export type WeaponKey = 'clay_blade' | 'belfry_greatsword' | 'eclipse_daggers' | 'ash_halberd';
+export type DifficultyMode = 'pilgrim' | 'awakened' | 'eclipse';
+
+export type KeyAction =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'jump'
+  | 'dash'
+  | 'attack'
+  | 'heavy'
+  | 'parry'
+  | 'heal'
+  | 'interact';
+
+export type KeyBindings = Record<KeyAction, string>;
+
+export type QualityLevel = 'high' | 'medium' | 'off';
+
+export interface GameSettings {
+  difficulty: DifficultyMode;
+  masterVolume: number;
+  sfxVolume: number;
+  ambientVolume: number;
+  ambientDrone: boolean;
+  screenShakeScale: number;
+  hitstopEnabled: boolean;
+  bloodIntensity: QualityLevel;
+  fogQuality: QualityLevel;
+  parallaxEnabled: boolean;
+  showDamageNumbers: boolean;
+  showMinimap: boolean;
+  showFps: boolean;
+  highContrastTelegraphs: boolean;
+  keyBindings: KeyBindings;
+  pcLauncherPort: number;
+  pcAppMode: boolean;
+}
+
+export interface RoomAffix {
+  id: string;
+  name: string;
+  desc: string;
+  color: string;
+}
+
+export type WeaponKey =
+  | 'clay_blade'
+  | 'belfry_greatsword'
+  | 'eclipse_daggers'
+  | 'ash_halberd'
+  | 'scythe_eclipse'
+  | 'twin_hammers';
 
 export type TalentKey =
   | 'parry_mastery'
@@ -53,6 +105,7 @@ export interface SaveRecords {
   totalParries: number;
   maxParryStreak: number;
   bossesSlain: number;
+  totalPlaySec: number;
 }
 
 export interface SaveData {
@@ -71,6 +124,7 @@ export interface SaveData {
   bestiaryKills: Partial<Record<EnemyKind, number>>;
   questsClaimed: string[];
   muted: boolean;
+  settings: GameSettings;
   records: SaveRecords;
 }
 
@@ -260,6 +314,7 @@ export interface RoomData {
   depth: number;
   isBoss: boolean;
   biome: BiomeDef;
+  affix?: RoomAffix | null;
   width: number;
   height: number;
   groundY: number;
@@ -311,6 +366,7 @@ export interface Player {
   afterimages: Array<{ x: number; y: number; alpha: number; facing: 1 | -1 }>;
   wispAngle: number;
   wispCd: number;
+  riposteBuffT: number;
 }
 
 export interface RunState {
@@ -329,6 +385,8 @@ export interface RunState {
   parries: number;
   parryStreak: number;
   bestParryStreak: number;
+  comboHits: number;
+  comboTimer: number;
   damageTaken: number;
   elapsedSec: number;
   secondWindUsed: boolean;
@@ -367,6 +425,12 @@ export interface HudSnapshot {
   relics: string[];
   weaponName: string;
   parryStreak: number;
+  comboHits: number;
+  comboRank: string;
+  affixName?: string;
+  affixDesc?: string;
+  fps?: number;
+  showFps: boolean;
   inputMode: string;
   promptText: string;
   boss: {

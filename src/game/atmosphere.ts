@@ -1,5 +1,5 @@
 import { getColoredGlow, getGodRaySprite } from './textures';
-import type { BiomeDef } from './types';
+import type { BiomeDef, QualityLevel } from './types';
 
 export interface FogStratumSpec {
   id: 'deep' | 'mid' | 'abyss';
@@ -296,14 +296,17 @@ export function renderDeepAtmosphericDecor(
   camX: number,
   camY: number,
   time: number,
-  isTitle: boolean
+  isTitle: boolean,
+  quality: QualityLevel = 'high'
 ): void {
+  if (quality === 'off') return;
   // 1. Subtle shifting volumetric god-rays anchored at 0.22x depth
   const ray = getGodRaySprite();
   if (ray) {
     const raySpan = 1600;
     const baseShift = (((camX * 0.22 + time * 4) % raySpan) + raySpan) % raySpan;
-    for (let i = 0; i < 3; i++) {
+    const rayLimit = quality === 'medium' ? 2 : 3;
+    for (let i = 0; i < rayLimit; i++) {
       const rx = ((i * 540 - baseShift + Math.sin(time * 0.32 + i * 1.7) * 34) % (W + 360) + (W + 360)) % (W + 360) - 180;
       if (isTitle && rx < W * 0.36) continue;
       ctx.save();
@@ -319,6 +322,7 @@ export function renderDeepAtmosphericDecor(
   // 2. Deep & mid drifting volumetric fog strata
   for (const stratum of ATMOS_FOG_STRATA) {
     if (stratum.id === 'abyss') continue;
+    if (quality === 'medium' && stratum.id === 'deep') continue;
     const ribbon = getVolumetricFogRibbon(biome, stratum.id);
     if (!ribbon) continue;
     const tr = computeFogStratumTransform(camX, camY, time, stratum, ribbon.width, H);
@@ -343,8 +347,10 @@ export function renderMidAtmosphereAndDust(
   camX: number,
   camY: number,
   time: number,
-  isTitle: boolean
+  isTitle: boolean,
+  quality: QualityLevel = 'high'
 ): void {
+  if (quality === 'off') return;
   // 1. Low abyssal volumetric fog hugging chasms and floor horizon
   const abyssSpec = ATMOS_FOG_STRATA[2];
   const abyssRibbon = getVolumetricFogRibbon(biome, 'abyss');
@@ -364,7 +370,9 @@ export function renderMidAtmosphereAndDust(
   const glowName = biome.id === 'viaduc' ? 'astral' : biome.id === 'fleche' ? 'crimson' : biome.id === 'sanctuaire' ? 'gold' : 'amber';
   const haloGlow = getColoredGlow(glowName);
 
-  for (const mote of DEFAULT_DUST_FIELD) {
+  const step = quality === 'medium' ? 2 : 1;
+  for (let idx = 0; idx < DEFAULT_DUST_FIELD.length; idx += step) {
+    const mote = DEFAULT_DUST_FIELD[idx];
     const pose = evaluateDustMote(mote, camX, camY, time, W, H);
     if (isTitle && pose.x < W * 0.34 && mote.kind === 'halo') continue;
 

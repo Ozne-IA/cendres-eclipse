@@ -28,7 +28,7 @@ import {
   getSeamlessBakedBackdrop,
   getStonePattern,
 } from './textures';
-import type { Player, RoomData, RunState, WeaponKey } from './types';
+import type { GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
 
 export interface RenderContextState {
   phase: string;
@@ -44,6 +44,7 @@ export interface RenderContextState {
   weapon: WeaponKey;
   particles: ParticlePool;
   blood?: BloodSystem;
+  settings?: GameSettings;
 }
 
 let coronaCanvas: HTMLCanvasElement | null = null;
@@ -141,9 +142,17 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   ctx.stroke();
   ctx.lineWidth = 1;
 
+  const fogQuality = st.settings?.fogQuality ?? 'high';
+  const parallaxOn = st.settings?.parallaxEnabled !== false;
+  const bloodIntensity = st.settings?.bloodIntensity ?? 'high';
+  const highContrast = !!st.settings?.highContrastTelegraphs;
+  const shakeMult = st.settings?.screenShakeScale ?? 1;
+
   // Plan 1: Distant Gothic Horizon Silhouettes (0.14x) + Plan 2: Animated Volumetric God-Rays & Deep/Mid Fog
-  renderDeepParallaxLayers(ctx, b, W, H, camX, isTitle ? 0 : camY, time, st.trauma);
-  renderDeepAtmosphericDecor(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle);
+  if (parallaxOn) {
+    renderDeepParallaxLayers(ctx, b, W, H, camX, isTitle ? 0 : camY, time, st.trauma * shakeMult);
+  }
+  renderDeepAtmosphericDecor(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
 
   // Plan 3: Midground Gothic Colonnade (0.42x H & 0.18x V for clear 2.5D separation)
   const midTileW = 540;
@@ -153,7 +162,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     time,
     PARALLAX_LAYERS.midground,
     midTileW,
-    st.trauma
+    st.trauma * shakeMult
   );
   const midYShift = Math.round(-midOff.offsetY * 0.35);
   const midStart = -Math.round(midOff.wrapX) - midTileW;
@@ -212,7 +221,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // Abyssal Volumetric Fog & Multi-Plane Floating Dust Motes, Ash Flakes & Luminous Embers
-  renderMidAtmosphereAndDust(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle);
+  renderMidAtmosphereAndDust(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
 
   // Title Screen Vignette Showcase
   if (isTitle) {
@@ -224,7 +233,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   const { room, player } = st;
 
   ctx.save();
-  const shakePower = st.trauma * st.trauma * 18;
+  const shakePower = st.trauma * st.trauma * 18 * shakeMult;
   const sx = (Math.random() - 0.5) * shakePower;
   const sy = (Math.random() - 0.5) * shakePower;
   ctx.translate(-Math.round(camX - sx), -Math.round(camY - sy));
@@ -374,8 +383,10 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 8b. Persistent Floor Blood Splatter Decals (anchored on stone cornices beneath props & actors)
-  if (st.blood) {
+  if (st.blood && bloodIntensity !== 'off') {
+    if (bloodIntensity === 'medium') ctx.save(), (ctx.globalAlpha = 0.6);
     renderBloodDecals(ctx, st.blood, room.platforms, camX, W);
+    if (bloodIntensity === 'medium') ctx.restore();
   }
 
   // 9. Props
@@ -387,7 +398,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   // 10. Enemies & Bosses
   for (const e of room.enemies) {
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
-    drawDetailedEnemy(ctx, e, player, time);
+    drawDetailedEnemy(ctx, e, player, time, highContrast);
   }
 
   // 11. Luminous Projectiles
@@ -465,7 +476,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
 
-  if (st.blood) {
+  if (st.blood && bloodIntensity === 'high') {
     renderBloodDroplets(ctx, st.blood, camX, W);
   }
 
@@ -484,9 +495,11 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   ctx.restore();
 
   // Plan 5: Foreground 1.32x Parallax Depth Silhouettes, Chains, Bokeh Embers & Combat Focus
-  const hpRatio = st.run ? st.run.hp / Math.max(1, st.run.maxHp) : 1;
-  const depthFocus = computeCombatDepthFocus(st.trauma, room.isBoss, hpRatio);
-  renderForegroundParallax(ctx, b, W, H, camX, camY, time, st.trauma, depthFocus);
+  if (parallaxOn) {
+    const hpRatio = st.run ? st.run.hp / Math.max(1, st.run.maxHp) : 1;
+    const depthFocus = computeCombatDepthFocus(st.trauma * shakeMult, room.isBoss, hpRatio);
+    renderForegroundParallax(ctx, b, W, H, camX, camY, time, st.trauma * shakeMult, depthFocus);
+  }
 
   // 15. Subtle Low-HP Pulse Vignette (standard vignette is pre-baked into backdrop)
   const isLowHp = !!(st.run && st.run.hp > 0 && st.run.hp / st.run.maxHp <= 0.28);
@@ -500,7 +513,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 16. Compact Corner Minimap
-  if (st.phase === 'playing') {
+  if (st.phase === 'playing' && st.settings?.showMinimap !== false) {
     renderMinimap(ctx, W, H, room, player);
   }
 }

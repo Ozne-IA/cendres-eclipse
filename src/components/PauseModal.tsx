@@ -6,10 +6,17 @@ interface PauseModalProps {
   hud: HudSnapshot | null;
   onResume: () => void;
   onRestart: () => void;
+  onOpenMenu: () => void;
   onReturnBastion: () => void;
 }
 
-export function PauseModal({ hud, onResume, onRestart, onReturnBastion }: PauseModalProps) {
+export function PauseModal({
+  hud,
+  onResume,
+  onRestart,
+  onOpenMenu,
+  onReturnBastion,
+}: PauseModalProps) {
   return (
     <div
       className="fixed inset-0 z-20 flex items-center justify-center bg-[#070609]/88 p-5"
@@ -54,6 +61,13 @@ export function PauseModal({ hud, onResume, onRestart, onReturnBastion }: PauseM
             className="w-full py-3 text-xs font-display uppercase tracking-widest bg-[#6e1c26] text-[#ffe8ea] border border-[#b54552] hover:bg-[#8e2431] cursor-pointer"
           >
             Reprendre
+          </button>
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#ffd470] border border-[#5c4833] hover:border-[#d4a853] cursor-pointer"
+          >
+            Paramètres &amp; Commandes
           </button>
           <button
             type="button"

@@ -1,17 +1,20 @@
 import { AudioFX } from './audio';
 import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
-import { LORE_TABLETS, NPCS_DEF, RELICS_POOL, WEAPONS_DEF } from './data';
+import { DEFAULT_KEY_BINDINGS, DEFAULT_SETTINGS, LORE_TABLETS, NPCS_DEF, RELICS_POOL, WEAPONS_DEF } from './data';
 import { InputHub } from './input';
 import { generateRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { renderGameFrame } from './renderer';
 import {
   bankRunIntoSave,
+  computeComboRank,
   createRunState,
   defaultSave,
+  exportSaveJson,
   getLootMultiplier,
   getParryWindowSec,
   getPlayerDamageStats,
+  importSaveJson,
   loadSave,
   persistSave,
   pickBlessingChoices,
@@ -21,6 +24,7 @@ import type {
   BlessingDef,
   Enemy,
   GamePhase,
+  GameSettings,
   HudSnapshot,
   InputState,
   Player,
@@ -69,6 +73,7 @@ export class CendresEngine {
   private banner = { title: '', sub: '', color: '#d4a853', timer: 0 };
   private promptText = '';
   private deathDelayTimer = 0;
+  private smoothedFps = 60;
 
   constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
     this.canvas = canvas;
@@ -77,7 +82,14 @@ export class CendresEngine {
     this.ctx = context;
     this.cb = callbacks;
     this.save = loadSave();
+    this.applySettingsSideEffects();
+  }
+
+  private applySettingsSideEffects(): void {
+    const s = this.save.settings || DEFAULT_SETTINGS;
     AudioFX.setMuted(this.save.muted);
+    AudioFX.updateSettings(s);
+    this.input.setKeyBindings(s.keyBindings || DEFAULT_KEY_BINDINGS);
   }
 
   init(autostart = false): void {
@@ -116,6 +128,10 @@ export class CendresEngine {
       if (this.destroyed) return;
       const rawDt = (now - last) / 1000;
       last = now;
+      if (rawDt > 0.001 && rawDt < 0.25) {
+        const instFps = Math.min(240, 1 / rawDt);
+        this.smoothedFps = this.smoothedFps * 0.9 + instFps * 0.1;
+      }
       const dt = Math.min(0.05, Math.max(0.0001, rawDt));
       this.simTime += dt;
 
@@ -183,14 +199,54 @@ export class CendresEngine {
 
   updateSave(updater: (prev: SaveData) => SaveData): void {
     this.save = updater(this.save);
-    AudioFX.setMuted(this.save.muted);
+    this.applySettingsSideEffects();
     persistSave(this.save);
     this.cb.onSaveChange({ ...this.save });
   }
 
+  updateSettings(partial: Partial<GameSettings>): void {
+    this.updateSave((s) => ({
+      ...s,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...s.settings,
+        ...partial,
+        keyBindings: {
+          ...DEFAULT_KEY_BINDINGS,
+          ...(s.settings?.keyBindings || {}),
+          ...(partial.keyBindings || {}),
+        },
+      },
+    }));
+  }
+
+  resetSettings(): void {
+    this.updateSave((s) => ({
+      ...s,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        keyBindings: { ...DEFAULT_KEY_BINDINGS },
+      },
+    }));
+  }
+
+  exportSaveData(): string {
+    return exportSaveJson(this.save);
+  }
+
+  importSaveData(rawText: string): boolean {
+    const imported = importSaveJson(rawText);
+    if (!imported) return false;
+    this.save = imported;
+    this.applySettingsSideEffects();
+    persistSave(this.save);
+    this.cb.onSaveChange({ ...this.save });
+    return true;
+  }
+
   resetSave(): void {
     this.save = defaultSave();
-    AudioFX.setMuted(false);
+    this.applySettingsSideEffects();
     persistSave(this.save);
     this.cb.onSaveChange({ ...this.save });
   }
@@ -350,7 +406,26 @@ export class CendresEngine {
       afterimages: [],
       wispAngle: 0,
       wispCd: 0,
+      riposteBuffT: 0,
     };
+  }
+
+  private registerComboHit(hits = 1): void {
+    if (!this.run || !this.player) return;
+    const prevRank = computeComboRank(this.run.comboHits).rank;
+    this.run.comboHits += hits;
+    this.run.comboTimer = 4.2;
+    const nextRankInfo = computeComboRank(this.run.comboHits);
+    if (nextRankInfo.rank !== prevRank && this.run.comboHits >= 2) {
+      AudioFX.rankUp();
+      this.particles.addText(
+        this.player.x + this.player.w / 2,
+        this.player.y - 34,
+        `RANG ${nextRankInfo.rank}`,
+        nextRankInfo.color,
+        1.15
+      );
+    }
   }
 
   private loadRoom(depth: number): void {
@@ -375,11 +450,12 @@ export class CendresEngine {
     this.camera.y = 0;
 
     const boss = this.room.enemies.find((e) => e.isBoss);
+    const affixLabel = this.room.affix ? ` · ${this.room.affix.name}` : '';
     if (boss) {
       AudioFX.boss();
-      this.showBanner(boss.name, `Strate ${depth} · Gardien de l'Abîme`, '#d4a853', 2.8);
+      this.showBanner(boss.name, `Strate ${depth} · Gardien de l'Abîme${affixLabel}`, '#d4a853', 2.8);
     } else {
-      this.showBanner(`Strate ${depth}`, this.room.biome.name, '#d4a853', 1.9);
+      this.showBanner(`Strate ${depth}`, `${this.room.biome.name}${affixLabel}`, '#d4a853', 1.9);
     }
   }
 
@@ -474,7 +550,17 @@ export class CendresEngine {
       let regen = 34;
       if (this.save.oath === 'airain') regen *= 0.78;
       if (run.blessings.includes('iron_lungs')) regen *= 1.3;
+      if (room.affix?.id === 'abyssal_haze') regen *= 1.25;
       run.stam = Math.min(run.maxStam, run.stam + regen * dt);
+    }
+
+    // Combo decay
+    if (run.comboTimer > 0) {
+      run.comboTimer -= dt;
+      if (run.comboTimer <= 0) {
+        run.comboTimer = 0;
+        run.comboHits = 0;
+      }
     }
 
     // Timers & Input buffering
@@ -486,6 +572,7 @@ export class CendresEngine {
     player.guardT = Math.max(0, player.guardT - dt);
     player.parryCd = Math.max(0, player.parryCd - dt);
     player.healT = Math.max(0, player.healT - dt);
+    player.riposteBuffT = Math.max(0, player.riposteBuffT - dt);
     player.comboResetT = Math.max(0, player.comboResetT - dt);
     if (player.comboResetT <= 0) player.comboStep = 0;
 
@@ -510,6 +597,7 @@ export class CendresEngine {
       (run.relics.includes('cracked_hourglass') ? 0.75 : 1) *
       (1 - (this.save.talents.mist_reflex || 0) * 0.15);
     let dashCost = run.blessings.includes('mist_step') ? 14 : 22;
+    if (run.relics.includes('wind_spur')) dashCost = Math.round(dashCost * 0.75);
     if (this.save.oath === 'pelerin' && this.freeDashTimer <= 0) {
       dashCost = 0;
     }
@@ -547,30 +635,31 @@ export class CendresEngine {
     }
 
     // Attacks (3-hit combo, heavy, plunge, launcher, dash strike)
+    const atkSpdMult = weapon.speedMult * (run.relics.includes('wind_spur') ? 1.1 : 1);
     if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
       run.stam -= 26;
       player.stamRegenDelay = 0.65;
-      this.startAttack('heavy', 0.34 / weapon.speedMult);
+      this.startAttack('heavy', 0.34 / atkSpdMult);
       AudioFX.heavy();
     } else if (player.attackBuf && player.attackT <= 0 && run.stam >= 12) {
       player.attackBuf = false;
       run.stam -= 12;
       player.stamRegenDelay = 0.45;
       if (player.dashT > 0) {
-        this.startAttack('dash_strike', 0.22 / weapon.speedMult);
+        this.startAttack('dash_strike', 0.22 / atkSpdMult);
         AudioFX.slash(2);
       } else if (!player.onGround && inp.down) {
         player.vy = Math.max(player.vy, 540);
-        this.startAttack('plunge', 0.28 / weapon.speedMult);
+        this.startAttack('plunge', 0.28 / atkSpdMult);
         AudioFX.heavy();
       } else if (inp.upHeld) {
         if (player.onGround) player.vy = -220;
-        this.startAttack('launcher', 0.24 / weapon.speedMult);
+        this.startAttack('launcher', 0.24 / atkSpdMult);
         AudioFX.slash(1);
       } else {
         const move: AttackMove =
           player.comboStep === 0 ? 'light1' : player.comboStep === 1 ? 'light2' : 'light3';
-        this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / weapon.speedMult);
+        this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
         AudioFX.slash(player.comboStep);
         player.comboStep = ((player.comboStep + 1) % 3) as 0 | 1 | 2;
         player.comboResetT = 0.72;
@@ -583,6 +672,7 @@ export class CendresEngine {
     let moveSpeed = 315;
     if (this.save.oath === 'pelerin') moveSpeed *= 1.15;
     if (run.relics.includes('raven_feather')) moveSpeed *= 1.18;
+    if (room.affix?.id === 'tempered_ash') moveSpeed *= 1.12;
 
     if (player.dashT > 0) {
       player.dashT -= dt;
@@ -610,13 +700,14 @@ export class CendresEngine {
           player.squashY = 1.2;
           AudioFX.jump();
         } else if (player.onWall !== 0) {
-          player.vy = -530 * jumpMult;
-          player.vx = -player.onWall * 360;
+          player.vy = -545 * jumpMult;
+          player.vx = -player.onWall * 375;
           player.facing = (-player.onWall) as 1 | -1;
           player.jumpBuf = 0;
           player.squashX = 0.84;
           player.squashY = 1.18;
-          AudioFX.jump();
+          if (run.blessings.includes('wall_tempest')) run.critNextAttack = true;
+          AudioFX.wallJump();
           this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#b8aba0', 6, 100);
         } else if (player.jumpsLeft > 0) {
           player.vy = -515 * jumpMult;
@@ -841,11 +932,17 @@ export class CendresEngine {
             run,
             player.attackMove,
             isRiposte,
-            e.sunderT > 0
+            e.sunderT > 0,
+            Math.random,
+            room.affix?.id
           );
           if (run.critNextAttack) run.critNextAttack = false;
 
           let finalDmg = stats.damage;
+          if (player.riposteBuffT > 0) {
+            finalDmg = Math.round(finalDmg * 1.2);
+            player.riposteBuffT = 0;
+          }
           let finalStag = stats.stagger;
           if (blockedByShield) {
             finalDmg = Math.max(2, Math.round(finalDmg * 0.28));
@@ -853,8 +950,15 @@ export class CendresEngine {
             AudioFX.guard();
             this.particles.addText(e.x + e.w / 2, e.y - 14, `BLOQUÉ (${finalDmg})`, '#968b7c', 0.9);
           } else {
-            if (stats.isCrit) AudioFX.crit();
-            else AudioFX.hit(isHeavy || isRiposte);
+            this.registerComboHit(1);
+            if (stats.isCrit) {
+              AudioFX.crit();
+              if (run.relics.includes('blood_medal')) {
+                run.hp = Math.min(run.maxHp, run.hp + 4);
+              }
+            } else {
+              AudioFX.hit(isHeavy || isRiposte);
+            }
           }
 
           e.hp -= finalDmg;
@@ -893,7 +997,9 @@ export class CendresEngine {
             this.particles.addText(e.x + e.w / 2, e.y - 34, 'POSTURE BRISÉE !', '#ff9d42', 1.15);
           }
 
-          this.hitStop = isRiposte || player.attackMove === 'heavy' ? 0.06 : 0.025;
+          if (this.save.settings?.hitstopEnabled !== false) {
+            this.hitStop = isRiposte || player.attackMove === 'heavy' ? 0.06 : 0.025;
+          }
           this.trauma = Math.min(1, this.trauma + (isRiposte ? 0.55 : isHeavy ? 0.38 : 0.2));
           this.particles.spawnBurst(
             e.x + e.w / 2,
@@ -911,7 +1017,7 @@ export class CendresEngine {
             getBloodToneForEnemy(e.kind)
           );
 
-          if (!blockedByShield) {
+          if (!blockedByShield && this.save.settings?.showDamageNumbers !== false) {
             const label = isRiposte
               ? `RIPOSTE -${finalDmg}!`
               : stats.isCrit
@@ -1307,13 +1413,16 @@ export class CendresEngine {
     // 1. Check Perfect Sekiro Deflect!
     if (player.parryT > 0) {
       AudioFX.parry();
-      this.hitStop = 0.08;
+      if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.08;
       this.trauma = 0.48;
       player.invulnT = 0.26;
+      player.riposteBuffT = 4.0;
       run.stam = Math.min(run.maxStam, run.stam + 24);
       run.parries += 1;
       run.parryStreak += 1;
       run.bestParryStreak = Math.max(run.bestParryStreak, run.parryStreak);
+      this.registerComboHit(2);
+      if (run.blessings.includes('bronze_counter')) run.critNextAttack = true;
       this.particles.spawnBurst(
         player.x + player.w / 2 + player.facing * 16,
         player.y + 20,
@@ -1325,8 +1434,9 @@ export class CendresEngine {
       this.particles.addText(player.x + 14, player.y - 16, 'DÉVIATION !', '#ffd470', 1.15);
 
       const stagPower =
-        (this.save.oath === 'airain' ? 78 : 55) +
-        (this.save.talents.parry_mastery || 0) * 10;
+        ((this.save.oath === 'airain' ? 78 : 55) +
+          (this.save.talents.parry_mastery || 0) * 10) *
+        (run.relics.includes('eclipse_mirror') ? 1.2 : 1);
 
       for (const e of this.room.enemies) {
         if (e.hp <= 0 || e.state === 'dead') continue;
@@ -1364,6 +1474,8 @@ export class CendresEngine {
       this.particles.addText(player.x + 14, player.y - 12, `GARDE -${dmg}`, '#b8b0a6');
     } else {
       run.parryStreak = 0;
+      run.comboHits = 0;
+      run.comboTimer = 0;
       AudioFX.hurt();
       this.particles.addText(player.x + 14, player.y - 12, `-${dmg}`, '#ff4d5e', 1.1);
     }
@@ -1374,7 +1486,7 @@ export class CendresEngine {
     player.hitFlashT = 0.08;
     player.vx = (player.x < sourceX ? -1 : 1) * 240;
     player.vy = -190;
-    this.hitStop = 0.055;
+    if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.055;
     this.trauma = 0.62;
     this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
     this.blood.spawnImpact(
@@ -1440,7 +1552,7 @@ export class CendresEngine {
       getBloodToneForEnemy(e.kind)
     );
 
-    const mult = getLootMultiplier(this.save, this.run);
+    const mult = getLootMultiplier(this.save, this.run, this.room.affix?.id);
     const baseC = e.isBoss ? 80 : e.kind === 'flagellant' ? 24 : 13;
     const cendres = Math.round(baseC * (e.elite !== 'none' ? 1.7 : 1) * mult);
     this.run.loot.cendres += cendres;
@@ -1455,6 +1567,10 @@ export class CendresEngine {
 
     if (this.run.blessings.includes('vampiric')) {
       this.run.hp = Math.min(this.run.maxHp, this.run.hp + 8);
+    }
+    if (this.run.blessings.includes('ash_echo') && this.player) {
+      this.run.stam = Math.min(this.run.maxStam, this.run.stam + 18);
+      this.player.dashCd = 0;
     }
 
     if (e.isBoss) {
@@ -1604,8 +1720,11 @@ export class CendresEngine {
     const larmesTotal = this.save.res.larmes + this.run.loot.larmes;
     const bossHp = boss ? Math.max(0, Math.ceil(boss.hp)) : -1;
     const bossStag = boss ? Math.min(boss.maxStagger, Math.round(boss.stagger)) : -1;
+    const comboInfo = computeComboRank(this.run.comboHits);
+    const fpsVal = Math.round(this.smoothedFps);
+    const showFps = !!this.save.settings?.showFps;
 
-    const hudKey = `${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.save.weapon}`;
+    const hudKey = `${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.save.weapon}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
     if (!force && hudKey === this.lastHudKey) return;
     this.lastHudKey = hudKey;
 
@@ -1627,6 +1746,12 @@ export class CendresEngine {
       relics: [...this.run.relics],
       weaponName: weapon.name,
       parryStreak: this.run.parryStreak,
+      comboHits: this.run.comboHits,
+      comboRank: comboInfo.rank,
+      affixName: this.room.affix?.name,
+      affixDesc: this.room.affix?.desc,
+      fps: fpsVal,
+      showFps,
       inputMode: this.input.lastInputMode,
       promptText: this.promptText,
       boss: boss
@@ -1663,6 +1788,7 @@ export class CendresEngine {
       weapon: this.save.weapon,
       particles: this.particles,
       blood: this.blood,
+      settings: this.save.settings,
     });
   }
 }

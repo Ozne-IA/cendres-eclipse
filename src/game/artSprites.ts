@@ -152,6 +152,65 @@ function getWeaponStamp(weapon: WeaponKey): HTMLCanvasElement | null {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    // Flowing crimson silk tassel & ash shaft -> handled in ash_halberd above
+  } else if (weapon === 'scythe_eclipse') {
+    // Dark lacquered curved pole + crescent eclipse scythe blade
+    ctx.fillStyle = '#251a22';
+    ctx.fillRect(-16, -2, 68, 4);
+    ctx.fillStyle = '#d4a853';
+    ctx.fillRect(40, -3.5, 6, 7);
+
+    const scGrad = ctx.createLinearGradient(42, -6, 66, 26);
+    scGrad.addColorStop(0, '#eef4fa');
+    scGrad.addColorStop(0.55, '#a8b6c8');
+    scGrad.addColorStop(1, '#4c3e5e');
+    ctx.fillStyle = scGrad;
+    ctx.beginPath();
+    ctx.moveTo(43, -3);
+    ctx.quadraticCurveTo(72, -4, 70, 22);
+    ctx.quadraticCurveTo(56, 8, 44, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#120d16';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    // Moon rune along the inner edge
+    ctx.strokeStyle = '#ffd470';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(48, -1);
+    ctx.quadraticCurveTo(64, 1, 65, 16);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  } else if (weapon === 'twin_hammers') {
+    // Bronze & basalt heavy warhammer head
+    ctx.fillStyle = '#38251a';
+    ctx.fillRect(-12, -2.5, 42, 5);
+    ctx.fillStyle = '#d4a853';
+    ctx.fillRect(22, -4, 4, 8);
+
+    const hGrad = ctx.createLinearGradient(26, -14, 46, 14);
+    hGrad.addColorStop(0, '#c89b4b');
+    hGrad.addColorStop(0.5, '#68594c');
+    hGrad.addColorStop(1, '#362d32');
+    ctx.fillStyle = hGrad;
+    ctx.beginPath();
+    ctx.moveTo(26, -13);
+    ctx.lineTo(44, -15);
+    ctx.lineTo(46, 15);
+    ctx.lineTo(26, 13);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#120d16';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Glowing furnace core
+    ctx.fillStyle = '#ff7b29';
+    ctx.fillRect(31, -5, 10, 10);
+    ctx.fillStyle = '#ffd470';
+    ctx.fillRect(34, -2.5, 4, 5);
   } else {
     // Clay Blade: forged bastard sword with ember-rune fuller
     ctx.fillStyle = '#3b281d';
@@ -457,13 +516,23 @@ export function drawDetailedPlayer(
     drawWeaponSprite(ctx, weapon, 0.85);
     ctx.restore();
 
-    if (weapon === 'eclipse_daggers') {
+    if (weapon === 'eclipse_daggers' || weapon === 'twin_hammers') {
       ctx.save();
       ctx.translate(-player.facing * 6, -21 - bob);
       ctx.rotate(player.facing === 1 ? 2.45 : Math.PI - 2.45);
-      drawWeaponSprite(ctx, 'eclipse_daggers', 0.72);
+      drawWeaponSprite(ctx, weapon, weapon === 'twin_hammers' ? 0.76 : 0.72);
       ctx.restore();
     }
+  }
+
+  // Golden Riposte Buff Aura after a Perfect Parry
+  if (player.riposteBuffT > 0) {
+    ctx.strokeStyle = `rgba(255, 212, 112, ${0.45 + Math.sin(time * 12) * 0.2})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(0, -player.h * 0.5, 18, 28, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
   }
 
   ctx.restore();
@@ -496,8 +565,12 @@ export function drawDetailedPlayer(
     const reach =
       (weapon === 'ash_halberd'
         ? 88
+        : weapon === 'scythe_eclipse'
+        ? 84
         : weapon === 'belfry_greatsword'
         ? 78
+        : weapon === 'twin_hammers'
+        ? 56
         : weapon === 'eclipse_daggers'
         ? 50
         : 62) + (isHeavy ? 14 : 0);
@@ -616,7 +689,8 @@ export function drawDetailedEnemy(
   ctx: CanvasRenderingContext2D,
   e: Enemy,
   player: Player,
-  time: number
+  time: number,
+  highContrastTelegraphs = false
 ): void {
   if (e.state === 'dead') {
     ctx.globalAlpha = Math.max(0, e.deadT / 0.35);
@@ -1065,14 +1139,15 @@ export function drawDetailedEnemy(
   // Windup Telegraph Ring & Arbalest Aim Laser
   if (e.state === 'windup') {
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 68, 85, 0.92)';
-    ctx.lineWidth = 2.6;
+    ctx.strokeStyle = highContrastTelegraphs ? '#ffeb3b' : 'rgba(255, 68, 85, 0.92)';
+    ctx.lineWidth = highContrastTelegraphs ? 4.0 : 2.6;
     ctx.beginPath();
-    ctx.arc(0, -e.h - 16, 9 + Math.sin(time * 24) * 2.5, 0, Math.PI * 2);
+    ctx.arc(0, -e.h - 16, (highContrastTelegraphs ? 12 : 9) + Math.sin(time * 24) * 2.5, 0, Math.PI * 2);
     ctx.stroke();
 
     if (e.kind === 'arbalest') {
-      ctx.strokeStyle = 'rgba(255, 68, 85, 0.72)';
+      ctx.strokeStyle = highContrastTelegraphs ? 'rgba(255, 235, 59, 0.92)' : 'rgba(255, 68, 85, 0.72)';
+      ctx.lineWidth = highContrastTelegraphs ? 2.4 : 1.3;
       ctx.setLineDash([7, 4]);
       ctx.beginPath();
       ctx.moveTo(0, -e.h * 0.56);

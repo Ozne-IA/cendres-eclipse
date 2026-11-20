@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BastionModal } from './components/BastionModal';
 import { BlessingModal } from './components/BlessingModal';
 import { GameHud } from './components/GameHud';
+import { GameMenuModal } from './components/GameMenuModal';
 import { GameOverModal } from './components/GameOverModal';
+import { LauncherModal, type BeforeInstallPromptEvent } from './components/LauncherModal';
 import { MerchantModal } from './components/MerchantModal';
 import { PauseModal } from './components/PauseModal';
 import { TitleScreen } from './components/TitleScreen';
@@ -12,6 +14,7 @@ import type {
   BlessingDef,
   GamePhase,
   HudSnapshot,
+  QualityLevel,
   RunState,
   RunSummary,
   SaveData,
@@ -27,6 +30,18 @@ export default function App() {
   const [blessingChoices, setBlessingChoices] = useState<BlessingDef[]>([]);
   const [merchantRun, setMerchantRun] = useState<RunState | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -43,6 +58,15 @@ export default function App() {
       onMerchantOpen: (run) => setMerchantRun(run),
       onRunSummary: (summary) => setRunSummary(summary),
     });
+
+    const fogParam = params.get('fog') as QualityLevel | null;
+    const fpsParam = params.get('fps');
+    if (fogParam === 'medium' || fogParam === 'off' || fpsParam === '1') {
+      engine.updateSettings({
+        ...(fogParam === 'medium' || fogParam === 'off' ? { fogQuality: fogParam } : {}),
+        ...(fpsParam === '1' ? { showFps: true } : {}),
+      });
+    }
 
     engineRef.current = engine;
     engine.init(autostart);
@@ -70,6 +94,8 @@ export default function App() {
           save={save}
           onStartRun={() => engineRef.current?.startNewRun()}
           onOpenBastion={() => engineRef.current?.openBastion()}
+          onOpenMenu={() => setMenuOpen(true)}
+          onOpenLauncher={() => setLauncherOpen(true)}
           onToggleMute={() => engineRef.current?.toggleMute()}
         />
       )}
@@ -111,11 +137,12 @@ export default function App() {
         />
       )}
 
-      {phase === 'paused' && (
+      {phase === 'paused' && !menuOpen && !launcherOpen && (
         <PauseModal
           hud={hud}
           onResume={() => engineRef.current?.resumeGame()}
           onRestart={() => engineRef.current?.startNewRun()}
+          onOpenMenu={() => setMenuOpen(true)}
           onReturnBastion={() => engineRef.current?.extractReturnBastion()}
         />
       )}
@@ -127,6 +154,33 @@ export default function App() {
           onOpenBastion={() => engineRef.current?.openBastion()}
         />
       )}
+
+      {menuOpen && (
+        <GameMenuModal
+          save={save}
+          onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
+          onResetSettings={() => engineRef.current?.resetSettings()}
+          onToggleMute={() => engineRef.current?.toggleMute()}
+          onExportSave={() => engineRef.current?.exportSaveData() || '{}'}
+          onImportSave={(raw) => engineRef.current?.importSaveData(raw) || false}
+          onResetSave={() => engineRef.current?.resetSave()}
+          onOpenLauncher={() => {
+            setMenuOpen(false);
+            setLauncherOpen(true);
+          }}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
+
+      {launcherOpen && (
+        <LauncherModal
+          save={save}
+          installPrompt={installPrompt}
+          onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
+          onClose={() => setLauncherOpen(false)}
+        />
+      )}
     </div>
   );
 }
+

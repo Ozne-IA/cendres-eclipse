@@ -3,7 +3,10 @@ import type {
   BlessingDef,
   BuildingDef,
   BuildingKey,
+  DifficultyMode,
   EnemyKind,
+  GameSettings,
+  KeyBindings,
   LoreEntry,
   NpcDef,
   NpcKey,
@@ -11,6 +14,7 @@ import type {
   OathKey,
   QuestDef,
   RelicDef,
+  RoomAffix,
   TalentDef,
   TalentKey,
   WeaponDef,
@@ -18,6 +22,118 @@ import type {
 } from './types';
 
 export const SAVE_KEY = 'cendres_eclipse_save_v2';
+
+export const DEFAULT_KEY_BINDINGS: KeyBindings = {
+  left: 'KeyA',
+  right: 'KeyD',
+  up: 'KeyW',
+  down: 'KeyS',
+  jump: 'Space',
+  dash: 'ShiftLeft',
+  attack: 'KeyJ',
+  heavy: 'KeyF',
+  parry: 'KeyK',
+  heal: 'KeyR',
+  interact: 'KeyE',
+};
+
+export const DEFAULT_SETTINGS: GameSettings = {
+  difficulty: 'awakened',
+  masterVolume: 0.85,
+  sfxVolume: 0.9,
+  ambientVolume: 0.55,
+  ambientDrone: true,
+  screenShakeScale: 1.0,
+  hitstopEnabled: true,
+  bloodIntensity: 'high',
+  fogQuality: 'high',
+  parallaxEnabled: true,
+  showDamageNumbers: true,
+  showMinimap: true,
+  showFps: false,
+  highContrastTelegraphs: false,
+  keyBindings: { ...DEFAULT_KEY_BINDINGS },
+  pcLauncherPort: 4173,
+  pcAppMode: true,
+};
+
+export const DIFFICULTIES_DEF: Record<
+  DifficultyMode,
+  {
+    key: DifficultyMode;
+    name: string;
+    subtitle: string;
+    desc: string;
+    enemyHpMult: number;
+    enemyDmgMult: number;
+    lootMult: number;
+    parryBonusSec: number;
+  }
+> = {
+  pilgrim: {
+    key: 'pilgrim',
+    name: 'Pèlerin',
+    subtitle: 'Exploration & Apprentissage',
+    desc: 'Ennemis -15% dégâts et PV, fenêtre de parade élargie (+45ms). Idéal pour découvrir les strates.',
+    enemyHpMult: 0.85,
+    enemyDmgMult: 0.8,
+    lootMult: 0.9,
+    parryBonusSec: 0.045,
+  },
+  awakened: {
+    key: 'awakened',
+    name: 'Éveillé',
+    subtitle: 'Expérience Recommandée',
+    desc: 'L’équilibre original d’acier, de posture et d’exigence dark fantasy.',
+    enemyHpMult: 1.0,
+    enemyDmgMult: 1.0,
+    lootMult: 1.0,
+    parryBonusSec: 0,
+  },
+  eclipse: {
+    key: 'eclipse',
+    name: "Cauchemar de l'Éclipse",
+    subtitle: 'Défi Impitoyable',
+    desc: 'Ennemis +30% PV & +35% dégâts, mais +45% Cendres et Fer Noir récoltés.',
+    enemyHpMult: 1.3,
+    enemyDmgMult: 1.35,
+    lootMult: 1.45,
+    parryBonusSec: -0.02,
+  },
+};
+
+export const ROOM_AFFIXES: RoomAffix[] = [
+  {
+    id: 'ember_wind',
+    name: 'Vent de Braise',
+    desc: '+15% chance critique pour tous les combattants.',
+    color: '#ff9842',
+  },
+  {
+    id: 'iron_eclipse',
+    name: 'Éclipse d’Airain',
+    desc: 'La posture des ennemis se brise 20% plus vite.',
+    color: '#ffd470',
+  },
+  {
+    id: 'blood_moon',
+    name: 'Lune Écarlate',
+    desc: '+30% Cendres récoltées dans cette strate.',
+    color: '#d9485b',
+  },
+  {
+    id: 'abyssal_haze',
+    name: 'Brume Abyssale',
+    desc: 'Régénération du Souffle +25% plus rapide.',
+    color: '#8ab8e6',
+  },
+  {
+    id: 'tempered_ash',
+    name: 'Cendre Trempée',
+    desc: 'Déplacements et esquives +12% plus vifs.',
+    color: '#d4a853',
+  },
+];
 
 export const BUILDINGS_DEF: Record<BuildingKey, BuildingDef> = {
   foyer: {
@@ -189,6 +305,30 @@ export const WEAPONS_DEF: Record<WeaponKey, WeaponDef> = {
     staggerMult: 1.18,
     critChance: 0.12,
   },
+  scythe_eclipse: {
+    key: 'scythe_eclipse',
+    name: "Faux de l'Éclipse",
+    style: 'Fauchon Courbe · Saignement & Critique',
+    desc: 'Large balayage lunaire aux coups critiques dévastateurs et haute portée.',
+    unlockCost: { cendres: 170, fer: 6, larmes: 2 },
+    dmgMult: 1.24,
+    speedMult: 1.05,
+    reachPx: 82,
+    staggerMult: 1.05,
+    critChance: 0.22,
+  },
+  twin_hammers: {
+    key: 'twin_hammers',
+    name: "Marteaux d'Airain",
+    style: 'Double Impact · Brise-Garde',
+    desc: 'Écrase les boucliers et pulvérise la posture ennemie à courte portée.',
+    unlockCost: { cendres: 155, fer: 7, larmes: 1 },
+    dmgMult: 1.32,
+    speedMult: 0.88,
+    reachPx: 54,
+    staggerMult: 1.68,
+    critChance: 0.09,
+  },
 };
 
 export const TALENTS_DEF: Record<TalentKey, TalentDef> = {
@@ -253,6 +393,10 @@ export const BLESSINGS_POOL: BlessingDef[] = [
   { id: 'lunar_frost', aspect: 'Lune', name: 'Givre Lunaire', desc: 'Vos frappes ralentissent les ennemis et leurs télégraphes de 25%.' },
   { id: 'orbital_wisp', aspect: 'Flamme', name: 'Feu Follet d’Éclipse', desc: 'Un esprit de braise orbite autour de vous et tire sur les ennemis proches.' },
   { id: 'blood_flask', aspect: 'Lune', name: 'Calice Renouvelé', desc: 'Gagne +1 Fiole de Sève Ardente et +20% efficacité de soin.' },
+  { id: 'crimson_frenzy', aspect: 'Flamme', name: 'Frénésie Écarlate', desc: '+22% dégâts lorsque votre Vitalité est inférieure à 50%.' },
+  { id: 'wall_tempest', aspect: 'Brume', name: 'Élan des Cimes', desc: 'Les sauts muraux et attaques en roulade gagnent +30% dégâts.' },
+  { id: 'bronze_counter', aspect: 'Airain', name: 'Riposte Solaire', desc: 'Après une déviation parfaite, votre prochaine frappe est critique garantie.' },
+  { id: 'ash_echo', aspect: 'Lune', name: 'Écho de Cendre', desc: 'Tuer un ennemi restaure 18 Souffle et accélère la roulade.' },
 ];
 
 export const RELICS_POOL: RelicDef[] = [
@@ -264,6 +408,9 @@ export const RELICS_POOL: RelicDef[] = [
   { id: 'iron_crown', name: "Couronne d'Airain", desc: 'Réduit de 18% les dégâts subis.', costCendres: 60 },
   { id: 'cinder_magnet', name: 'Sceau du Collecteur', desc: '+25% Cendres et +15% chance de Fer Noir.', costCendres: 45 },
   { id: 'bell_clapper', name: 'Battant du Beffroi', desc: '+30% dégâts sur les ennemis brisés (Riposte).', costCendres: 55 },
+  { id: 'blood_medal', name: 'Médaillon de Sang', desc: 'Vos frappes critiques restaurent 4 Vitalité.', costCendres: 60 },
+  { id: 'eclipse_mirror', name: "Miroir d'Éclipse", desc: '+20% dégâts de posture sur toutes vos attaques et parades.', costCendres: 52 },
+  { id: 'wind_spur', name: 'Éperon de Vent', desc: 'Réduit le coût en Souffle de la roulade et accélère les attaques (+10%).', costCendres: 48 },
 ];
 
 export const BIOMES: BiomeDef[] = [

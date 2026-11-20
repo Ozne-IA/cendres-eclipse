@@ -1,4 +1,22 @@
-import type { InputState } from './types';
+import { DEFAULT_KEY_BINDINGS } from './data';
+import type { InputState, KeyBindings } from './types';
+
+export function formatKeyLabel(code: string): string {
+  if (!code) return '?';
+  if (code === 'Space') return 'Espace';
+  if (code === 'ShiftLeft') return 'Shift G';
+  if (code === 'ShiftRight') return 'Shift D';
+  if (code === 'ControlLeft') return 'Ctrl G';
+  if (code === 'ControlRight') return 'Ctrl D';
+  if (code === 'Enter') return 'Entrée';
+  if (code === 'ArrowUp') return '↑';
+  if (code === 'ArrowDown') return '↓';
+  if (code === 'ArrowLeft') return '←';
+  if (code === 'ArrowRight') return '→';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  return code;
+}
 
 export class InputHub {
   private keys = new Set<string>();
@@ -8,9 +26,16 @@ export class InputHub {
   private prevJumpHeld = false;
   private prevPadButtons: boolean[] = [];
   private active = false;
+  private bindings: KeyBindings = { ...DEFAULT_KEY_BINDINGS };
   public lastInputMode = 'Clavier / Souris';
 
+  setKeyBindings(bindings: KeyBindings): void {
+    this.bindings = { ...DEFAULT_KEY_BINDINGS, ...bindings };
+  }
+
   private onKeyDown = (e: KeyboardEvent): void => {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
     const k = e.code;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
       e.preventDefault();
@@ -85,6 +110,7 @@ export class InputHub {
   poll(): InputState {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = pads ? Array.from(pads).find(Boolean) : undefined;
+    const b = this.bindings;
 
     const inp: InputState = {
       moveX: 0,
@@ -104,22 +130,22 @@ export class InputHub {
       upHeld: false,
     };
 
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) inp.moveX -= 1;
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) inp.moveX += 1;
-    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) inp.down = true;
-    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) inp.upHeld = true;
+    if (this.keys.has(b.left) || this.keys.has('ArrowLeft')) inp.moveX -= 1;
+    if (this.keys.has(b.right) || this.keys.has('ArrowRight')) inp.moveX += 1;
+    if (this.keys.has(b.down) || this.keys.has('ArrowDown')) inp.down = true;
+    if (this.keys.has(b.up) || this.keys.has('ArrowUp')) inp.upHeld = true;
 
-    inp.jumpHeld = this.keys.has('Space') || this.keys.has('KeyW') || this.keys.has('ArrowUp');
-    if (this.keysJust.has('Space') || this.keysJust.has('KeyW') || this.keysJust.has('ArrowUp')) {
+    inp.jumpHeld = this.keys.has(b.jump) || this.keys.has(b.up) || this.keys.has('ArrowUp');
+    if (this.keysJust.has(b.jump) || this.keysJust.has(b.up) || this.keysJust.has('ArrowUp')) {
       inp.jump = true;
     }
-    if (this.keysJust.has('ShiftLeft') || this.keysJust.has('ShiftRight')) inp.dash = true;
-    if (this.keysJust.has('KeyJ') || this.mouseJust.has(0)) inp.attack = true;
-    if (this.keysJust.has('KeyK') || this.mouseJust.has(2)) inp.parry = true;
-    inp.parryHeld = this.keys.has('KeyK') || this.mouseHeld.has(2);
-    if (this.keysJust.has('KeyF') || this.keysJust.has('KeyL')) inp.heavy = true;
-    if (this.keysJust.has('KeyR')) inp.heal = true;
-    if (this.keysJust.has('KeyE') || this.keysJust.has('Enter')) inp.interact = true;
+    if (this.keysJust.has(b.dash) || this.keysJust.has('ShiftRight')) inp.dash = true;
+    if (this.keysJust.has(b.attack) || this.mouseJust.has(0)) inp.attack = true;
+    if (this.keysJust.has(b.parry) || this.mouseJust.has(2)) inp.parry = true;
+    inp.parryHeld = this.keys.has(b.parry) || this.mouseHeld.has(2);
+    if (this.keysJust.has(b.heavy) || this.keysJust.has('KeyL')) inp.heavy = true;
+    if (this.keysJust.has(b.heal)) inp.heal = true;
+    if (this.keysJust.has(b.interact) || this.keysJust.has('Enter')) inp.interact = true;
     if (this.keysJust.has('Escape') || this.keysJust.has('KeyP')) inp.pause = true;
     if (this.keysJust.has('KeyM')) inp.mute = true;
 
@@ -169,3 +195,4 @@ export class InputHub {
     return inp;
   }
 }
+

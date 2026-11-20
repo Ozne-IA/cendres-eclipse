@@ -84,16 +84,23 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
             <span className="text-[11px] text-[#d4a853] truncate max-w-[130px]">{hud.weaponName}</span>
           </div>
 
-          {(hud.blessings.length > 0 || hud.relics.length > 0 || hud.parryStreak >= 2) && (
+          {(hud.blessings.length > 0 || hud.relics.length > 0 || hud.parryStreak >= 2 || hud.comboHits >= 2) && (
             <div className="mt-2 pt-1.5 border-t border-[#2d241c] text-[11px] text-[#9d9284] flex items-center justify-between gap-2">
               <span className="truncate">
                 {hud.blessings.length} Bénéd. · {hud.relics.length} Rel.
               </span>
-              {hud.parryStreak >= 2 && (
-                <span className="text-[#ffd470] font-mono-num whitespace-nowrap">
-                  Série {hud.parryStreak}x
-                </span>
-              )}
+              <div className="flex items-center gap-2 whitespace-nowrap font-mono-num">
+                {hud.comboHits >= 2 && (
+                  <span className="text-[#ff9d42]">
+                    Rang {hud.comboRank} · {hud.comboHits}x
+                  </span>
+                )}
+                {hud.parryStreak >= 2 && (
+                  <span className="text-[#ffd470]">
+                    Série {hud.parryStreak}x
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -108,6 +115,11 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
             <div className="font-display text-xs md:text-sm text-[#e5be6e] tracking-wider uppercase">
               Strate {hud.depth} · {hud.biomeName}
             </div>
+            {hud.affixName && (
+              <div className="text-[11px] text-[#8ab8e6] mt-0.5" title={hud.affixDesc}>
+                {hud.affixName}
+              </div>
+            )}
             <div className="mt-1.5 flex items-center justify-end gap-3.5 text-xs font-mono-num text-[#f2ece1]">
               <span className="flex items-center gap-1" title="Cendres">
                 <CinderIcon className="w-3.5 h-3.5" />
@@ -121,6 +133,9 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
                 <TearIcon className="w-3.5 h-3.5" />
                 {hud.larmesTotal}
               </span>
+              {hud.showFps && typeof hud.fps === 'number' && (
+                <span className="text-[11px] text-[#9d9284]">{hud.fps} FPS</span>
+              )}
             </div>
           </div>
 

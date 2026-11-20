@@ -1,4 +1,4 @@
-import { BIOMES, ENEMY_LORE, LORE_TABLETS, NPCS_DEF } from './data';
+import { BIOMES, DIFFICULTIES_DEF, ENEMY_LORE, LORE_TABLETS, NPCS_DEF, ROOM_AFFIXES } from './data';
 import type {
   EliteTrait,
   Enemy,
@@ -18,11 +18,13 @@ export function createEnemy(
   x: number,
   groundY: number,
   depth: number,
-  elite: EliteTrait = 'none'
+  elite: EliteTrait = 'none',
+  hpMult = 1,
+  dmgMult = 1
 ): Enemy {
   const scale = 1 + (depth - 1) * 0.2;
-  const eliteHpMult = elite !== 'none' ? 1.75 : 1;
-  const eliteDmgMult = elite === 'blazing' ? 1.25 : elite !== 'none' ? 1.15 : 1;
+  const eliteHpMult = (elite !== 'none' ? 1.75 : 1) * hpMult;
+  const eliteDmgMult = (elite === 'blazing' ? 1.25 : elite !== 'none' ? 1.15 : 1) * dmgMult;
 
   const base: Enemy = {
     id: nextEnemyId++,
@@ -190,6 +192,8 @@ export function generateRoom(
 ): RoomData {
   const isBoss = depth % 3 === 0;
   const biome = BIOMES[Math.floor((depth - 1) / 3) % BIOMES.length];
+  const diff = DIFFICULTIES_DEF[save.settings?.difficulty || 'awakened'];
+  const affix = depth >= 2 ? ROOM_AFFIXES[Math.floor(rng() * ROOM_AFFIXES.length)] : null;
   const width = isBoss ? 1560 : 2250 + Math.min(850, depth * 90);
   const height = 920;
   const groundY = 720;
@@ -227,7 +231,7 @@ export function generateRoom(
 
     const cycle = (depth / 3) % 3;
     const bossKind: EnemyKind = cycle === 1 ? 'archon' : cycle === 2 ? 'mother' : 'sovereign';
-    enemies.push(createEnemy(bossKind, width - 350, groundY, depth));
+    enemies.push(createEnemy(bossKind, width - 350, groundY, depth, 'none', diff.enemyHpMult, diff.enemyDmgMult));
 
     // Pre-boss campfire brazier near entry for tactical prep
     if (depth > 3) {
@@ -319,7 +323,7 @@ export function generateRoom(
 
         if (rng() < 0.46) {
           const skyEnemy: EnemyKind = depth >= 2 && rng() < 0.35 ? 'arbalest' : 'watcher';
-          enemies.push(createEnemy(skyEnemy, curX + 68, platY, depth));
+          enemies.push(createEnemy(skyEnemy, curX + 68, platY, depth, 'none', diff.enemyHpMult, diff.enemyDmgMult));
         }
         if (rng() < 0.28) {
           props.push({
@@ -345,7 +349,7 @@ export function generateRoom(
         depth >= 2 && rng() < 0.14 + Math.min(0.15, depth * 0.02)
           ? (['swift', 'blazing', 'armored'][Math.floor(rng() * 3)] as EliteTrait)
           : 'none';
-      enemies.push(createEnemy(chosen, curX + segW * 0.56, py, depth, isElite));
+      enemies.push(createEnemy(chosen, curX + segW * 0.56, py, depth, isElite, diff.enemyHpMult, diff.enemyDmgMult));
 
       // Destructible urns & flame traps
       if (rng() < 0.5) {
@@ -469,6 +473,7 @@ export function generateRoom(
     depth,
     isBoss,
     biome,
+    affix,
     width,
     height,
     groundY,

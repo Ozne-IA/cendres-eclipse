@@ -1,6 +1,9 @@
 import {
   BLESSINGS_POOL,
   BUILDINGS_DEF,
+  DEFAULT_KEY_BINDINGS,
+  DEFAULT_SETTINGS,
+  DIFFICULTIES_DEF,
   NPCS_DEF,
   RELICS_POOL,
   SAVE_KEY,
@@ -33,12 +36,16 @@ export function defaultSave(): SaveData {
       belfry_greatsword: false,
       eclipse_daggers: false,
       ash_halberd: false,
+      scythe_eclipse: false,
+      twin_hammers: false,
     },
     weaponTiers: {
       clay_blade: 0,
       belfry_greatsword: 0,
       eclipse_daggers: 0,
       ash_halberd: 0,
+      scythe_eclipse: 0,
+      twin_hammers: 0,
     },
     talents: {
       parry_mastery: 0,
@@ -52,6 +59,10 @@ export function defaultSave(): SaveData {
     bestiaryKills: {},
     questsClaimed: [],
     muted: false,
+    settings: {
+      ...DEFAULT_SETTINGS,
+      keyBindings: { ...DEFAULT_KEY_BINDINGS },
+    },
     records: {
       bestDepth: 1,
       runs: 0,
@@ -60,6 +71,7 @@ export function defaultSave(): SaveData {
       totalParries: 0,
       maxParryStreak: 0,
       bossesSlain: 0,
+      totalPlaySec: 0,
     },
   };
 }
@@ -81,6 +93,14 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
     loreUnlocked: Array.isArray(raw.loreUnlocked) ? raw.loreUnlocked : base.loreUnlocked,
     bestiaryKills: { ...(raw.bestiaryKills || {}) },
     questsClaimed: Array.isArray(raw.questsClaimed) ? raw.questsClaimed : [],
+    settings: {
+      ...base.settings,
+      ...(raw.settings || {}),
+      keyBindings: {
+        ...DEFAULT_KEY_BINDINGS,
+        ...(raw.settings?.keyBindings || {}),
+      },
+    },
     records: { ...base.records, ...(raw.records || {}) },
   };
 }
@@ -193,6 +213,8 @@ export function createRunState(save: SaveData, rng: () => number = Math.random):
     parries: 0,
     parryStreak: 0,
     bestParryStreak: 0,
+    comboHits: 0,
+    comboTimer: 0,
     damageTaken: 0,
     elapsedSec: 0,
     secondWindUsed: false,
@@ -201,19 +223,37 @@ export function createRunState(save: SaveData, rng: () => number = Math.random):
   };
 }
 
-export function getLootMultiplier(save: SaveData, run: RunState): number {
+export function computeComboRank(comboHits: number): {
+  rank: 'D' | 'C' | 'B' | 'A' | 'S' | 'ÉCLIPSE';
+  lootBonus: number;
+  color: string;
+} {
+  if (comboHits >= 18) return { rank: 'ÉCLIPSE', lootBonus: 0.3, color: '#ffd470' };
+  if (comboHits >= 12) return { rank: 'S', lootBonus: 0.22, color: '#ff9d42' };
+  if (comboHits >= 8) return { rank: 'A', lootBonus: 0.15, color: '#e06b2b' };
+  if (comboHits >= 5) return { rank: 'B', lootBonus: 0.1, color: '#d4a853' };
+  if (comboHits >= 2) return { rank: 'C', lootBonus: 0.05, color: '#cfc6b8' };
+  return { rank: 'D', lootBonus: 0, color: '#8a8073' };
+}
+
+export function getLootMultiplier(save: SaveData, run: RunState, affixId?: string | null): number {
+  const diff = DIFFICULTIES_DEF[save.settings?.difficulty || 'awakened'];
   let m = 1 + (save.buildings.vigie || 0) * 0.15;
   if (save.oath === 'sang') m += 0.45;
   if (run.blessings.includes('greed')) m += 0.4;
   if (run.relics.includes('cinder_magnet')) m += 0.25;
+  if (affixId === 'blood_moon') m += 0.3;
+  m += computeComboRank(run.comboHits).lootBonus;
+  m *= diff.lootMult;
   return m;
 }
 
 export function getParryWindowSec(save: SaveData): number {
-  let base = 0.22;
+  const diff = DIFFICULTIES_DEF[save.settings?.difficulty || 'awakened'];
+  let base = 0.22 + diff.parryBonusSec;
   if (save.oath === 'airain') base += 0.08;
   base += (save.talents.parry_mastery || 0) * 0.025;
-  return base;
+  return Math.max(0.12, base);
 }
 
 export function getPlayerDamageStats(
@@ -222,7 +262,8 @@ export function getPlayerDamageStats(
   move: AttackMove,
   isRiposte: boolean,
   enemySundered: boolean,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  affixId?: string | null
 ): { damage: number; stagger: number; isCrit: boolean } {
   const weapon = WEAPONS_DEF[save.weapon] || WEAPONS_DEF.clay_blade;
   const weaponTier = save.weaponTiers[save.weapon] || 0;
@@ -249,6 +290,7 @@ export function getPlayerDamageStats(
   } else if (move === 'dash_strike') {
     baseDmg = 32;
     baseStag = 26;
+    if (run.blessings.includes('wall_tempest')) baseDmg *= 1.3;
   }
 
   baseDmg *= weapon.dmgMult * (1 + weaponTier * 0.12);
@@ -256,10 +298,13 @@ export function getPlayerDamageStats(
 
   baseDmg *= 1 + (save.buildings.forge || 0) * 0.18;
   if (run.blessings.includes('ember_blade')) baseDmg *= 1.25;
+  if (run.blessings.includes('crimson_frenzy') && run.hp <= run.maxHp * 0.5) baseDmg *= 1.22;
   if (run.relics.includes('ember_ring')) baseDmg *= 1.15;
+  if (run.relics.includes('eclipse_mirror')) baseStag *= 1.2;
   if (save.oath === 'eclipse') baseDmg *= 1.28;
   if (save.oath === 'airain') baseStag *= 1.4;
   if (run.blessings.includes('fortress_guard')) baseStag *= 1.45;
+  if (affixId === 'iron_eclipse') baseStag *= 1.2;
 
   if (isRiposte) {
     let riposteMult = 1.55 + (save.buildings.forge || 0) * 0.15;
@@ -274,6 +319,7 @@ export function getPlayerDamageStats(
   let critChance = weapon.critChance;
   if (save.oath === 'eclipse') critChance += 0.15;
   if (run.relics.includes('obsidian_eye')) critChance += 0.12;
+  if (affixId === 'ember_wind') critChance += 0.15;
 
   const isCrit = run.critNextAttack || rng() < critChance;
   if (isCrit) {
@@ -317,9 +363,26 @@ export function bankRunIntoSave(save: SaveData, run: RunState, victory: boolean)
       totalKills: save.records.totalKills + run.kills,
       totalParries: save.records.totalParries + run.parries,
       maxParryStreak: Math.max(save.records.maxParryStreak, run.bestParryStreak),
+      totalPlaySec: (save.records.totalPlaySec || 0) + Math.round(run.elapsedSec),
     },
   };
   return next;
+}
+
+export function exportSaveJson(save: SaveData): string {
+  return JSON.stringify(save, null, 2);
+}
+
+export function importSaveJson(rawText: string): SaveData | null {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (!parsed || typeof parsed !== 'object' || !parsed.res || !parsed.buildings) {
+      return null;
+    }
+    return mergeSave(parsed as Partial<SaveData>);
+  } catch {
+    return null;
+  }
 }
 
 export function pickBlessingChoices(

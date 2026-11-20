@@ -4,12 +4,15 @@ import {
   bankRunIntoSave,
   calculateBastionProduction,
   canAfford,
+  computeComboRank,
   createRunState,
   defaultSave,
+  exportSaveJson,
   getBuildingCost,
   getLootMultiplier,
   getParryWindowSec,
   getPlayerDamageStats,
+  importSaveJson,
   payCost,
   pickBlessingChoices,
 } from './rules';
@@ -141,3 +144,62 @@ test('generateRoom creates valid non-boss and boss rooms with clear spawn & exit
   const sovereign = sovereignRoom.enemies.find((e) => e.isBoss);
   assert.equal(sovereign?.kind, 'sovereign');
 });
+
+test('defaultSave initializes all 6 weaponsUnlocked keys and PC settings', () => {
+  const s = defaultSave();
+  assert.deepEqual(Object.keys(s.weaponsUnlocked).sort(), [
+    'ash_halberd',
+    'belfry_greatsword',
+    'clay_blade',
+    'eclipse_daggers',
+    'scythe_eclipse',
+    'twin_hammers',
+  ]);
+  assert.equal(s.settings.difficulty, 'awakened');
+  assert.equal(s.settings.keyBindings.parry, 'KeyK');
+});
+
+test('computeComboRank progresses from D through ÉCLIPSE cleanly', () => {
+  assert.equal(computeComboRank(0).rank, 'D');
+  assert.equal(computeComboRank(2).rank, 'C');
+  assert.equal(computeComboRank(5).rank, 'B');
+  assert.equal(computeComboRank(8).rank, 'A');
+  assert.equal(computeComboRank(12).rank, 'S');
+  assert.equal(computeComboRank(18).rank, 'ÉCLIPSE');
+});
+
+test('difficulty presets and blood_moon affix adjust loot multiplier and parry window', () => {
+  const s = defaultSave();
+  const run = createRunState(s, () => 0.5);
+
+  const awakenedLoot = getLootMultiplier(s, run);
+  const bloodMoonLoot = getLootMultiplier(s, run, 'blood_moon');
+  assert.ok(bloodMoonLoot > awakenedLoot);
+
+  s.settings.difficulty = 'eclipse';
+  const eclipseLoot = getLootMultiplier(s, run);
+  assert.ok(eclipseLoot > awakenedLoot);
+  assert.ok(getParryWindowSec(s) < 0.22);
+
+  s.settings.difficulty = 'pilgrim';
+  assert.ok(getParryWindowSec(s) > 0.22);
+});
+
+test('exportSaveJson and importSaveJson roundtrip valid saves and reject invalid JSON', () => {
+  const s = defaultSave();
+  s.res.cendres = 432;
+  s.settings.difficulty = 'eclipse';
+  s.weaponsUnlocked.scythe_eclipse = true;
+
+  const json = exportSaveJson(s);
+  const restored = importSaveJson(json);
+  assert.ok(restored);
+  assert.equal(restored?.res.cendres, 432);
+  assert.equal(restored?.settings.difficulty, 'eclipse');
+  assert.equal(restored?.weaponsUnlocked.scythe_eclipse, true);
+  assert.equal(restored?.weaponsUnlocked.twin_hammers, false);
+
+  assert.equal(importSaveJson('not-json'), null);
+  assert.equal(importSaveJson('{"foo":"bar"}'), null);
+});
+
