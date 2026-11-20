@@ -1,5 +1,7 @@
 import { AudioFX } from './audio';
 import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
+import { RoomCamera } from './camera';
+import { startAttack } from './combat';
 import {
   DEFAULT_KEY_BINDINGS,
   DEFAULT_SETTINGS,
@@ -11,6 +13,7 @@ import {
 } from './data';
 import { formatKeyLabel, GameplayInputBuffer, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
+import { createPlayer, PlayerMovement } from './movement';
 import { ParticlePool } from './particles';
 import { ProjectilePool } from './projectiles';
 import { createSeededRandom } from './random';
@@ -78,6 +81,7 @@ export class CendresEngine {
   private particles = new ParticlePool();
   private blood = new BloodSystem();
   private vfx = new VfxSystem();
+  private movement = new PlayerMovement(this.particles, this.vfx);
 
   private rafId: number | null = null;
   private timeoutId: number | null = null;
@@ -93,13 +97,12 @@ export class CendresEngine {
   private room: RoomData | null = null;
   private player: Player | null = null;
 
-  private camera = { x: 0, y: 0 };
+  private camera = new RoomCamera();
   private hitStop = 0;
   private trauma = 0;
   private simTime = 0;
   private previousSimTime = 0;
   private freeDashTimer = 0;
-  private footstepTimer = 0;
   private hudSyncTimer = 0;
   private banner = { title: '', sub: '', color: '#d4a853', timer: 0 };
   private promptText = '';
@@ -413,12 +416,11 @@ export class CendresEngine {
     this.simTime = 0;
     if (this.room) this.projectiles.clear(this.room.projectiles);
     this.room = generateTrainingRoom();
-    this.player = this.createPlayer(110, this.room.groundY - 48);
+    this.player = createPlayer(110, this.room.groundY - 48, this.run, this.save);
     this.particles.clear();
     this.blood.clear();
     this.vfx.clear();
-    this.camera.x = 0;
-    this.camera.y = 0;
+    this.camera.reset();
     this.promptText = '';
     this.showBanner("Cour d'Entraînement", 'La vitalité et les fioles se régénèrent en cas de défaite.', '#ffd470', 2.4);
     this.setPhase('playing');
@@ -529,51 +531,6 @@ export class CendresEngine {
     this.setPhase('playing');
   }
 
-  private createPlayer(x: number, y: number): Player {
-    return {
-      x,
-      y,
-      w: 28,
-      h: 48,
-      vx: 0,
-      vy: 0,
-      facing: 1,
-      onGround: false,
-      onWall: 0,
-      coyote: 0,
-      jumpBuf: 0,
-      attackBuf: false,
-      dashBuf: false,
-      jumpsLeft: this.run?.blessings.includes('wind_dancer') ? 3 : 2,
-      dashesLeft: 1 + (this.save.talents.mist_reflex || 0),
-      dashT: 0,
-      dashCd: 0,
-      invulnT: 0,
-      hitFlashT: 0,
-      attackT: 0,
-      attackTotalT: 0.22,
-      attackMove: 'light1',
-      comboStep: 0,
-      comboResetT: 0,
-      attackHitIds: new Set<number>(),
-      parryT: 0,
-      guardT: 0,
-      parryCd: 0,
-      stamRegenDelay: 0,
-      healT: 0,
-      squashX: 1,
-      squashY: 1,
-      walkCycle: 0,
-      capeWave: 0,
-      afterimages: [],
-      wispAngle: 0,
-      wispCd: 0,
-      riposteBuffT: 0,
-      skillCd: 0,
-      skillMaxCd: (WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade).artCooldown,
-    };
-  }
-
   private registerComboHit(hits = 1): void {
     if (!this.run || !this.player) return;
     const prevRank = computeComboRank(this.run.comboHits).rank;
@@ -610,13 +567,12 @@ export class CendresEngine {
       }));
     }
 
-    this.player = this.createPlayer(110, this.room.groundY - 48);
+    this.player = createPlayer(110, this.room.groundY - 48, this.run, this.save);
     this.particles.clear();
     this.blood.clear();
     this.vfx.clear();
     this.vfx.spawnAshDissolve(160, this.room.groundY - 30, 14, this.room.biome.accentColor, 260, 80);
-    this.camera.x = 0;
-    this.camera.y = 0;
+    this.camera.reset();
 
     const boss = this.room.enemies.find((e) => e.isBoss);
     const affixLabel = this.room.affix ? ` · ${this.room.affix.name}` : '';
@@ -863,27 +819,27 @@ export class CendresEngine {
     } else if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
       run.stam -= 26;
       player.stamRegenDelay = 0.65;
-      this.startAttack('heavy', 0.34 / atkSpdMult);
+      startAttack(player, this.vfx, weapon.reachPx, 'heavy', 0.34 / atkSpdMult);
       AudioFX.heavy(weapon.key);
     } else if (player.attackBuf && player.attackT <= 0 && run.stam >= 12) {
       player.attackBuf = false;
       run.stam -= 12;
       player.stamRegenDelay = 0.45;
       if (player.dashT > 0) {
-        this.startAttack('dash_strike', 0.22 / atkSpdMult);
+        startAttack(player, this.vfx, weapon.reachPx, 'dash_strike', 0.22 / atkSpdMult);
         AudioFX.slash(2, weapon.key);
       } else if (!player.onGround && inp.down) {
         player.vy = Math.max(player.vy, 540);
-        this.startAttack('plunge', 0.28 / atkSpdMult);
+        startAttack(player, this.vfx, weapon.reachPx, 'plunge', 0.28 / atkSpdMult);
         AudioFX.heavy(weapon.key);
       } else if (inp.upHeld) {
         if (player.onGround) player.vy = -220;
-        this.startAttack('launcher', 0.24 / atkSpdMult);
+        startAttack(player, this.vfx, weapon.reachPx, 'launcher', 0.24 / atkSpdMult);
         AudioFX.slash(1, weapon.key);
       } else {
         const move: AttackMove =
           player.comboStep === 0 ? 'light1' : player.comboStep === 1 ? 'light2' : 'light3';
-        this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
+        startAttack(player, this.vfx, weapon.reachPx, move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
         AudioFX.slash(player.comboStep, weapon.key);
         if (move === 'light3' && run.activeSynergies.includes('eternal_pyre')) {
           const shot = this.acquireProjectile(room.projectiles);
@@ -905,185 +861,7 @@ export class CendresEngine {
       player.attackBuf = false;
     }
 
-    // Movement & Gravity
-    let moveSpeed = 315;
-    if (this.save.oath === 'pelerin') moveSpeed *= 1.15;
-    if (run.relics.includes('raven_feather')) moveSpeed *= 1.18;
-    if (room.affix?.id === 'tempered_ash') moveSpeed *= 1.12;
-
-    if (player.dashT > 0) {
-      player.dashT -= dt;
-      if (Math.floor(player.dashT * 60) % 2 === 0) {
-        player.afterimages.push({ x: player.x, y: player.y, alpha: 1, facing: player.facing });
-      }
-    } else {
-      if (inp.moveX !== 0) {
-        player.facing = inp.moveX > 0 ? 1 : -1;
-        player.vx += (inp.moveX * moveSpeed - player.vx) * Math.min(1, dt * 16);
-      } else {
-        player.vx *= Math.pow(0.001, dt);
-      }
-
-      // Jump, Coyote, Double Jump & Wall Jump
-      const jumpMult = run.relics.includes('raven_feather') ? 1.1 : 1;
-      if (player.jumpBuf > 0) {
-        if (player.coyote > 0) {
-          player.vy = -565 * jumpMult;
-          player.onGround = false;
-          player.coyote = 0;
-          player.jumpBuf = 0;
-          player.jumpsLeft = (run.blessings.includes('wind_dancer') ? 3 : 2) - 1;
-          player.squashX = 0.82;
-          player.squashY = 1.2;
-          AudioFX.jump();
-        } else if (player.onWall !== 0) {
-          player.vy = -545 * jumpMult;
-          player.vx = -player.onWall * 375;
-          player.facing = (-player.onWall) as 1 | -1;
-          player.jumpBuf = 0;
-          player.squashX = 0.84;
-          player.squashY = 1.18;
-          if (run.blessings.includes('wall_tempest')) run.critNextAttack = true;
-          AudioFX.wallJump();
-          this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#b8aba0', 6, 100);
-          this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 28, '#ffd470', 'amber', 0.14);
-        } else if (player.jumpsLeft > 0) {
-          player.vy = -515 * jumpMult;
-          player.jumpsLeft -= 1;
-          player.jumpBuf = 0;
-          player.squashX = 0.86;
-          player.squashY = 1.16;
-          AudioFX.jump();
-          this.particles.spawnBurst(player.x + player.w / 2, player.y + player.h, '#a89d92', 7, 110);
-        }
-      }
-
-      // Variable jump height cut
-      if (inp.jumpReleased && player.vy < -180) {
-        player.vy *= 0.45;
-      }
-
-      // Wall slide cap
-      const maxFall = player.onWall !== 0 && player.vy > 0 && inp.moveX === player.onWall ? 160 : 940;
-      player.vy = Math.min(maxFall, player.vy + 1480 * dt);
-    }
-
-    // Update Moving Platforms
-    for (const p of room.platforms) {
-      if (p.type === 'moving' && p.baseX !== undefined && p.baseY !== undefined) {
-        const oldX = p.x;
-        const oldY = p.y;
-        const ph = (p.phase || 0) + this.simTime * (p.moveSpeed || 1);
-        p.x = p.baseX + Math.sin(ph) * (p.moveRangeX || 0);
-        p.y = p.baseY + Math.cos(ph) * (p.moveRangeY || 0);
-        p.vx = (p.x - oldX) / dt;
-        p.vy = (p.y - oldY) / dt;
-      }
-      if (p.type === 'crumble' && p.broken && p.respawnT !== undefined) {
-        p.respawnT -= dt;
-        if (p.respawnT <= 0) {
-          p.broken = false;
-          p.crumbleT = 0;
-        }
-      }
-    }
-
-    // Horizontal collision & Wall detection (outer bounds + raised solid stone steps)
-    let nextX = Math.max(0, Math.min(room.width - player.w, player.x + player.vx * dt));
-    player.onWall = 0;
-    if (nextX === 0 && !player.onGround) player.onWall = -1;
-    if (nextX === room.width - player.w && !player.onGround) player.onWall = 1;
-    for (const p of room.platforms) {
-      if (p.broken || p.type !== 'solid') continue;
-      if (player.y + player.h <= p.y + 6 || player.y >= p.y + p.h - 4) continue;
-      if (player.x + player.w <= p.x + 8 && nextX + player.w > p.x) {
-        nextX = p.x - player.w;
-        player.vx = 0;
-        if (!player.onGround) player.onWall = 1;
-      } else if (player.x >= p.x + p.w - 8 && nextX < p.x + p.w) {
-        nextX = p.x + p.w;
-        player.vx = 0;
-        if (!player.onGround) player.onWall = -1;
-      }
-    }
-    player.x = nextX;
-
-    // Vertical collision with platforms
-    const prevBot = player.y + player.h;
-    const wasOnGround = player.onGround;
-    player.y += player.vy * dt;
-    player.onGround = false;
-
-    for (const p of room.platforms) {
-      if (p.broken) continue;
-      if (p.type === 'crumble' && p.crumbleT && p.crumbleT > 0) {
-        p.crumbleT -= dt;
-        if (p.crumbleT <= 0) {
-          p.broken = true;
-          p.respawnT = 2.6;
-          this.particles.spawnBurst(p.x + p.w / 2, p.y + 8, '#8c5338', 10, 140);
-          continue;
-        }
-      }
-
-      const overlapX = player.x + player.w > p.x && player.x < p.x + p.w;
-      if (!overlapX) continue;
-
-      if (p.type === 'bounce') {
-        if (player.vy >= 0 && prevBot <= p.y + 18 && player.y + player.h >= p.y) {
-          player.y = p.y - player.h;
-          player.vy = -780;
-          player.jumpsLeft = run.blessings.includes('wind_dancer') ? 2 : 1;
-          player.squashX = 0.78;
-          player.squashY = 1.28;
-          AudioFX.jump();
-          this.particles.spawnBurst(p.x + p.w / 2, p.y, '#e06b2b', 12, 200);
-        }
-        continue;
-      }
-
-      if (p.type === 'solid' || !inp.down) {
-        if (player.vy >= 0 && prevBot <= p.y + 14 && player.y + player.h >= p.y) {
-          if (!wasOnGround && player.vy > 220) {
-            const heavyFall = player.vy > 480;
-            player.squashX = 1.22;
-            player.squashY = 0.78;
-            AudioFX.land();
-            this.particles.spawnBurst(player.x + player.w / 2, p.y, '#9c9286', heavyFall ? 8 : 4, 95);
-            if (heavyFall) {
-              this.vfx.spawnGroundFissure(player.x + player.w / 2, p.y + 2, 48, '#ff7b29', 0.85);
-            }
-          }
-          player.y = p.y - player.h;
-          player.vy = 0;
-          player.onGround = true;
-          player.coyote = 0.11;
-          player.jumpsLeft = run.blessings.includes('wind_dancer') ? 3 : 2;
-          player.dashesLeft = 1 + (this.save.talents.mist_reflex || 0);
-          if (p.type === 'moving' && p.vx) {
-            player.x = Math.max(0, Math.min(room.width - player.w, player.x + p.vx * dt));
-          }
-          if (p.type === 'crumble' && (!p.crumbleT || p.crumbleT === 0)) {
-            p.crumbleT = 0.65;
-          }
-        }
-      }
-    }
-
-    if (player.onGround && Math.abs(player.vx) > 40) {
-      player.walkCycle += Math.abs(player.vx) * dt * 0.04;
-      this.footstepTimer -= dt;
-      if (this.footstepTimer <= 0) {
-        this.footstepTimer = 0.27;
-        const surf = room.isBoss ? 'stone' : room.platforms.some((p) => p.type === 'crumble' && Math.abs(player.y + player.h - p.y) < 6 && player.x > p.x && player.x < p.x + p.w) ? 'wood' : 'ash';
-        AudioFX.footstep(surf);
-        // Subtle dynamic ash dust puffs under running sabatons
-        const footX = player.x + (player.facing === 1 ? 4 : player.w - 4);
-        this.particles.spawnBurst(footX, player.y + player.h, '#736b63', 2, 45);
-      }
-    } else {
-      this.footstepTimer = 0.05;
-    }
+    this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
 
     // Hazards
     for (const h of room.hazards) {
@@ -1660,55 +1438,12 @@ export class CendresEngine {
     this.particles.update(dt);
     this.blood.update(dt, room.platforms);
     this.vfx.update(dt);
-    const targetCamX = Math.max(0, Math.min(room.width - this.width, player.x + player.w / 2 - this.width * 0.42));
-    const targetCamY = Math.max(0, Math.min(room.height - this.height, player.y + player.h / 2 - this.height * 0.56));
-    this.camera.x += (targetCamX - this.camera.x) * Math.min(1, dt * 8);
-    this.camera.y += (targetCamY - this.camera.y) * Math.min(1, dt * 8);
+    this.camera.follow(player, room, this.width, this.height, dt);
 
     this.hudSyncTimer += dt;
     if (this.hudSyncTimer >= 0.06) {
       this.hudSyncTimer = 0;
       this.pushHud(false);
-    }
-  }
-
-  private startAttack(move: AttackMove, duration: number): void {
-    if (!this.player) return;
-    this.player.attackMove = move;
-    this.player.attackT = duration;
-    this.player.attackTotalT = duration;
-    this.player.attackHitIds.clear();
-    this.player.squashX = 1.15;
-    this.player.squashY = 0.9;
-
-    const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
-    const isHeavy = move === 'heavy' || move === 'light3' || move === 'plunge';
-    const arcCol =
-      move === 'heavy' || move === 'plunge'
-        ? '#ff6a1f'
-        : move === 'light3' || move === 'dash_strike'
-        ? '#ffd470'
-        : '#9fd0ff';
-    const coreCol = move === 'heavy' ? '#ffe08a' : '#ffffff';
-    const cx = this.player.x + this.player.w / 2;
-    const cy = this.player.y + 22;
-    const radius = wDef.reachPx * 0.8 + (isHeavy ? 14 : 2);
-    if (move === 'plunge') {
-      this.vfx.spawnSlashArc(cx, cy + 12, radius * 0.85, 0.15, Math.PI - 0.15, this.player.facing, arcCol, coreCol, 22, 0.24);
-    } else if (move === 'launcher') {
-      this.vfx.spawnSlashArc(cx, cy, radius * 0.9, -1.45, 0.65, this.player.facing, arcCol, coreCol, 18, 0.22);
-    } else {
-      this.vfx.spawnSlashArc(cx, cy, radius, -1.25, 1.15, this.player.facing, arcCol, coreCol, isHeavy ? 22 : 14, isHeavy ? 0.24 : 0.18);
-    }
-    this.vfx.spawnBladeSparks(cx, cy, this.player.facing, isHeavy ? 14 : 7, arcCol);
-    if (move === 'heavy' && this.player.onGround) {
-      this.vfx.spawnGroundFissure(
-        cx + this.player.facing * 42,
-        this.player.y + this.player.h,
-        68,
-        '#ff7b29',
-        1.15
-      );
     }
   }
 
@@ -1732,7 +1467,7 @@ export class CendresEngine {
     this.particles.addText(cx, player.y - 24, `${wDef.artName.toUpperCase()} !`, '#ffd470', 1.1);
 
     if (wDef.key === 'clay_blade') {
-      this.startAttack('heavy', 0.28);
+      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.28);
       const shot = this.acquireProjectile(room.projectiles);
       shot.x = cx + player.facing * 20;
       shot.y = cy;
@@ -1746,7 +1481,7 @@ export class CendresEngine {
       shot.life = 1.0;
       this.vfx.spawnImpactFlare(cx + player.facing * 24, cy, 78, '#ffd470', 'gold', 0.25);
     } else if (wDef.key === 'belfry_greatsword') {
-      this.startAttack('heavy', 0.34);
+      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.34);
       this.trauma = 0.62;
       this.vfx.spawnGroundFissure(cx + player.facing * 60, player.y + player.h, 150, '#ff7b29', 1.7);
       this.vfx.spawnImpactFlare(cx + player.facing * 50, player.y + player.h - 10, 96, '#ff9842', 'amber', 0.3);
@@ -1773,9 +1508,9 @@ export class CendresEngine {
       }
       player.invulnT = 0.35;
       run.critNextAttack = true;
-      this.startAttack('dash_strike', 0.2);
+      startAttack(player, this.vfx, wDef.reachPx, 'dash_strike', 0.2);
     } else if (wDef.key === 'ash_halberd') {
-      this.startAttack('launcher', 0.28);
+      startAttack(player, this.vfx, wDef.reachPx, 'launcher', 0.28);
       this.vfx.spawnSlashArc(cx, cy, 118, -1.5, 1.5, player.facing, '#ffd470', '#ffffff', 24, 0.25);
       for (const e of room.enemies) {
         if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 145) {
@@ -1789,7 +1524,7 @@ export class CendresEngine {
         }
       }
     } else if (wDef.key === 'scythe_eclipse') {
-      this.startAttack('heavy', 0.28);
+      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.28);
       this.vfx.spawnSlashArc(cx, cy, 108, -Math.PI, Math.PI, player.facing, '#ff4d63', '#ffe0eb', 22, 0.26);
       let drained = 0;
       for (const e of room.enemies) {
@@ -1808,7 +1543,7 @@ export class CendresEngine {
       }
     } else {
       // twin_hammers: double tectonic slam
-      this.startAttack('heavy', 0.32);
+      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.32);
       this.trauma = 0.68;
       this.vfx.spawnGroundFissure(cx - 48, player.y + player.h, 85, '#ff7b29', 1.5);
       this.vfx.spawnGroundFissure(cx + 48, player.y + player.h, 85, '#ff7b29', 1.5);
