@@ -19,9 +19,19 @@ export default defineConfig(() => {
             .filter((fileName) => fileName.endsWith('.js') || fileName.endsWith('.css'))
             .sort()
             .map((fileName) => `/${fileName}`);
+          const backdropRoot = 'src/assets/images';
+          const backdropHash = createHash('sha256');
+          for (const directory of [backdropRoot, backdropRoot + '/v2']) {
+            for (const file of fs.readdirSync(path.resolve(import.meta.dirname, directory)).sort()) {
+              if (!file.startsWith('biome_') || !file.endsWith('.jpg')) continue;
+              assets.push(`/${directory}/${file}`);
+              backdropHash.update(fs.readFileSync(path.resolve(import.meta.dirname, directory, file)));
+            }
+          }
           const worker = fs.readFileSync(new URL('./src/pwa/sw.js', import.meta.url), 'utf8');
           const buildVersion = createHash('sha256')
             .update(worker)
+            .update(backdropHash.digest())
             .update(JSON.stringify(assets))
             .update(fs.readFileSync(new URL('./index.html', import.meta.url)))
             .digest('hex')

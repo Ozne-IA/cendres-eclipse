@@ -42,6 +42,7 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
 };
 
 export const DEFAULT_SETTINGS: GameSettings = {
+  artStyle: 'cinematic',
   difficulty: 'awakened',
   masterVolume: 0.85,
   sfxVolume: 0.9,

@@ -12,7 +12,9 @@ import {
 import { formatKeyLabel, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
 import { ParticlePool } from './particles';
+import { ProjectilePool } from './projectiles';
 import { renderGameFrame } from './renderer';
+import { setPreferCinematicArt } from './textures';
 import { VfxSystem } from './vfx';
 import {
   bankRunIntoSave,
@@ -63,6 +65,7 @@ export class CendresEngine {
   private ctx: CanvasRenderingContext2D;
   private cb: EngineCallbacks;
   private input = new InputHub();
+  private projectiles = new ProjectilePool();
   private particles = new ParticlePool();
   private blood = new BloodSystem();
   private vfx = new VfxSystem();
@@ -107,6 +110,7 @@ export class CendresEngine {
 
   private applySettingsSideEffects(): void {
     const s = this.save.settings || DEFAULT_SETTINGS;
+    setPreferCinematicArt(s.artStyle === 'cinematic');
     AudioFX.setMuted(this.save.muted);
     AudioFX.updateSettings(s);
     this.input.setKeyBindings(s.keyBindings || DEFAULT_KEY_BINDINGS);
@@ -393,6 +397,7 @@ export class CendresEngine {
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
     this.slowMoT = 0;
+    if (this.room) this.projectiles.clear(this.room.projectiles);
     this.room = generateTrainingRoom();
     this.player = this.createPlayer(110, this.room.groundY - 48);
     this.particles.clear();
@@ -579,6 +584,7 @@ export class CendresEngine {
   private loadRoom(depth: number): void {
     if (!this.run) return;
     this.promptText = '';
+    if (this.room) this.projectiles.clear(this.room.projectiles);
     this.room = generateRoom(depth, this.save);
     this.run.depth = depth;
 
@@ -827,18 +833,17 @@ export class CendresEngine {
         this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
         AudioFX.slash(player.comboStep, weapon.key);
         if (move === 'light3' && run.activeSynergies.includes('eternal_pyre')) {
-          room.projectiles.push({
-            x: player.x + player.w / 2 + player.facing * 18,
-            y: player.y + 22,
-            vx: player.facing * 430,
-            vy: 0,
-            r: 12,
-            dmg: 28,
-            friendly: true,
-            color: '#ff7b29',
-            kind: 'crescent',
-            life: 0.75,
-          });
+          const shot = this.projectiles.acquire(room.projectiles);
+          shot.x = player.x + player.w / 2 + player.facing * 18;
+          shot.y = player.y + 22;
+          shot.vx = player.facing * 430;
+          shot.vy = 0;
+          shot.r = 12;
+          shot.dmg = 28;
+          shot.friendly = true;
+          shot.color = '#ff7b29';
+          shot.kind = 'crescent';
+          shot.life = 0.75;
         }
         player.comboStep = ((player.comboStep + 1) % 3) as 0 | 1 | 2;
         player.comboResetT = 0.72;
@@ -1088,18 +1093,17 @@ export class CendresEngine {
         if (target) {
           player.wispCd = 1.15;
           const ang = Math.atan2(target.y + target.h / 2 - (player.y + 20), target.x + target.w / 2 - (player.x + 14));
-          room.projectiles.push({
-            x: player.x + 14,
-            y: player.y + 20,
-            vx: Math.cos(ang) * 440,
-            vy: Math.sin(ang) * 440,
-            r: 5,
-            dmg: 18,
-            friendly: true,
-            color: '#ff9842',
-            kind: 'orb',
-            life: 1.5,
-          });
+          const shot = this.projectiles.acquire(room.projectiles);
+          shot.x = player.x + 14;
+          shot.y = player.y + 20;
+          shot.vx = Math.cos(ang) * 440;
+          shot.vy = Math.sin(ang) * 440;
+          shot.r = 5;
+          shot.dmg = 18;
+          shot.friendly = true;
+          shot.color = '#ff9842';
+          shot.kind = 'orb';
+          shot.life = 1.5;
         }
       }
     }
@@ -1313,9 +1317,10 @@ export class CendresEngine {
     }
 
     // Update Enemies (with attack token pool of max 3 concurrent windups)
-    let activeAttackers = room.enemies.filter(
-      (e) => e.state === 'windup' || e.state === 'attack'
-    ).length;
+    let activeAttackers = 0;
+    for (const e of room.enemies) {
+      if (e.state === 'windup' || e.state === 'attack') activeAttackers++;
+    }
 
     for (const e of room.enemies) {
       if (e.state === 'dead') {
@@ -1515,7 +1520,7 @@ export class CendresEngine {
       const pr = room.projectiles[i];
       pr.life -= dt;
       if (pr.life <= 0) {
-        room.projectiles.splice(i, 1);
+        this.projectiles.release(room.projectiles, i);
         continue;
       }
 
@@ -1538,7 +1543,7 @@ export class CendresEngine {
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
       if (pr.x < -40 || pr.x > room.width + 40 || pr.y < -40 || pr.y > room.height + 40) {
-        room.projectiles.splice(i, 1);
+        this.projectiles.release(room.projectiles, i);
         continue;
       }
 
@@ -1563,7 +1568,7 @@ export class CendresEngine {
           this.particles.addText(player.x + 14, player.y - 14, 'RENVOI !', '#ffd470', 1.1);
         } else {
           this.hurtPlayer(pr.dmg, pr.x);
-          room.projectiles.splice(i, 1);
+          this.projectiles.release(room.projectiles, i);
         }
       } else if (pr.friendly) {
         for (const e of room.enemies) {
@@ -1586,7 +1591,7 @@ export class CendresEngine {
             this.vfx.spawnImpactFlare(pr.x, pr.y, 44, '#ffd470', 'gold', 0.16);
             this.particles.addText(e.x + e.w / 2, e.y - 10, `-${pr.dmg}`, '#ffd470');
             if (e.hp <= 0) this.onEnemyKilled(e);
-            room.projectiles.splice(i, 1);
+            this.projectiles.release(room.projectiles, i);
             break;
           }
         }
@@ -1673,18 +1678,17 @@ export class CendresEngine {
 
     if (wDef.key === 'clay_blade') {
       this.startAttack('heavy', 0.28);
-      room.projectiles.push({
-        x: cx + player.facing * 20,
-        y: cy,
-        vx: player.facing * 520,
-        vy: 0,
-        r: 18,
-        dmg: 48,
-        friendly: true,
-        color: '#ffd470',
-        kind: 'crescent',
-        life: 1.0,
-      });
+      const shot = this.projectiles.acquire(room.projectiles);
+      shot.x = cx + player.facing * 20;
+      shot.y = cy;
+      shot.vx = player.facing * 520;
+      shot.vy = 0;
+      shot.r = 18;
+      shot.dmg = 48;
+      shot.friendly = true;
+      shot.color = '#ffd470';
+      shot.kind = 'crescent';
+      shot.life = 1.0;
       this.vfx.spawnImpactFlare(cx + player.facing * 24, cy, 78, '#ffd470', 'gold', 0.25);
     } else if (wDef.key === 'belfry_greatsword') {
       this.startAttack('heavy', 0.34);
@@ -1788,37 +1792,35 @@ export class CendresEngine {
     }
 
     if (e.kind === 'pyromancer') {
-      this.room.projectiles.push({
-        x: this.player.x + this.player.w / 2,
-        y: this.room.groundY,
-        vx: 0,
-        vy: 0,
-        r: 28,
-        dmg: e.dmg,
-        friendly: false,
-        color: '#e06b2b',
-        kind: 'eruption',
-        telegraphT: 0.65,
-        life: 1.05,
-      });
+      const shot = this.projectiles.acquire(this.room.projectiles);
+      shot.x = this.player.x + this.player.w / 2;
+      shot.y = this.room.groundY;
+      shot.vx = 0;
+      shot.vy = 0;
+      shot.r = 28;
+      shot.dmg = e.dmg;
+      shot.friendly = false;
+      shot.color = '#e06b2b';
+      shot.kind = 'eruption';
+      shot.telegraphT = 0.65;
+      shot.life = 1.05;
       return;
     }
 
     if (e.kind === 'watcher' || e.kind === 'arbalest') {
       const ang = Math.atan2(dy, dx);
       const speed = e.kind === 'arbalest' ? 520 : 340;
-      this.room.projectiles.push({
-        x: e.x + e.w / 2,
-        y: e.y + e.h * 0.45,
-        vx: Math.cos(ang) * speed,
-        vy: Math.sin(ang) * speed,
-        r: e.kind === 'arbalest' ? 6 : 8,
-        dmg: e.dmg,
-        friendly: false,
-        color: e.kind === 'arbalest' ? '#ff4d63' : '#e06b2b',
-        kind: e.kind === 'arbalest' ? 'bolt' : 'orb',
-        life: 2.2,
-      });
+      const shot = this.projectiles.acquire(this.room.projectiles);
+      shot.x = e.x + e.w / 2;
+      shot.y = e.y + e.h * 0.45;
+      shot.vx = Math.cos(ang) * speed;
+      shot.vy = Math.sin(ang) * speed;
+      shot.r = e.kind === 'arbalest' ? 6 : 8;
+      shot.dmg = e.dmg;
+      shot.friendly = false;
+      shot.color = e.kind === 'arbalest' ? '#ff4d63' : '#e06b2b';
+      shot.kind = e.kind === 'arbalest' ? 'bolt' : 'orb';
+      shot.life = 2.2;
       return;
     }
 
@@ -1829,34 +1831,32 @@ export class CendresEngine {
         const count = e.phase === 2 ? 5 : 3;
         for (let i = 0; i < count; i++) {
           const a = ang + (i - (count - 1) / 2) * 0.2;
-          this.room.projectiles.push({
-            x: e.x + e.w / 2,
-            y: e.y + e.h * 0.45,
-            vx: Math.cos(a) * (e.phase === 2 ? 400 : 340),
-            vy: Math.sin(a) * (e.phase === 2 ? 400 : 340),
-            r: 10,
-            dmg: e.dmg,
-            friendly: false,
-            color: e.kind === 'mother' ? '#ff4d63' : '#ffd470',
-            kind: e.kind === 'sovereign' ? 'crescent' : 'orb',
-            life: 2.6,
-          });
+          const shot = this.projectiles.acquire(this.room.projectiles);
+          shot.x = e.x + e.w / 2;
+          shot.y = e.y + e.h * 0.45;
+          shot.vx = Math.cos(a) * (e.phase === 2 ? 400 : 340);
+          shot.vy = Math.sin(a) * (e.phase === 2 ? 400 : 340);
+          shot.r = 10;
+          shot.dmg = e.dmg;
+          shot.friendly = false;
+          shot.color = e.kind === 'mother' ? '#ff4d63' : '#ffd470';
+          shot.kind = e.kind === 'sovereign' ? 'crescent' : 'orb';
+          shot.life = 2.6;
         }
       } else if (e.phase === 2 && e.attackPattern === 2) {
         // Ground Eruption Pillar
-        this.room.projectiles.push({
-          x: this.player.x + this.player.w / 2,
-          y: this.room.groundY,
-          vx: 0,
-          vy: 0,
-          r: 36,
-          dmg: e.dmg,
-          friendly: false,
-          color: '#ff4d63',
-          kind: 'eruption',
-          telegraphT: 0.55,
-          life: 0.95,
-        });
+        const shot = this.projectiles.acquire(this.room.projectiles);
+        shot.x = this.player.x + this.player.w / 2;
+        shot.y = this.room.groundY;
+        shot.vx = 0;
+        shot.vy = 0;
+        shot.r = 36;
+        shot.dmg = e.dmg;
+        shot.friendly = false;
+        shot.color = '#ff4d63';
+        shot.kind = 'eruption';
+        shot.telegraphT = 0.55;
+        shot.life = 0.95;
       }
       e.vx = e.facing * (e.phase === 2 ? 480 : 410);
       return;
@@ -1910,11 +1910,15 @@ export class CendresEngine {
       if (run.blessings.includes('bronze_counter')) run.critNextAttack = true;
       const pxP = player.x + player.w / 2 + player.facing * 16;
       const pyP = player.y + 20;
-      this.particles.spawnBurst(pxP, pyP, '#ffd470', 22, 320);
+      const quietParry = this.save.settings?.reduceFlashes;
+      this.particles.spawnBurst(pxP, pyP, '#ffd470', quietParry ? 6 : 16, quietParry ? 120 : 270);
       this.particles.spawnRing(player.x + player.w / 2, player.y + 20, '#ffd470', 90, 0.26);
-      this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
-      this.vfx.triggerScreenFlash('#ffd470', 0.22);
-      for (let b = 0; b < 3; b++) {
+      if (!quietParry) {
+        this.particles.spawnBurst(pxP, pyP, '#fff3cb', 6, 180, 160, 1);
+        this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
+        this.vfx.triggerScreenFlash('#ffd470', 0.18);
+      }
+      for (let b = 0; !quietParry && b < 3; b++) {
         const ang = -0.8 + b * 0.8 + (player.facing === -1 ? Math.PI : 0);
         this.vfx.spawnLightning(
           pxP,
@@ -1926,7 +1930,7 @@ export class CendresEngine {
           0.18
         );
       }
-      this.particles.addText(player.x + 14, player.y - 16, 'DÉVIATION !', '#ffd470', 1.15);
+      this.particles.addText(player.x + 14, player.y - 16, 'PARADE PARFAITE', '#ffe2a3', 1.15);
 
       const stagPower =
         ((this.save.oath === 'airain' ? 78 : 55) +

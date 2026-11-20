@@ -1,6 +1,5 @@
 # Graphical Update v2 — Cinematic Dark Fantasy
 
-**Branche :** `feature/graphics-v2`  
 **Statut :** Non-destructif — le jeu reste 100 % fonctionnel même sans les nouveaux assets.
 
 ## Ce qui a changé
@@ -13,7 +12,7 @@
   - `setPreferCinematicArt(boolean)`
   - `getPreferCinematicArt()`
 
-### Nouveaux assets attendus (à placer manuellement pour l’instant)
+### Décors cinématiques inclus
 
 ```
 src/assets/images/v2/
@@ -27,15 +26,7 @@ Les fichiers concept (joueur + armes) sont disponibles dans les artifacts de la 
 
 ## Comment activer / désactiver
 
-Par défaut le style cinematic est préféré (`preferCinematicArt = true`).
-
-Pour forcer le style classique :
-```ts
-import { setPreferCinematicArt } from './game/textures';
-setPreferCinematicArt(false);
-```
-
-Plus tard on pourra brancher ce flag sur les `GameSettings`.
+Dans **Options → Graphismes & HUD → Style artistique des décors**, choisir **Classique** ou **Cinématique**. Le jeu mémorise ce réglage. Les anciennes sauvegardes utilisent le style cinématique par défaut.
 
 ## Sécurité
 
@@ -46,10 +37,8 @@ Plus tard on pourra brancher ce flag sur les `GameSettings`.
 
 ## Prochaines étapes prévues sur cette branche
 
-- [ ] Ajout des 4 backgrounds v2 (binaires)
 - [ ] Sprites isolés du Pèlerin de Cendre + 4 skins
 - [ ] Amélioration des armes (nouveaux stamps ou sprites)
-- [ ] Option dans le menu Options pour choisir le style graphique
 - [ ] Léger post-process (color grading) optionnel
 
 ---

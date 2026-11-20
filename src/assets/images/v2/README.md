@@ -1,6 +1,6 @@
 # Cinematic Assets v2
 
-Place the high-quality biome backgrounds here to activate the new art style.
+These four biome backgrounds ship with the cinematic art style.
 
 ## Required files
 
@@ -11,7 +11,7 @@ biome_fleche_v2.jpg
 biome_sanctuaire_v2.jpg
 ```
 
-Once these files are present, `textures.ts` will automatically prefer them.
+The cinematic setting in Graphismes & HUD selects these images.
 If any file is missing, the game silently falls back to the classic backgrounds.
 
 ## Optional (future)

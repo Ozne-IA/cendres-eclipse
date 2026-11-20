@@ -145,7 +145,8 @@ export function buildProceduralSplatter(
   dirX: number,
   intensity: number,
   seed: number,
-  tone: BloodTone
+  tone: BloodTone,
+  target?: BloodDecal
 ): BloodDecal {
   const safeIntensity = clamp(intensity, 0.35, 2.4);
   const rawPoolRx = (10 + hashSeed(seed, 1) * 11) * safeIntensity;
@@ -159,7 +160,7 @@ export function buildProceduralSplatter(
 
   const dirSign = dirX >= 0 ? 1 : -1;
   const lobeCount = Math.min(5, Math.max(2, Math.round(1.5 + safeIntensity * 1.6)));
-  const lobes: BloodLobe[] = [];
+  const lobes: BloodLobe[] = target?.lobes ?? [];
 
   for (let i = 0; i < lobeCount; i++) {
     const r0 = hashSeed(seed, 10 + i * 3);
@@ -169,42 +170,40 @@ export function buildProceduralSplatter(
     const ry = 1.2 + r2 * 1.3;
     const rawDx = dirSign * (poolRx * 0.55 + r0 * 24 * safeIntensity) + (r2 - 0.5) * 8;
     const clampedDx = clamp(rawDx, -(localX - rx - 2), platform.w - localX - rx - 2);
-    lobes.push({
-      dx: clampedDx,
-      dy: (r1 - 0.35) * 2.2,
-      rx,
-      ry,
-    });
+    const lobe = lobes[i] ?? (lobes[i] = { dx: 0, dy: 0, rx: 0, ry: 0 });
+    lobe.dx = clampedDx;
+    lobe.dy = (r1 - 0.35) * 2.2;
+    lobe.rx = rx;
+    lobe.ry = ry;
   }
 
+  lobes.length = lobeCount;
+
   const dripCount = safeIntensity >= 0.75 ? (hashSeed(seed, 40) > 0.45 ? 3 : 2) : 1;
-  const drips: BloodDrip[] = [];
+  const drips: BloodDrip[] = target?.drips ?? [];
   const maxAllowedDrip = Math.max(3, Math.min(16, platform.h - 3));
   for (let i = 0; i < dripCount; i++) {
     const r0 = hashSeed(seed, 50 + i * 2);
     const r1 = hashSeed(seed, 51 + i * 2);
     const rawDx = (r0 - 0.5) * poolRx * 1.3;
     const dx = clamp(rawDx, -(localX - 2), platform.w - localX - 2);
-    drips.push({
-      dx,
-      width: 1.4 + r1 * 1.4,
-      maxLen: Math.min(maxAllowedDrip, (4 + r1 * 8.5) * Math.min(1.35, safeIntensity)),
-    });
+    const drip = drips[i] ?? (drips[i] = { dx: 0, width: 0, maxLen: 0 });
+    drip.dx = dx;
+    drip.width = 1.4 + r1 * 1.4;
+    drip.maxLen = Math.min(maxAllowedDrip, (4 + r1 * 8.5) * Math.min(1.35, safeIntensity));
   }
 
   const maxLife = 22 + hashSeed(seed, 77) * 12;
-  return {
-    id,
-    platformIndex,
-    localX,
-    poolRx,
-    poolRy,
-    tone,
-    life: maxLife,
-    maxLife,
-    lobes,
-    drips,
-  };
+  drips.length = dripCount;
+  if (!target) return { id, platformIndex, localX, poolRx, poolRy, tone, life: maxLife, maxLife, lobes, drips };
+  target.id = id;
+  target.platformIndex = platformIndex;
+  target.localX = localX;
+  target.poolRx = poolRx;
+  target.poolRy = poolRy;
+  target.tone = tone;
+  target.life = target.maxLife = maxLife;
+  return target;
 }
 
 /**
@@ -222,6 +221,7 @@ export function computeDecalVisualState(life: number, maxLife: number): DecalVis
 export class BloodSystem {
   decals: BloodDecal[] = [];
   droplets: BloodDroplet[] = [];
+  private idleDecals: BloodDecal[] = [];
   private nextId = 1;
 
   constructor() {
@@ -242,17 +242,16 @@ export class BloodSystem {
   }
 
   clear(): void {
+    for (const decal of this.decals) this.idleDecals.push(decal);
     this.decals.length = 0;
     for (let i = 0; i < this.droplets.length; i++) {
       this.droplets[i].active = false;
     }
   }
 
-  private pushDecal(decal: BloodDecal): void {
-    if (this.decals.length >= MAX_BLOOD_DECALS) {
-      this.decals.shift();
-    }
-    this.decals.push(decal);
+  private acquireDecal(): BloodDecal | undefined {
+    if (this.decals.length >= MAX_BLOOD_DECALS) return this.decals.shift();
+    return this.idleDecals.pop();
   }
 
   /**
@@ -275,7 +274,7 @@ export class BloodSystem {
     const floor = findNearestFloorBelow(x + dirSign * 6, y, 64, platforms);
     if (floor) {
       const id = this.nextId++;
-      this.pushDecal(
+      this.decals.push(
         buildProceduralSplatter(
           id,
           floor.clampedX,
@@ -284,7 +283,8 @@ export class BloodSystem {
           dirSign,
           safeIntensity,
           id * 17.3 + rng() * 100,
-          tone
+          tone,
+          this.acquireDecal()
         )
       );
     }
@@ -331,7 +331,7 @@ export class BloodSystem {
         const hit = findLandingPlatform(d.x, prevY, d.y, platforms);
         if (hit) {
           const id = this.nextId++;
-          this.pushDecal(
+          this.decals.push(
             buildProceduralSplatter(
               id,
               hit.clampedX,
@@ -340,7 +340,8 @@ export class BloodSystem {
               d.vx !== 0 ? d.vx : d.dirX,
               d.intensity,
               id * 13.7 + rng() * 50,
-              d.tone
+              d.tone,
+              this.acquireDecal()
             )
           );
           d.active = false;
@@ -349,12 +350,13 @@ export class BloodSystem {
     }
 
     // 2. Age and purge faded decals
-    for (let i = this.decals.length - 1; i >= 0; i--) {
-      this.decals[i].life -= dt;
-      if (this.decals[i].life <= 0) {
-        this.decals.splice(i, 1);
-      }
+    let remaining = 0;
+    for (const decal of this.decals) {
+      decal.life -= dt;
+      if (decal.life <= 0) this.idleDecals.push(decal);
+      else this.decals[remaining++] = decal;
     }
+    this.decals.length = remaining;
   }
 }
 

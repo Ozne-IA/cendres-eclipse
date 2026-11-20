@@ -320,6 +320,19 @@ export function GameMenuModal({
 
           {tab === 'graphics' && (
             <div className="space-y-4">
+              <fieldset className="bg-[#18141e] border border-[#3a2f24] p-4">
+                <legend className="px-1 font-display text-sm text-[#e8e1d5]">Style artistique des décors</legend>
+                <div className="flex flex-wrap gap-4">
+                  {(['classic', 'cinematic'] as const).map((style) => (
+                    <label key={style} className="flex items-center gap-2 text-sm text-[#e8e1d5] cursor-pointer">
+                      <input type="radio" name="artStyle" checked={settings.artStyle === style}
+                        onChange={() => { AudioFX.ui(); onUpdateSettings({ artStyle: style }); }}
+                        className="accent-[#d4a853]" />
+                      {style === 'classic' ? 'Classique' : 'Cinématique'}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-[#18141e] border border-[#3a2f24] p-4 space-y-2.5">
                   <div className="font-display text-sm text-[#e8e1d5]">Brouillard volumétrique &amp; Poussières</div>

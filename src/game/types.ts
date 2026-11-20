@@ -33,11 +33,13 @@ export type KeyAction =
 
 export type KeyBindings = Record<KeyAction, string>;
 
+export type ArtStyle = 'classic' | 'cinematic';
 export type QualityLevel = 'high' | 'medium' | 'off';
 
 export type ArmorSkinKey = 'eclipse' | 'crimson' | 'solaire' | 'astral';
 
 export interface GameSettings {
+  artStyle: ArtStyle;
   difficulty: DifficultyMode;
   masterVolume: number;
   sfxVolume: number;

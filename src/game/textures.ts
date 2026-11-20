@@ -9,7 +9,6 @@ const BIOME_BACKDROP_URLS: Record<string, string> = {
 };
 
 // === NEW cinematic v2 backdrops (non-destructive) ===
-// Place the files under src/assets/images/v2/ to enable them.
 // If a v2 file is missing, the system automatically falls back to the classic version.
 const BIOME_BACKDROP_V2_URLS: Record<string, string> = {
   catacombes: '/src/assets/images/v2/biome_catacombes_v2.jpg',
@@ -18,7 +17,6 @@ const BIOME_BACKDROP_V2_URLS: Record<string, string> = {
   sanctuaire: '/src/assets/images/v2/biome_sanctuaire_v2.jpg',
 };
 
-/** Feature flag for the cinematic art style. Can later be driven by GameSettings. */
 let preferCinematicArt = true;
 
 export function setPreferCinematicArt(value: boolean): void {
@@ -110,7 +108,7 @@ export function getSeamlessBakedBackdrop(
   if (typeof document === 'undefined') return null;
   const img = getBiomeBackdrop(biome.id);
   const hasImg = !!(img && img.naturalWidth > 0);
-  const cacheKey = `${biome.id}|${W}|${H}|${hasImg ? 1 : 0}|${isTitle ? 1 : 0}|${preferCinematicArt ? 'c' : 'o'}`;
+  const cacheKey = `${biome.id}|${W}|${H}|${img?.src ?? 'gradient'}|${isTitle ? 1 : 0}|${preferCinematicArt ? 'c' : 'o'}`;
   const existing = bakedSeamlessCache.get(cacheKey);
   if (existing) return existing;
 
