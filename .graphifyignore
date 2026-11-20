@@ -1,0 +1,7 @@
+/.agents/
+/.graphify-venv/
+/dist/
+/docs/obsidian/Graphify/
+/graphify-out/
+/public/assets/
+/src/assets/
