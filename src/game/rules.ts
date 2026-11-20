@@ -107,7 +107,7 @@ function mergeNumericRecord<T extends Record<string, number>>(
       defaults[key],
       0,
       maximums[key] ?? 1_000_000_000
-    );
+    ) as T[keyof T];
   }
   return result;
 }
@@ -230,7 +230,7 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
     res,
     buildings,
     npcsUnlocked,
-    npcsAssigned: assigned.length ? assigned : base.npcsAssigned,
+    npcsAssigned: assigned.length ? assigned as NpcKey[] : base.npcsAssigned,
     npcLevels,
     oath: typeof source.oath === 'string' && OATH_KEYS.includes(source.oath as typeof OATH_KEYS[number])
       ? source.oath as SaveData['oath'] : base.oath,
