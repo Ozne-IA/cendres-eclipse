@@ -125,7 +125,13 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 405, { ok: false });
   }
 
-  let safeRel = path.normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, '');
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(urlPath);
+  } catch {
+    return sendJson(res, 400, { ok: false, error: 'URL invalide' });
+  }
+  let safeRel = path.normalize(decodedPath).replace(/^(\.\.[/\\])+/, '');
   if (safeRel === '/' || safeRel === '\\') safeRel = 'index.html';
 
   let filePath = path.join(distDir, safeRel);
