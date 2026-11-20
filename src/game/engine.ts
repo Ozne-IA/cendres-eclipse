@@ -5,6 +5,7 @@ import { InputHub } from './input';
 import { generateRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { renderGameFrame } from './renderer';
+import { VfxSystem } from './vfx';
 import {
   bankRunIntoSave,
   computeComboRank,
@@ -50,6 +51,7 @@ export class CendresEngine {
   private input = new InputHub();
   private particles = new ParticlePool();
   private blood = new BloodSystem();
+  private vfx = new VfxSystem();
 
   private rafId: number | null = null;
   private timeoutId: number | null = null;
@@ -446,6 +448,8 @@ export class CendresEngine {
     this.player = this.createPlayer(110, this.room.groundY - 48);
     this.particles.clear();
     this.blood.clear();
+    this.vfx.clear();
+    this.vfx.spawnAshDissolve(160, this.room.groundY - 30, 14, this.room.biome.accentColor, 260, 80);
     this.camera.x = 0;
     this.camera.y = 0;
 
@@ -492,6 +496,7 @@ export class CendresEngine {
       this.deathDelayTimer -= dt;
       this.trauma = Math.max(0, this.trauma - dt * 1.4);
       this.particles.update(dt);
+      this.vfx.update(dt);
       if (this.deathDelayTimer <= 0) {
         const boss = this.room.enemies.find((e) => e.isBoss && e.hp > 0);
         const summary: RunSummary = {
@@ -589,7 +594,21 @@ export class CendresEngine {
       player.healT = 0.45;
       AudioFX.heal();
       this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#ff9842', 16, 160);
+      this.vfx.spawnAshDissolve(player.x + player.w / 2, player.y + 34, 14, '#5db87a', 20, 26);
+      this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 42, '#ff9842', 'amber', 0.22);
       this.particles.addText(player.x + player.w / 2, player.y - 16, `+${healAmt} PV`, '#ff9842');
+    }
+
+    // Active riposte/crit blade ember aura wisps
+    if ((player.riposteBuffT > 0 || run.critNextAttack) && Math.random() < dt * 11) {
+      this.vfx.spawnAshDissolve(
+        player.x + player.w / 2 + player.facing * 8,
+        player.y + 22,
+        1,
+        '#ffd470',
+        12,
+        14
+      );
     }
 
     // Dash / Dodge Roll
@@ -619,6 +638,7 @@ export class CendresEngine {
       if (run.blessings.includes('shadow_ambush')) run.critNextAttack = true;
       AudioFX.dash();
       this.particles.spawnBurst(player.x + player.w / 2, player.y + 28, '#9c8f83', 8, 120);
+      this.vfx.spawnAshDissolve(player.x + player.w / 2, player.y + 28, 7, '#a89f94', 14, 20);
     } else if (player.dashT > 0) {
       player.dashBuf = false;
     }
@@ -709,6 +729,7 @@ export class CendresEngine {
           if (run.blessings.includes('wall_tempest')) run.critNextAttack = true;
           AudioFX.wallJump();
           this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#b8aba0', 6, 100);
+          this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 28, '#ffd470', 'amber', 0.14);
         } else if (player.jumpsLeft > 0) {
           player.vy = -515 * jumpMult;
           player.jumpsLeft -= 1;
@@ -807,10 +828,14 @@ export class CendresEngine {
       if (p.type === 'solid' || !inp.down) {
         if (player.vy >= 0 && prevBot <= p.y + 14 && player.y + player.h >= p.y) {
           if (!wasOnGround && player.vy > 220) {
+            const heavyFall = player.vy > 480;
             player.squashX = 1.22;
             player.squashY = 0.78;
             AudioFX.land();
-            this.particles.spawnBurst(player.x + player.w / 2, p.y, '#9c9286', 4, 80);
+            this.particles.spawnBurst(player.x + player.w / 2, p.y, '#9c9286', heavyFall ? 8 : 4, 95);
+            if (heavyFall) {
+              this.vfx.spawnGroundFissure(player.x + player.w / 2, p.y + 2, 48, '#ff7b29', 0.85);
+            }
           }
           player.y = p.y - player.h;
           player.vy = 0;
@@ -1017,6 +1042,36 @@ export class CendresEngine {
             getBloodToneForEnemy(e.kind)
           );
 
+          const hx = e.x + e.w / 2;
+          const hy = e.y + e.h * 0.45;
+          if (!blockedByShield) {
+            const flareSize = isRiposte ? 76 : isHeavy || stats.isCrit ? 58 : 34;
+            const flareCol = isRiposte || stats.isCrit ? '#ffd470' : '#ff8c3b';
+            this.vfx.spawnImpactFlare(
+              hx,
+              hy,
+              flareSize,
+              flareCol,
+              isRiposte || stats.isCrit ? 'gold' : 'amber',
+              isRiposte ? 0.26 : 0.18
+            );
+            if (isRiposte || stats.isCrit) {
+              this.vfx.spawnLightning(
+                hx - 32,
+                hy - 28,
+                hx + 34,
+                hy + 26,
+                '#ffd470',
+                2.5,
+                0.16
+              );
+              this.vfx.triggerScreenFlash('#ffd470', isRiposte ? 0.2 : 0.11);
+            }
+            if (player.attackMove === 'heavy' || player.attackMove === 'plunge') {
+              this.vfx.spawnGroundFissure(hx, e.y + e.h + 1, 76, '#ff7b29', 1.4);
+            }
+          }
+
           if (!blockedByShield && this.save.settings?.showDamageNumbers !== false) {
             const label = isRiposte
               ? `RIPOSTE -${finalDmg}!`
@@ -1077,6 +1132,21 @@ export class CendresEngine {
         this.trauma = 0.7;
         AudioFX.boss();
         this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#ff4d63', 180, 0.45);
+        this.vfx.triggerScreenFlash('#ff4d63', 0.3);
+        this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 112, '#ff4d63', 'crimson', 0.38);
+        this.vfx.spawnGroundFissure(e.x + e.w / 2, e.y + e.h, 130, '#ff4d63', 1.8);
+        for (let b = 0; b < 4; b++) {
+          const ang = (b * Math.PI) / 2 + 0.35;
+          this.vfx.spawnLightning(
+            e.x + e.w / 2,
+            e.y + e.h * 0.45,
+            e.x + e.w / 2 + Math.cos(ang) * 110,
+            e.y + e.h * 0.45 + Math.sin(ang) * 90,
+            '#ff7b7b',
+            2.8,
+            0.22
+          );
+        }
         this.showBanner(e.name, 'Phase II — Fureur de l’Éclipse', '#ff4d63', 2.0);
       }
 
@@ -1282,9 +1352,10 @@ export class CendresEngine {
     // Interactions (Chests, Braziers, Shrines, Merchants, Lore, NPCs, Exit)
     this.handlePropsInteraction(inp);
 
-    // Update particles, blood decals/droplets & camera
+    // Update particles, blood decals/droplets, VFX & camera
     this.particles.update(dt);
     this.blood.update(dt, room.platforms);
+    this.vfx.update(dt);
     const targetCamX = Math.max(0, Math.min(room.width - this.width, player.x + player.w / 2 - this.width * 0.42));
     const targetCamY = Math.max(0, Math.min(room.height - this.height, player.y + player.h / 2 - this.height * 0.56));
     this.camera.x += (targetCamX - this.camera.x) * Math.min(1, dt * 8);
@@ -1305,6 +1376,36 @@ export class CendresEngine {
     this.player.attackHitIds.clear();
     this.player.squashX = 1.15;
     this.player.squashY = 0.9;
+
+    const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
+    const isHeavy = move === 'heavy' || move === 'light3' || move === 'plunge';
+    const arcCol =
+      move === 'heavy' || move === 'plunge'
+        ? '#ff6a1f'
+        : move === 'light3' || move === 'dash_strike'
+        ? '#ffd470'
+        : '#9fd0ff';
+    const coreCol = move === 'heavy' ? '#ffe08a' : '#ffffff';
+    const cx = this.player.x + this.player.w / 2;
+    const cy = this.player.y + 22;
+    const radius = wDef.reachPx * 0.8 + (isHeavy ? 14 : 2);
+    if (move === 'plunge') {
+      this.vfx.spawnSlashArc(cx, cy + 12, radius * 0.85, 0.15, Math.PI - 0.15, this.player.facing, arcCol, coreCol, 22, 0.24);
+    } else if (move === 'launcher') {
+      this.vfx.spawnSlashArc(cx, cy, radius * 0.9, -1.45, 0.65, this.player.facing, arcCol, coreCol, 18, 0.22);
+    } else {
+      this.vfx.spawnSlashArc(cx, cy, radius, -1.25, 1.15, this.player.facing, arcCol, coreCol, isHeavy ? 22 : 14, isHeavy ? 0.24 : 0.18);
+    }
+    this.vfx.spawnBladeSparks(cx, cy, this.player.facing, isHeavy ? 14 : 7, arcCol);
+    if (move === 'heavy' && this.player.onGround) {
+      this.vfx.spawnGroundFissure(
+        cx + this.player.facing * 42,
+        this.player.y + this.player.h,
+        68,
+        '#ff7b29',
+        1.15
+      );
+    }
   }
 
   private executeEnemyAttack(e: Enemy, dx: number, dy: number, dist: number): void {
@@ -1423,14 +1524,24 @@ export class CendresEngine {
       run.bestParryStreak = Math.max(run.bestParryStreak, run.parryStreak);
       this.registerComboHit(2);
       if (run.blessings.includes('bronze_counter')) run.critNextAttack = true;
-      this.particles.spawnBurst(
-        player.x + player.w / 2 + player.facing * 16,
-        player.y + 20,
-        '#ffd470',
-        22,
-        320
-      );
+      const pxP = player.x + player.w / 2 + player.facing * 16;
+      const pyP = player.y + 20;
+      this.particles.spawnBurst(pxP, pyP, '#ffd470', 22, 320);
       this.particles.spawnRing(player.x + player.w / 2, player.y + 20, '#ffd470', 90, 0.26);
+      this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
+      this.vfx.triggerScreenFlash('#ffd470', 0.22);
+      for (let b = 0; b < 3; b++) {
+        const ang = -0.8 + b * 0.8 + (player.facing === -1 ? Math.PI : 0);
+        this.vfx.spawnLightning(
+          pxP,
+          pyP,
+          pxP + Math.cos(ang) * 72,
+          pyP + Math.sin(ang) * 72,
+          '#ffd470',
+          2.6,
+          0.18
+        );
+      }
       this.particles.addText(player.x + 14, player.y - 16, 'DÉVIATION !', '#ffd470', 1.15);
 
       const stagPower =
@@ -1489,6 +1600,8 @@ export class CendresEngine {
     if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.055;
     this.trauma = 0.62;
     this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
+    this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 48, '#ff4d5e', 'crimson', 0.18);
+    this.vfx.triggerScreenFlash('#c4303e', 0.24);
     this.blood.spawnImpact(
       player.x + player.w / 2,
       player.y + player.h * 0.5,
@@ -1543,6 +1656,18 @@ export class CendresEngine {
       e.isBoss ? 48 : 18,
       280
     );
+    this.vfx.spawnAshDissolve(
+      e.x + e.w / 2,
+      e.y + e.h * 0.5,
+      e.isBoss ? 42 : 16,
+      e.isBoss ? '#ffd470' : '#ff8c3b',
+      e.w,
+      e.h
+    );
+    if (e.isBoss) {
+      this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 130, '#ffd470', 'gold', 0.42);
+      this.vfx.triggerScreenFlash('#ffd470', 0.32);
+    }
     this.blood.spawnImpact(
       e.x + e.w / 2,
       e.y + e.h * 0.55,
@@ -1788,6 +1913,7 @@ export class CendresEngine {
       weapon: this.save.weapon,
       particles: this.particles,
       blood: this.blood,
+      vfx: this.vfx,
       settings: this.save.settings,
     });
   }

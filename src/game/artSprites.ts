@@ -212,38 +212,51 @@ function getWeaponStamp(weapon: WeaponKey): HTMLCanvasElement | null {
     ctx.fillStyle = '#ffd470';
     ctx.fillRect(34, -2.5, 4, 5);
   } else {
-    // Clay Blade: forged bastard sword with ember-rune fuller
-    ctx.fillStyle = '#3b281d';
-    ctx.fillRect(-11, -2, 12, 4);
-    ctx.fillStyle = '#d4a853';
+    // Clay Blade: Runic dark-iron bastard sword with swept filigree guard & molten ember inscriptions
+    ctx.fillStyle = '#332018';
+    ctx.fillRect(-12, -2.2, 13, 4.4);
+    ctx.fillStyle = '#c89b4b';
     ctx.beginPath();
-    ctx.arc(-13, 0, 3.2, 0, Math.PI * 2);
+    ctx.arc(-14, 0, 3.6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillRect(1, -8, 3.5, 16);
-
-    const cGrad = ctx.createLinearGradient(4, -4, 4, 4);
-    cGrad.addColorStop(0, '#f3f7fb');
-    cGrad.addColorStop(0.45, '#c6cfd9');
-    cGrad.addColorStop(0.52, '#69727e');
-    cGrad.addColorStop(1, '#9ca6b2');
-    ctx.fillStyle = cGrad;
+    // Swept cathedral crossguard
+    ctx.fillStyle = '#8b6a38';
     ctx.beginPath();
-    ctx.moveTo(4.5, -3.8);
-    ctx.lineTo(46, -2.2);
-    ctx.lineTo(54, 0);
-    ctx.lineTo(46, 2.2);
-    ctx.lineTo(4.5, 3.8);
+    ctx.moveTo(0, -10);
+    ctx.lineTo(5, -7);
+    ctx.lineTo(5, 7);
+    ctx.lineTo(0, 10);
+    ctx.lineTo(2, 0);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#141118';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = '#e5bd72';
+    ctx.fillRect(1.5, -8, 1.8, 16);
+
+    const cGrad = ctx.createLinearGradient(4, -5, 4, 5);
+    cGrad.addColorStop(0, '#eef4fa');
+    cGrad.addColorStop(0.45, '#aeb8c4');
+    cGrad.addColorStop(0.52, '#4b525c');
+    cGrad.addColorStop(1, '#7c8591');
+    ctx.fillStyle = cGrad;
+    ctx.beginPath();
+    ctx.moveTo(4.5, -4.6);
+    ctx.lineTo(44, -2.8);
+    ctx.lineTo(56, 0);
+    ctx.lineTo(44, 2.8);
+    ctx.lineTo(4.5, 4.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#100c14';
+    ctx.lineWidth = 1.1;
     ctx.stroke();
 
-    // Glowing ember rune core
-    ctx.fillStyle = '#ff7b29';
-    ctx.fillRect(8, -0.7, 20, 1.4);
-    ctx.fillStyle = '#ffd470';
-    ctx.fillRect(10, -0.3, 12, 0.7);
+    // Glowing molten ember runes along the blade fuller
+    ctx.fillStyle = '#ff6a1f';
+    ctx.fillRect(8, -0.9, 26, 1.8);
+    ctx.fillStyle = '#ffe08a';
+    for (let rx = 10; rx <= 30; rx += 5) {
+      ctx.fillRect(rx, -0.5, 2.6, 1);
+    }
   }
 
   weaponStamps.set(weapon, c);
@@ -260,6 +273,53 @@ export function drawWeaponSprite(
   const w = 136 * lengthScale;
   const h = 56 * lengthScale;
   ctx.drawImage(stamp, -24 * lengthScale, -28 * lengthScale, w, h);
+}
+
+export function drawPlantedRelicSword(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  groundY: number,
+  angle: number,
+  scale = 1,
+  emberGlow = true
+): void {
+  ctx.save();
+  ctx.translate(x, groundY);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+
+  // Blade buried into ash/stone
+  const grad = ctx.createLinearGradient(-3, -38, 3, -38);
+  grad.addColorStop(0, '#8d96a2');
+  grad.addColorStop(0.5, '#3b414a');
+  grad.addColorStop(1, '#68717d');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(-3.2, -38);
+  ctx.lineTo(3.2, -38);
+  ctx.lineTo(2.4, 2);
+  ctx.lineTo(-2.4, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#0c090e';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (emberGlow) {
+    ctx.fillStyle = 'rgba(255, 112, 42, 0.65)';
+    ctx.fillRect(-0.8, -28, 1.6, 22);
+  }
+
+  // Crossguard & leather hilt
+  ctx.fillStyle = '#5a4635';
+  ctx.fillRect(-10, -41, 20, 3.5);
+  ctx.fillStyle = '#2d1e18';
+  ctx.fillRect(-2, -52, 4, 11);
+  ctx.fillStyle = '#8b6a3c';
+  ctx.beginPath();
+  ctx.arc(0, -54, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 export function drawGroundShadow(
@@ -338,63 +398,64 @@ export function drawDetailedPlayer(
   const wave1 = Math.sin(player.capeWave) * 5.5;
   const wave2 = Math.cos(player.capeWave * 0.82) * 4.5;
 
-  // 1. Multi-Fold Billowing Cloak (inner crimson lining + dark plum-obsidian exterior)
-  ctx.fillStyle = flash ? '#fff5e4' : '#4a1720';
+  // 1. Tattered Asymmetric War Cloak (jagged frayed edges + crimson inner lining)
+  ctx.fillStyle = flash ? '#fff5e4' : '#42141b';
   ctx.beginPath();
   ctx.moveTo(capeDir * 2, -player.h + 15 - bob);
   ctx.quadraticCurveTo(
-    capeDir * (14 + speedDrag),
+    capeDir * (15 + speedDrag),
     -26 + wave1,
-    capeDir * (24 + speedDrag),
-    -4 + wave2
+    capeDir * (26 + speedDrag),
+    -3 + wave2
   );
-  ctx.lineTo(capeDir * 5, -3);
+  ctx.lineTo(capeDir * (18 + speedDrag * 0.6), -7 + wave2 * 0.5);
+  ctx.lineTo(capeDir * (13 + speedDrag * 0.4), -1);
+  ctx.lineTo(capeDir * 5, -5);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = flash ? '#fff5e4' : '#211820';
+  ctx.fillStyle = flash ? '#fff5e4' : '#1b161c';
   ctx.beginPath();
   ctx.moveTo(capeDir * 1, -player.h + 14 - bob);
   ctx.quadraticCurveTo(
-    capeDir * (12 + speedDrag * 0.9),
+    capeDir * (13 + speedDrag * 0.9),
     -29 + wave1 * 0.85,
-    capeDir * (22 + speedDrag),
-    -8 + wave2
+    capeDir * (24 + speedDrag),
+    -6 + wave2
   );
-  ctx.quadraticCurveTo(capeDir * 11, -8, capeDir * 2, -6);
+  ctx.lineTo(capeDir * (17 + speedDrag * 0.55), -11 + wave2 * 0.4);
+  ctx.lineTo(capeDir * (11 + speedDrag * 0.35), -5);
+  ctx.lineTo(capeDir * 2, -7);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#0c090e';
+  ctx.strokeStyle = '#09070b';
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // Flowing crimson scarf with split ribbon tail
-  ctx.fillStyle = flash ? '#ffffff' : '#9c2634';
+  // Flowing crimson tattered mantle scarf over shoulder
+  ctx.fillStyle = flash ? '#ffffff' : '#781d29';
   ctx.beginPath();
-  ctx.moveTo(-2, -player.h + 14 - bob);
+  ctx.moveTo(-3, -player.h + 13 - bob);
   ctx.quadraticCurveTo(
-    capeDir * (12 + speedDrag * 0.5),
-    -player.h + 15 + wave1 * 0.5,
-    capeDir * (24 + speedDrag * 0.8),
-    -player.h + 21 + wave2
+    capeDir * (13 + speedDrag * 0.5),
+    -player.h + 14 + wave1 * 0.5,
+    capeDir * (26 + speedDrag * 0.85),
+    -player.h + 20 + wave2
   );
-  ctx.lineTo(capeDir * (19 + speedDrag * 0.6), -player.h + 25 + wave2);
-  ctx.quadraticCurveTo(
-    capeDir * (10 + speedDrag * 0.4),
-    -player.h + 19 + wave1 * 0.4,
-    0,
-    -player.h + 18 - bob
-  );
+  ctx.lineTo(capeDir * (20 + speedDrag * 0.65), -player.h + 25 + wave2);
+  ctx.lineTo(capeDir * (16 + speedDrag * 0.4), -player.h + 21 + wave1 * 0.4);
+  ctx.lineTo(0, -player.h + 18 - bob);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
 
-  // 2. Articulated Thighs, Greaves & Sabaton Boots
+  // 2. Articulated Iron Greaves, Knee Cops & Sabaton Boots
   const drawLeg = (offset: number, dark: boolean) => {
     const hipX = offset * 0.25;
-    const kneeX = offset * 0.9 + player.facing * 2;
+    const kneeX = offset * 0.88 + player.facing * 2;
     const footPosX = offset * 1.15;
-    ctx.strokeStyle = '#0c090e';
-    ctx.lineWidth = 5.5;
+    ctx.strokeStyle = '#09070b';
+    ctx.lineWidth = 5.8;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(hipX, -15 - bob * 0.4);
@@ -402,107 +463,165 @@ export function drawDetailedPlayer(
     ctx.lineTo(footPosX, -1.5);
     ctx.stroke();
 
-    ctx.strokeStyle = dark ? '#1f1924' : '#352b38';
-    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = dark ? '#24262e' : '#3a3e4a';
+    ctx.lineWidth = 3.8;
     ctx.stroke();
 
-    // Bronze shin-guard & boot tip
-    ctx.fillStyle = dark ? '#5a4736' : '#856747';
-    ctx.fillRect(footPosX - 2.5, -6, 6, 4);
+    // Knee cop & articulated iron sabaton highlight
+    ctx.fillStyle = dark ? '#4d525e' : '#717887';
+    ctx.fillRect(kneeX - 2.2, -10.5, 4.4, 3.5);
+    ctx.fillRect(footPosX - 2.5, -5.5, 6.2, 4);
   };
   drawLeg(-stride * 6 - 2, true);
   drawLeg(stride * 6 + 2, false);
   ctx.lineWidth = 1;
 
-  // 3. Layered Leather/Mail Tunic & Engraved Bronze Cuirass with volumetric shading
-  ctx.fillStyle = flash ? '#fff5e4' : '#2e2129';
+  // 3. Chainmail Skirt & Tattered Crimson/Charcoal Surcoat + Weathered Iron Cuirass
+  // Chainmail hem
+  ctx.fillStyle = '#3c404a';
+  ctx.fillRect(-7.5, -18 - bob * 0.3, 15, 10);
+  // Tattered crimson split front tabard
+  ctx.fillStyle = flash ? '#ffffff' : '#631b26';
   ctx.beginPath();
-  ctx.moveTo(-10, -10);
-  ctx.lineTo(-8.5, -player.h + 14 - bob);
-  ctx.lineTo(8.5, -player.h + 14 - bob);
-  ctx.lineTo(10, -10);
+  ctx.moveTo(-4, -18 - bob * 0.3);
+  ctx.lineTo(4, -18 - bob * 0.3);
+  ctx.lineTo(5, -5);
+  ctx.lineTo(1, -8);
+  ctx.lineTo(-2, -4);
+  ctx.lineTo(-4.5, -7);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#0c090e';
+
+  // Weathered Steel Cuirass body
+  ctx.fillStyle = flash ? '#fff5e4' : '#2a2d36';
+  ctx.beginPath();
+  ctx.moveTo(-10, -14 - bob * 0.3);
+  ctx.lineTo(-8.8, -player.h + 14 - bob);
+  ctx.lineTo(8.8, -player.h + 14 - bob);
+  ctx.lineTo(10, -14 - bob * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#09070b';
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
   if (!flash) {
-    ctx.fillStyle = 'rgba(8, 6, 12, 0.42)';
-    ctx.fillRect(-9, -18, 18, 8);
+    ctx.fillStyle = 'rgba(255, 224, 185, 0.14)';
+    ctx.beginPath();
+    ctx.moveTo(-6, -21 - bob * 0.5);
+    ctx.lineTo(-5, -player.h + 15 - bob);
+    ctx.lineTo(5, -player.h + 15 - bob);
+    ctx.lineTo(6, -21 - bob * 0.5);
+    ctx.closePath();
+    ctx.fill();
   }
 
-  // Breastplate center ridge & warm specular edge
-  ctx.fillStyle = flash ? '#ffffff' : '#533f47';
+  // Engraved Solar Eclipse Chest Medallion & Cross-Chest Leather Strap
+  ctx.strokeStyle = '#b58c44';
+  ctx.lineWidth = 1.1;
   ctx.beginPath();
-  ctx.moveTo(-6.5, -21 - bob * 0.5);
-  ctx.lineTo(-5.5, -player.h + 15 - bob);
-  ctx.lineTo(5.5, -player.h + 15 - bob);
-  ctx.lineTo(6.5, -21 - bob * 0.5);
+  ctx.arc(0, -player.h + 22 - bob * 0.7, 4.2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#472f22';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(-7, -player.h + 15 - bob);
+  ctx.lineTo(7, -21 - bob * 0.4);
+  ctx.stroke();
+  ctx.fillStyle = '#d4a853';
+  ctx.beginPath();
+  ctx.arc(-4.5, -player.h + 17 - bob, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Buckled Leather Belt & Hip Satchel
+  ctx.fillStyle = '#38251a';
+  ctx.fillRect(-9.5, -19.5 - bob * 0.4, 19, 3.2);
+  ctx.fillStyle = '#c89b4b';
+  ctx.fillRect(-2, -20 - bob * 0.4, 4, 4.2);
+  ctx.fillStyle = '#4b3324';
+  ctx.fillRect(-player.facing * 8 - 2.5, -17.5 - bob * 0.4, 5.5, 6);
+  ctx.strokeStyle = '#0c090e';
+  ctx.lineWidth = 0.9;
+  ctx.strokeRect(-player.facing * 8 - 2.5, -17.5 - bob * 0.4, 5.5, 6);
+
+  // Layered Lamellar Shoulder Pauldrons with Rivets & Torch Rim-Light
+  for (const side of [-1, 1] as const) {
+    const pxP = side * 6.8;
+    const pyP = -player.h + 16.5 - bob;
+    ctx.fillStyle = flash ? '#ffffff' : side === player.facing ? '#5a6270' : '#3a3f4a';
+    ctx.beginPath();
+    ctx.ellipse(pxP, pyP, 7.2, 5.2, side * -0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 224, 178, 0.24)';
+    ctx.beginPath();
+    ctx.ellipse(pxP, pyP - 1.5, 4.8, 2, side * -0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = side === player.facing ? '#d4a853' : '#120f16';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+  }
+
+  // 4. Jagged Crowned Gothic Fluted Visor Helm & Molten Eye Slits
+  // Helm dome & pointed visor bevel
+  ctx.fillStyle = flash ? '#ffffff' : '#363b46';
+  ctx.beginPath();
+  ctx.moveTo(-7.2, -player.h + 2 - bob);
+  ctx.lineTo(7.2, -player.h + 2 - bob);
+  ctx.lineTo(7.5, -player.h + 11 - bob);
+  ctx.lineTo(0, -player.h + 15.5 - bob);
+  ctx.lineTo(-7.5, -player.h + 11 - bob);
   ctx.closePath();
   ctx.fill();
-  // Bronze belt + embossed eclipse buckle
-  ctx.fillStyle = '#b88b3d';
-  ctx.fillRect(-9.5, -19 - bob * 0.4, 19, 3);
-  ctx.fillStyle = '#ffd470';
-  ctx.fillRect(-2.5, -20 - bob * 0.4, 5, 4.5);
-
-  // Layered Pauldron with gold rim & specular top highlight
-  ctx.fillStyle = '#5c6473';
-  ctx.beginPath();
-  ctx.ellipse(player.facing * 6, -player.h + 16.5 - bob, 7.5, 5, player.facing * -0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255, 224, 178, 0.25)';
-  ctx.beginPath();
-  ctx.ellipse(player.facing * 6, -player.h + 15 - bob, 5.2, 2.2, player.facing * -0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#d4a853';
+  ctx.strokeStyle = '#09070b';
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // 4. Sculpted Ivory-Porcelain Mask & Dark Hood
-  ctx.fillStyle = '#1b131a';
-  ctx.beginPath();
-  ctx.ellipse(0, -player.h + 8 - bob, 9.5, 9.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#09070b';
-  ctx.stroke();
+  // Shadowed side of fluted helm
+  if (!flash) {
+    ctx.fillStyle = 'rgba(10, 9, 14, 0.42)';
+    ctx.beginPath();
+    ctx.moveTo(-7.2, -player.h + 2 - bob);
+    ctx.lineTo(0, -player.h + 2 - bob);
+    ctx.lineTo(0, -player.h + 15.5 - bob);
+    ctx.lineTo(-7.5, -player.h + 11 - bob);
+    ctx.closePath();
+    ctx.fill();
+  }
 
-  // Porcelain face plate
-  ctx.fillStyle = flash ? '#ffffff' : '#e6dccb';
+  // Iron Jagged Crown Spikes atop the Helm
+  ctx.fillStyle = flash ? '#ffffff' : '#8b6f47';
   ctx.beginPath();
-  ctx.moveTo(-6.5, -player.h + 2 - bob);
-  ctx.lineTo(6.5, -player.h + 2 - bob);
-  ctx.lineTo(6, -player.h + 11.5 - bob);
-  ctx.lineTo(0, -player.h + 15.5 - bob);
-  ctx.lineTo(-6, -player.h + 11.5 - bob);
+  ctx.moveTo(-7, -player.h + 3 - bob);
+  ctx.lineTo(-8, -player.h - 4 - bob);
+  ctx.lineTo(-3.5, -player.h + 0.5 - bob);
+  ctx.lineTo(0, -player.h - 6.5 - bob);
+  ctx.lineTo(3.5, -player.h + 0.5 - bob);
+  ctx.lineTo(8, -player.h - 4 - bob);
+  ctx.lineTo(7, -player.h + 3 - bob);
   ctx.closePath();
   ctx.fill();
-  // Subtle left-side mask shading & hairline fracture
-  ctx.fillStyle = 'rgba(72, 56, 48, 0.22)';
-  ctx.beginPath();
-  ctx.moveTo(-6.5, -player.h + 2 - bob);
-  ctx.lineTo(0, -player.h + 2 - bob);
-  ctx.lineTo(0, -player.h + 15.5 - bob);
-  ctx.lineTo(-6, -player.h + 11.5 - bob);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(40, 30, 26, 0.5)';
+  ctx.strokeStyle = '#0c090e';
   ctx.lineWidth = 0.9;
-  ctx.beginPath();
-  ctx.moveTo(-3.5, -player.h + 3 - bob);
-  ctx.lineTo(-2, -player.h + 7 - bob);
-  ctx.lineTo(-4, -player.h + 10 - bob);
   ctx.stroke();
 
-  // Molten Ember Eye Slit
-  const eyeX = player.facing === 1 ? 1.8 : -5.8;
-  ctx.fillStyle = '#1a1114';
-  ctx.fillRect(eyeX - 0.5, -player.h + 6 - bob, 5, 3.6);
-  ctx.fillStyle = '#ff7b29';
-  ctx.fillRect(eyeX, -player.h + 6.5 - bob, 4, 2.6);
+  // Vertical Breather Visor Grille Slits
+  ctx.strokeStyle = '#100d14';
+  ctx.lineWidth = 1;
+  for (let gx = -3; gx <= 4; gx += 2.2) {
+    ctx.beginPath();
+    ctx.moveTo(player.facing * 1.2 + gx, -player.h + 9.2 - bob);
+    ctx.lineTo(player.facing * 1.2 + gx * 0.85, -player.h + 13.5 - bob);
+    ctx.stroke();
+  }
+
+  // Fierce Glowing Ember Eye Slit
+  const eyeX = player.facing === 1 ? 1.5 : -6.2;
+  ctx.fillStyle = '#0d090e';
+  ctx.fillRect(eyeX - 0.6, -player.h + 5.8 - bob, 5.6, 2.8);
+  ctx.fillStyle = '#ff6a1f';
+  ctx.fillRect(eyeX, -player.h + 6.2 - bob, 4.4, 2);
   ctx.fillStyle = '#fff0a8';
-  ctx.fillRect(eyeX + 1, -player.h + 7 - bob, 2, 1.4);
+  ctx.fillRect(eyeX + (player.facing === 1 ? 1.6 : 0.6), -player.h + 6.5 - bob, 2, 1.3);
 
   // 5. Weapon (Idle, Guard, or Off-hand Dagger)
   if (player.attackT <= 0) {
@@ -513,14 +632,14 @@ export function drawDetailedPlayer(
     } else {
       ctx.rotate(player.facing === 1 ? 0.34 : Math.PI - 0.34);
     }
-    drawWeaponSprite(ctx, weapon, 0.85);
+    drawWeaponSprite(ctx, weapon, 0.88);
     ctx.restore();
 
     if (weapon === 'eclipse_daggers' || weapon === 'twin_hammers') {
       ctx.save();
       ctx.translate(-player.facing * 6, -21 - bob);
       ctx.rotate(player.facing === 1 ? 2.45 : Math.PI - 2.45);
-      drawWeaponSprite(ctx, weapon, weapon === 'twin_hammers' ? 0.76 : 0.72);
+      drawWeaponSprite(ctx, weapon, weapon === 'twin_hammers' ? 0.78 : 0.74);
       ctx.restore();
     }
   }
@@ -654,13 +773,15 @@ function drawCrescentRibbon(
   innerCol: string
 ): void {
   const steps = 14;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
   ctx.fillStyle = outerCol;
   ctx.beginPath();
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const a = a0 + (a1 - a0) * t;
     const taper = Math.sin(t * Math.PI);
-    const r = radius + thickness * 0.45 * taper;
+    const r = radius + thickness * 0.48 * taper;
     const px = cx + Math.cos(a) * r;
     const py = cy + Math.sin(a) * r;
     if (i === 0) ctx.moveTo(px, py);
@@ -670,19 +791,27 @@ function drawCrescentRibbon(
     const t = i / steps;
     const a = a0 + (a1 - a0) * t;
     const taper = Math.sin(t * Math.PI);
-    const r = radius - thickness * 0.65 * taper;
+    const r = radius - thickness * 0.62 * taper;
     ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
   }
   ctx.closePath();
   ctx.fill();
 
-  // Sharp white-gold cutting edge
+  // Secondary incandescent inner arc
   ctx.strokeStyle = innerCol;
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.arc(cx, cy, radius + thickness * 0.25, a0 + (a1 - a0) * 0.15, a1 - (a1 - a0) * 0.05);
+  ctx.arc(cx, cy, radius + thickness * 0.28, a0 + (a1 - a0) * 0.12, a1 - (a1 - a0) * 0.04);
   ctx.stroke();
-  ctx.lineWidth = 1;
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.globalAlpha = 0.72;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + thickness * 0.36, a0 + (a1 - a0) * 0.28, a1 - (a1 - a0) * 0.06);
+  ctx.stroke();
+  ctx.restore();
 }
 
 export function drawDetailedEnemy(

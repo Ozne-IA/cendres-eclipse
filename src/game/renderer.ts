@@ -2,6 +2,7 @@ import {
   drawDetailedEnemy,
   drawDetailedPlayer,
   drawDetailedProp,
+  drawPlantedRelicSword,
   drawWeaponSprite,
   getTorchGlow,
 } from './artSprites';
@@ -27,8 +28,15 @@ import {
   getColoredGlow,
   getSeamlessBakedBackdrop,
   getStonePattern,
+  getTitleHeroArtwork,
 } from './textures';
 import type { GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
+import {
+  renderGroundFissuresVfx,
+  renderScreenVfx,
+  renderWorldVfx,
+  type VfxSystem,
+} from './vfx';
 
 export interface RenderContextState {
   phase: string;
@@ -44,6 +52,7 @@ export interface RenderContextState {
   weapon: WeaponKey;
   particles: ParticlePool;
   blood?: BloodSystem;
+  vfx?: VfxSystem;
   settings?: GameSettings;
 }
 
@@ -88,9 +97,20 @@ function getVignetteSprite(lowHp: boolean): HTMLCanvasElement | null {
 export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContextState): void {
   const { width: W, height: H, time } = st;
   const isTitle = st.phase === 'title';
+  const b = st.room ? st.room.biome : BIOMES[0];
+  const fogQuality = st.settings?.fogQuality ?? 'high';
+
+  // AAA Title Composition: composite the 2K Crowned Eclipse Knight concept art + live atmospheric/corona layers
+  if (isTitle) {
+    const titleArt = getTitleHeroArtwork();
+    if (titleArt) {
+      renderTitleArtworkBackdrop(ctx, titleArt, b, W, H, time, fogQuality);
+      return;
+    }
+  }
+
   const camX = isTitle ? Math.sin(time * 0.14) * 90 + 160 : st.cameraX;
   const camY = isTitle ? 120 : st.cameraY;
-  const b = st.room ? st.room.biome : BIOMES[0];
 
   // Plan 0: Pre-baked Seamless Matte-Painted Biome Backdrop + Scrim + Mist (0.05x)
   const bakedBg = getSeamlessBakedBackdrop(b, W, H, isTitle);
@@ -111,40 +131,56 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     ctx.fillRect(sx, sy, i % 3 === 0 ? 2 : 1.2, i % 3 === 0 ? 2 : 1.2);
   }
 
-  // Celestial Brass Eclipse + Additive Corona + Engraved Astrolabe Rings (0.03x H & 0.015x V)
-  const ex = W * 0.74 - (isTitle ? camX * 0.04 : skyOff.offsetX);
-  const ey = H * 0.24 - (isTitle ? 0 : skyOff.offsetY);
-  const pulse = 1 + Math.sin(time * 1.4) * 0.04;
+  // Celestial Brass Eclipse + Additive Corona + Solar Plasma Prominences + Astrolabe Rings
+  const ex = W * 0.72 - (isTitle ? camX * 0.04 : skyOff.offsetX);
+  const ey = H * 0.25 - (isTitle ? 0 : skyOff.offsetY);
+  const pulse = 1 + Math.sin(time * 1.4) * 0.045;
   const coronaSprite = getCoronaSprite();
-  const cRad = 225 * pulse;
+  const cRad = 255 * pulse;
   if (coronaSprite) {
-    ctx.globalAlpha = 0.82;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.72;
     ctx.drawImage(coronaSprite, Math.round(ex - cRad), Math.round(ey - cRad), Math.round(cRad * 2), Math.round(cRad * 2));
-    ctx.globalAlpha = 1;
+    // Swirling fiery solar prominence rim arcs
+    for (let fl = 0; fl < 4; fl++) {
+      const a = time * (0.28 + fl * 0.09) + fl * 1.57;
+      ctx.strokeStyle = fl % 2 === 0 ? 'rgba(255, 178, 86, 0.32)' : 'rgba(224, 96, 42, 0.24)';
+      ctx.lineWidth = 4 + (fl % 2) * 2;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 51 + fl * 3.5, a, a + 1.05);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   ctx.strokeStyle = 'rgba(212, 168, 83, 0.24)';
   ctx.lineWidth = 1.3;
   ctx.beginPath();
-  ctx.arc(ex, ey, 72, time * 0.18, time * 0.18 + Math.PI * 1.38);
+  ctx.arc(ex, ey, 78, time * 0.18, time * 0.18 + Math.PI * 1.38);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(ex, ey, 96, -time * 0.12, -time * 0.12 + Math.PI * 0.88);
+  ctx.arc(ex, ey, 104, -time * 0.12, -time * 0.12 + Math.PI * 0.88);
   ctx.stroke();
 
   // Eclipse Core & Molten Rim
-  ctx.fillStyle = '#060508';
+  ctx.fillStyle = '#050408';
   ctx.beginPath();
-  ctx.arc(ex, ey, 46, 0, Math.PI * 2);
+  ctx.arc(ex, ey, 48, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = '#ffd470';
+  ctx.lineWidth = 2.8;
+  ctx.stroke();
   ctx.strokeStyle = b.accentColor;
-  ctx.lineWidth = 2.6;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(ex, ey, 50.5, 0, Math.PI * 2);
   ctx.stroke();
   ctx.lineWidth = 1;
 
-  const fogQuality = st.settings?.fogQuality ?? 'high';
   const parallaxOn = st.settings?.parallaxEnabled !== false;
   const bloodIntensity = st.settings?.bloodIntensity ?? 'high';
+  const vfxQuality = st.settings?.vfxQuality ?? 'high';
   const highContrast = !!st.settings?.highContrastTelegraphs;
   const shakeMult = st.settings?.screenShakeScale ?? 1;
 
@@ -338,7 +374,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     ctx.globalAlpha = 1;
   }
 
-  // Warm torchlight reflection pools along the main floor edge
+  // Warm torchlight reflection pools + smoldering subterranean ember cracks & planted relic swords along solid ground
   ctx.fillStyle = 'rgba(255, 148, 62, 0.12)';
   for (const t of room.torches) {
     if (t.x < camX - 100 || t.x > camX + W + 100) continue;
@@ -346,6 +382,43 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
       ctx.beginPath();
       ctx.ellipse(t.x, room.groundY + 2, 54, 5, 0, 0, Math.PI * 2);
       ctx.fill();
+    }
+  }
+
+  for (let pIdx = 0; pIdx < room.platforms.length; pIdx++) {
+    const p = room.platforms[pIdx];
+    if (p.broken || p.type !== 'solid' || p.w < 240) continue;
+    if (p.x + p.w < camX - 60 || p.x > camX + W + 60) continue;
+    const fx = p.x + p.w * 0.42;
+    if (fx > camX - 80 && fx < camX + W + 80) {
+      const glowPulse = 0.38 + 0.25 * Math.sin(time * 2.2 + pIdx);
+      const amberGlow = getColoredGlow('amber');
+      if (amberGlow) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = glowPulse * 0.42;
+        ctx.drawImage(amberGlow, fx - 44, p.y + 4, 88, 22);
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(7, 5, 8, 0.85)';
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(fx - 26, p.y + 11);
+      ctx.lineTo(fx - 9, p.y + 14);
+      ctx.lineTo(fx + 8, p.y + 12);
+      ctx.lineTo(fx + 27, p.y + 17);
+      ctx.stroke();
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(255, 114, 38, ${glowPulse})`;
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (pIdx % 3 === 1 && p.x + 68 > camX - 40 && p.x + 68 < camX + W + 40) {
+      drawPlantedRelicSword(ctx, p.x + 68, p.y + 2, -0.14, 0.86, true);
     }
   }
 
@@ -382,11 +455,14 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
-  // 8b. Persistent Floor Blood Splatter Decals (anchored on stone cornices beneath props & actors)
+  // 8b. Persistent Floor Blood Splatter Decals & Active Ground Ember Fissures
   if (st.blood && bloodIntensity !== 'off') {
     if (bloodIntensity === 'medium') ctx.save(), (ctx.globalAlpha = 0.6);
     renderBloodDecals(ctx, st.blood, room.platforms, camX, W);
     if (bloodIntensity === 'medium') ctx.restore();
+  }
+  if (st.vfx) {
+    renderGroundFissuresVfx(ctx, st.vfx, camX, W, vfxQuality);
   }
 
   // 9. Props
@@ -476,6 +552,10 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
 
+  if (st.vfx) {
+    renderWorldVfx(ctx, st.vfx, camX, W, vfxQuality);
+  }
+
   if (st.blood && bloodIntensity === 'high') {
     renderBloodDroplets(ctx, st.blood, camX, W);
   }
@@ -501,6 +581,11 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     renderForegroundParallax(ctx, b, W, H, camX, camY, time, st.trauma * shakeMult, depthFocus);
   }
 
+  // 14b. Screen-space Directional Chromatic Combat Flash
+  if (st.vfx) {
+    renderScreenVfx(ctx, st.vfx, W, H, vfxQuality);
+  }
+
   // 15. Subtle Low-HP Pulse Vignette (standard vignette is pre-baked into backdrop)
   const isLowHp = !!(st.run && st.run.hp > 0 && st.run.hp / st.run.maxHp <= 0.28);
   if (isLowHp) {
@@ -521,7 +606,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
 function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H: number, time: number): void {
   const groundY = Math.round(H * 0.78);
 
-  // Textured ashlar terrace with deep velvet fade at bottom for clean control-hint readability
+  // Textured cracked ashlar terrace with smoldering subterranean ember veins
   const stonePat = getStonePattern(ctx, BIOMES[0]);
   ctx.fillStyle = stonePat || '#151118';
   ctx.fillRect(0, groundY, W, H - groundY);
@@ -541,12 +626,45 @@ function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H: number
   ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
   ctx.fillRect(0, groundY + 6, W, 4);
 
+  // Smoldering charred ash crevices across right-half stone foreground
+  const fissurePulse = 0.45 + 0.32 * Math.sin(time * 2.4);
+  const emberPool = getColoredGlow('amber');
+  for (const fx of [W * 0.54, W * 0.67, W * 0.82]) {
+    if (emberPool) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = fissurePulse * 0.48;
+      ctx.drawImage(emberPool, fx - 54, groundY + 14, 108, 34);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(7, 5, 8, 0.88)';
+    ctx.lineWidth = 3.8;
+    ctx.beginPath();
+    ctx.moveTo(fx - 38, groundY + 25);
+    ctx.lineTo(fx - 10, groundY + 34);
+    ctx.lineTo(fx + 14, groundY + 29);
+    ctx.lineTo(fx + 42, groundY + 39);
+    ctx.stroke();
+
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255, 112, 36, ${fissurePulse})`;
+    ctx.lineWidth = 1.25;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Planted weathered swords in the ash flanking the showcase vigil
+  drawPlantedRelicSword(ctx, Math.round(W * 0.54), groundY + 4, -0.22, 1.15, true);
+  drawPlantedRelicSword(ctx, Math.round(W * 0.89), groundY + 6, 0.16, 1.25, true);
+
   // Ornate Wrought-Iron Sanctuary Brazier on right third with warm radial bloom
-  const bx = Math.round(W * 0.72);
+  const bx = Math.round(W * 0.79);
   const glow = getTorchGlow();
   if (glow) {
     ctx.globalAlpha = 0.92;
-    ctx.drawImage(glow, bx - 210, groundY - 235, 420, 420);
+    ctx.drawImage(glow, bx - 220, groundY - 245, 440, 440);
     ctx.globalAlpha = 1;
   }
 
@@ -556,7 +674,7 @@ function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H: number
   ctx.ellipse(bx, groundY + 2, 34, 6.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Clawed wrought-iron pedestal & ribbed fire bowl (1.35x monumental scale)
+  // Clawed wrought-iron pedestal & ribbed fire bowl
   ctx.fillStyle = '#1b1416';
   ctx.fillRect(bx - 16, groundY - 26, 6, 26);
   ctx.fillRect(bx + 10, groundY - 26, 6, 26);
@@ -598,110 +716,247 @@ function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H: number
   ctx.arc(bx, groundY - 45, 7.5, 0, Math.PI * 2);
   ctx.fill();
 
-  for (let s = 0; s < 5; s++) {
-    const sy = ((time * 28 + s * 19) % 58);
-    const sx = bx + Math.sin(time * 3 + s * 1.9) * 14;
-    ctx.globalAlpha = 1 - sy / 58;
-    ctx.fillStyle = s % 2 === 0 ? '#ffd470' : '#ff8c3b';
-    ctx.fillRect(sx, groundY - 52 - sy, 2.2, 2.2);
+  for (let s = 0; s < 8; s++) {
+    const sy = ((time * 32 + s * 17) % 86);
+    const sx = bx + Math.sin(time * 3 + s * 1.9) * 24 - s * 5;
+    ctx.globalAlpha = 1 - sy / 86;
+    ctx.fillStyle = s % 2 === 0 ? '#ffd470' : '#ff7b29';
+    ctx.fillRect(sx, groundY - 52 - sy, 2.4, 2.4);
   }
   ctx.globalAlpha = 1;
 
-  // Articulated 1.35x Scale Resting Éveillé d'Argile keeping vigil beside the brazier
-  const px = bx - 88;
-  const bob = Math.sin(time * 2) * 1.4;
+  // Monumental Crowned Eclipse Knight Showcase keeping vigil beneath the Solar Eclipse
+  const px = Math.round(W * 0.65);
+  const bob = Math.sin(time * 1.9) * 1.5;
+  const cloakWave = Math.sin(time * 2.5) * 4;
   ctx.save();
   ctx.translate(px, groundY);
-  ctx.scale(1.32, 1.32);
+  ctx.scale(1.88, 1.88);
 
-  ctx.fillStyle = 'rgba(4, 3, 6, 0.62)';
+  // Warm rim glow behind hero
+  if (glow) {
+    ctx.globalAlpha = 0.36;
+    ctx.drawImage(glow, -48, -68, 96, 96);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.fillStyle = 'rgba(4, 3, 6, 0.68)';
   ctx.beginPath();
-  ctx.ellipse(2, 1, 24, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, 1, 26, 5.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Multi-fold Cloak + Crimson Lining + Wind-swept Scarf
-  ctx.fillStyle = '#4a1720';
+  // Tattered Crimson-lined War Cloak billowing left
+  ctx.fillStyle = '#47151e';
   ctx.beginPath();
-  ctx.moveTo(-4, -36);
-  ctx.quadraticCurveTo(-19, -22, -28, -2);
+  ctx.moveTo(-4, -37 + bob);
+  ctx.quadraticCurveTo(-22, -23 + cloakWave * 0.4, -34, -2 + cloakWave * 0.3);
+  ctx.lineTo(-22, -7);
+  ctx.lineTo(-14, -1);
   ctx.lineTo(8, -2);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = '#201720';
+
+  ctx.fillStyle = '#1b161d';
   ctx.beginPath();
-  ctx.moveTo(-4, -37);
-  ctx.quadraticCurveTo(-17, -24, -24, -4);
-  ctx.lineTo(6, -4);
+  ctx.moveTo(-4, -38 + bob);
+  ctx.quadraticCurveTo(-20, -25 + cloakWave * 0.4, -31, -6 + cloakWave * 0.3);
+  ctx.lineTo(-19, -11);
+  ctx.lineTo(-10, -4);
+  ctx.lineTo(7, -4);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#0a070c';
+  ctx.strokeStyle = '#09070b';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Crimson shoulder scarf
+  ctx.fillStyle = '#781d29';
+  ctx.beginPath();
+  ctx.moveTo(-3, -36 + bob);
+  ctx.quadraticCurveTo(-18, -35, -30, -27 + cloakWave * 0.35);
+  ctx.lineTo(-24, -22 + cloakWave * 0.35);
+  ctx.quadraticCurveTo(-14, -30, 0, -31 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Greaves, Sabatons & Chainmail + Tattered Split Surcoat
+  ctx.fillStyle = '#252831';
+  ctx.fillRect(-7.5, -16, 5, 16);
+  ctx.fillRect(2.5, -16, 5, 16);
+  ctx.fillStyle = '#5a6070';
+  ctx.fillRect(-7, -11, 4, 3);
+  ctx.fillRect(3, -11, 4, 3);
+
+  ctx.fillStyle = '#3b3f4a';
+  ctx.fillRect(-8, -20, 16, 11);
+  ctx.fillStyle = '#631b26';
+  ctx.beginPath();
+  ctx.moveTo(-4.5, -19);
+  ctx.lineTo(4.5, -19);
+  ctx.lineTo(5.5, -4);
+  ctx.lineTo(1, -8);
+  ctx.lineTo(-2, -3);
+  ctx.lineTo(-5, -7);
+  ctx.closePath();
+  ctx.fill();
+
+  // Engraved Eclipse Cuirass, Cross-Belt & Hip Pouch
+  ctx.fillStyle = '#2c303a';
+  ctx.beginPath();
+  ctx.moveTo(-10.5, -15);
+  ctx.lineTo(-9, -36 + bob);
+  ctx.lineTo(9, -36 + bob);
+  ctx.lineTo(10.5, -15);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = '#c89b4b';
   ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(0, -27 + bob * 0.7, 4.4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#472f22';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(-7, -35 + bob);
+  ctx.lineTo(7.5, -20);
+  ctx.stroke();
+  ctx.fillStyle = '#38251a';
+  ctx.fillRect(-10, -20, 20, 3);
+  ctx.fillStyle = '#ffd470';
+  ctx.fillRect(-2, -20.5, 4, 4);
+
+  // Lamellar Shoulder Pauldrons catching warm brazier highlight
+  for (const side of [-1, 1] as const) {
+    ctx.fillStyle = side === 1 ? '#5e6675' : '#3d424e';
+    ctx.beginPath();
+    ctx.ellipse(side * 7.5, -33 + bob, 7.6, 5.2, side * -0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = side === 1 ? '#ffb86b' : '#120e16';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Jagged Crowned Gothic Fluted Visor Helm
+  ctx.fillStyle = '#383d48';
+  ctx.beginPath();
+  ctx.moveTo(-7.2, -48 + bob);
+  ctx.lineTo(7.2, -48 + bob);
+  ctx.lineTo(7.5, -38 + bob);
+  ctx.lineTo(0, -33.5 + bob);
+  ctx.lineTo(-7.5, -38 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#09070b';
   ctx.stroke();
 
-  ctx.fillStyle = '#9c2634';
+  ctx.fillStyle = '#8b6f47';
   ctx.beginPath();
-  ctx.moveTo(-2, -35 + bob);
-  ctx.quadraticCurveTo(-16, -34, -26, -26 + Math.sin(time * 2.4) * 2.2);
-  ctx.lineTo(-22, -23 + Math.sin(time * 2.4) * 2.2);
-  ctx.quadraticCurveTo(-13, -30, 0, -31 + bob);
-  ctx.closePath();
-  ctx.fill();
-
-  // Tunic, Engraved Brass Belt, Pauldron with Warm Fire Rim-Light
-  ctx.fillStyle = '#382830';
-  ctx.beginPath();
-  ctx.moveTo(-10, -2);
-  ctx.lineTo(-8.5, -34 + bob);
-  ctx.lineTo(8.5, -34 + bob);
-  ctx.lineTo(10, -2);
+  ctx.moveTo(-7, -47 + bob);
+  ctx.lineTo(-8, -54 + bob);
+  ctx.lineTo(-3.5, -49.5 + bob);
+  ctx.lineTo(0, -56.5 + bob);
+  ctx.lineTo(3.5, -49.5 + bob);
+  ctx.lineTo(8, -54 + bob);
+  ctx.lineTo(7, -47 + bob);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = '#d4a853';
-  ctx.fillRect(-9.5, -18, 19, 2.5);
-  ctx.fillStyle = '#6c7380';
-  ctx.beginPath();
-  ctx.ellipse(6, -32 + bob, 7.5, 4.8, -0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#ffb86b';
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
-
-  // Sculpted Hood & Beveled Porcelain Mask catching Brazier Glow
-  ctx.fillStyle = '#1b131a';
-  ctx.beginPath();
-  ctx.arc(0, -40 + bob, 9.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#e8decb';
-  ctx.beginPath();
-  ctx.moveTo(-6.5, -46 + bob);
-  ctx.lineTo(6.5, -46 + bob);
-  ctx.lineTo(6, -36 + bob);
-  ctx.lineTo(0, -32 + bob);
-  ctx.lineTo(-6, -36 + bob);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255, 148, 68, 0.24)';
-  ctx.beginPath();
-  ctx.moveTo(0, -46 + bob);
-  ctx.lineTo(6.5, -46 + bob);
-  ctx.lineTo(6, -36 + bob);
-  ctx.lineTo(0, -32 + bob);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#ff7b29';
-  ctx.fillRect(1.5, -42 + bob, 4, 2.6);
+  // Breather Grille & Fierce Molten Ember Eyes
+  ctx.strokeStyle = '#100c14';
+  ctx.lineWidth = 0.9;
+  for (let gx = -3; gx <= 3; gx += 2) {
+    ctx.beginPath();
+    ctx.moveTo(gx, -40 + bob);
+    ctx.lineTo(gx * 0.8, -35.5 + bob);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#0d090e';
+  ctx.fillRect(-4.5, -43.8 + bob, 9.5, 2.6);
+  ctx.fillStyle = '#ff6a1f';
+  ctx.fillRect(-3.6, -43.4 + bob, 3, 1.8);
+  ctx.fillRect(1.2, -43.4 + bob, 3.2, 1.8);
   ctx.fillStyle = '#fff0a8';
-  ctx.fillRect(2.5, -41.5 + bob, 2, 1.4);
+  ctx.fillRect(2, -43.1 + bob, 1.4, 1.1);
 
-  // Vigil Greatsword planted at a slight forward tilt beside the hero
+  // Runic Bastard Sword held diagonally toward the ember-cracked ground
   ctx.save();
-  ctx.translate(22, -32);
-  ctx.rotate(Math.PI / 2 - 0.08);
-  drawWeaponSprite(ctx, 'clay_blade', 0.88);
+  ctx.translate(10, -24 + bob);
+  ctx.rotate(1.16);
+  drawWeaponSprite(ctx, 'clay_blade', 0.96);
   ctx.restore();
   ctx.restore();
+}
+
+function renderTitleArtworkBackdrop(
+  ctx: CanvasRenderingContext2D,
+  art: HTMLImageElement,
+  biome: typeof BIOMES[number],
+  W: number,
+  H: number,
+  time: number,
+  fogQuality: 'off' | 'medium' | 'high'
+): void {
+  ctx.fillStyle = '#070509';
+  ctx.fillRect(0, 0, W, H);
+
+  // Scale image slightly wider to allow smooth right-shift framing (Knight occupies right 62%, UI sits clearly on left 38%)
+  const coverScale = Math.max((W * 1.16) / art.naturalWidth, H / art.naturalHeight);
+  const dw = art.naturalWidth * coverScale;
+  const dh = art.naturalHeight * coverScale;
+  const panX = Math.sin(time * 0.25) * 6;
+  const dx = Math.round(W - dw + dw * 0.045 + panX);
+  const dy = Math.round((H - dh) * 0.38);
+
+  ctx.drawImage(art, dx, dy, dw, dh);
+
+  // Subtle top/bottom vignette & left-third dark-plum reading scrim protecting title typography & controls
+  const leftScrim = ctx.createLinearGradient(0, 0, W * 0.62, 0);
+  leftScrim.addColorStop(0, 'rgba(7, 5, 10, 0.94)');
+  leftScrim.addColorStop(0.46, 'rgba(8, 6, 12, 0.78)');
+  leftScrim.addColorStop(0.76, 'rgba(9, 7, 13, 0.32)');
+  leftScrim.addColorStop(1, 'rgba(9, 7, 13, 0)');
+  ctx.fillStyle = leftScrim;
+  ctx.fillRect(0, 0, W, H);
+
+  const bottomScrim = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  bottomScrim.addColorStop(0, 'rgba(7, 5, 10, 0)');
+  bottomScrim.addColorStop(1, 'rgba(7, 5, 10, 0.76)');
+  ctx.fillStyle = bottomScrim;
+  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+
+  // Live additive Solar Eclipse corona pulse aligned to the painted Eclipse in the 2K concept art
+  const eclipseX = dx + dw * 0.635;
+  const eclipseY = dy + dh * 0.255;
+  const corona = getCoronaSprite();
+  if (corona) {
+    const pulse = 1 + Math.sin(time * 1.8) * 0.06;
+    const rad = dw * 0.145 * pulse;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.42 + Math.sin(time * 2.2) * 0.08;
+    ctx.drawImage(corona, eclipseX - rad, eclipseY - rad, rad * 2, rad * 2);
+    ctx.restore();
+  }
+
+  // Flickering additive ember bloom along the painted runic sword & cracked ash foreground
+  const amber = getColoredGlow('amber');
+  if (amber) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const swordX = dx + dw * 0.31;
+    const swordY = dy + dh * 0.71;
+    const flick = 0.22 + Math.sin(time * 5.2) * 0.07;
+    ctx.globalAlpha = flick;
+    ctx.drawImage(amber, swordX - 90, swordY - 90, 180, 180);
+    ctx.restore();
+  }
+
+  // Live drifting volumetric mist & glowing rising ember particles across the painted ruin terrace
+  renderMidAtmosphereAndDust(ctx, biome, W, H, time * 14, 0, time, true, fogQuality);
 }
 
 function renderMinimap(

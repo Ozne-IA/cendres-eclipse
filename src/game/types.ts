@@ -44,6 +44,7 @@ export interface GameSettings {
   hitstopEnabled: boolean;
   bloodIntensity: QualityLevel;
   fogQuality: QualityLevel;
+  vfxQuality: QualityLevel;
   parallaxEnabled: boolean;
   showDamageNumbers: boolean;
   showMinimap: boolean;

@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   hitstopEnabled: true,
   bloodIntensity: 'high',
   fogQuality: 'high',
+  vfxQuality: 'high',
   parallaxEnabled: true,
   showDamageNumbers: true,
   showMinimap: true,

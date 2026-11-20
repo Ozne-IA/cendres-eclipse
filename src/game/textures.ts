@@ -7,6 +7,25 @@ const BIOME_BACKDROP_URLS: Record<string, string> = {
   sanctuaire: '/src/assets/images/biome_sanctuaire_bg_1795125905684.jpg',
 };
 
+const TITLE_HERO_ARTWORK_URL = '/assets/aistudio/Creating_video_game_hero_concept_082510a8_2K_39b1471f.png';
+let titleArtworkImg: HTMLImageElement | null = null;
+let titleArtworkReady = false;
+
+export function getTitleHeroArtwork(): HTMLImageElement | null {
+  if (typeof Image === 'undefined') return null;
+  if (titleArtworkImg) {
+    return titleArtworkReady && titleArtworkImg.naturalWidth > 0 ? titleArtworkImg : null;
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => {
+    titleArtworkReady = true;
+  };
+  img.src = TITLE_HERO_ARTWORK_URL;
+  titleArtworkImg = img;
+  return null;
+}
+
 const loadedBackdrops = new Map<string, HTMLImageElement>();
 const backdropReady = new Set<string>();
 const bakedSeamlessCache = new Map<string, HTMLCanvasElement>();

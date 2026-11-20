@@ -359,6 +359,32 @@ export function GameMenuModal({
                   </div>
                 </div>
 
+                <div className="bg-[#18141e] border border-[#3a2f24] p-4 space-y-2.5">
+                  <div className="font-display text-sm text-[#e8e1d5]">Effets Visuels &amp; Éclats (VFX)</div>
+                  <p className="text-xs text-[#9d9284] m-0">
+                    Arcs lumineux, éclairs de déviation, fissures incandescentes et dissolution en cendres.
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    {QUALITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => {
+                          AudioFX.ui();
+                          onUpdateSettings({ vfxQuality: opt.val });
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-display uppercase border cursor-pointer ${
+                          (settings.vfxQuality ?? 'high') === opt.val
+                            ? 'bg-[#362819] text-[#ffd470] border-[#d4a853]'
+                            : 'bg-[#120e17] text-[#9d9284] border-[#352b22]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <ToggleCard
                   title="Parallaxe multi-plans (6 couches)"
                   desc="Silhouettes gothiques lointaines et avant-plan cinématique en profondeur."
