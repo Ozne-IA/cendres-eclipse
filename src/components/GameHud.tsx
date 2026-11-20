@@ -1,6 +1,7 @@
 import React from 'react';
-import { BLESSINGS_POOL, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
-import type { HudSnapshot } from '../game/types';
+import { BLESSINGS_POOL, DEFAULT_KEY_BINDINGS, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
+import { formatKeyLabel } from '../game/input';
+import type { HudSnapshot, KeyBindings } from '../game/types';
 import {
   CinderIcon,
   FlaskSocketIcon,
@@ -12,15 +13,24 @@ import {
 
 interface GameHudProps {
   hud: HudSnapshot;
+  keyBindings?: KeyBindings;
   muted: boolean;
   onToggleMute: () => void;
   onOpenPause: () => void;
 }
 
-export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps) {
+export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onToggleMute, onOpenPause }: GameHudProps) {
   const hpPct = Math.max(0, Math.min(100, (hud.hp / Math.max(1, hud.maxHp)) * 100));
   const ghostPct = Math.max(hpPct, Math.min(100, (hud.ghostHp / Math.max(1, hud.maxHp)) * 100));
   const stamPct = Math.max(0, Math.min(100, (hud.stam / Math.max(1, hud.maxStam)) * 100));
+  const lowStamina = stamPct <= 20;
+  const showCombatHint = hud.isTraining || hud.riposteReady;
+  const onGamepad = hud.inputMode === 'Manette';
+  const healKey = onGamepad ? '↑ Croix dir.' : formatKeyLabel(keyBindings.heal);
+  const skillKey = onGamepad ? 'RB / R1' : formatKeyLabel(keyBindings.skill);
+  const parryKey = onGamepad ? 'LB / L1' : `${formatKeyLabel(keyBindings.parry)} ou clic droit`;
+  const attackKey = onGamepad ? 'X / Carré' : `${formatKeyLabel(keyBindings.attack)} ou clic gauche`;
+  const dodgeKey = onGamepad ? 'B / Rond' : formatKeyLabel(keyBindings.dash);
   const skillReady = hud.skillCd <= 0.05;
   const skillPct =
     hud.skillMaxCd > 0
@@ -76,14 +86,14 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
           {/* Breath / Stamina */}
           <div className="mb-2">
             <div className="flex justify-between items-baseline text-[11px] uppercase tracking-wider text-[#b0a494] mb-1">
-              <span>Souffle</span>
-              <span className="font-mono-num text-[#cde0d2]">
+              <span>{lowStamina ? 'Souffle faible' : 'Souffle'}</span>
+              <span className={`font-mono-num ${lowStamina ? 'text-[#ffd470]' : 'text-[#cde0d2]'}`}>
                 {hud.stam} / {hud.maxStam}
               </span>
             </div>
-            <div className="relative h-2 bg-[#17121b] border border-[#3a2e25] overflow-hidden">
+            <div className="relative h-2.5 bg-[#17121b] border border-[#3a2e25] overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[#34784d] to-[#56b376]"
+                className={`h-full bg-gradient-to-r ${lowStamina ? 'from-[#aa6635] to-[#ffd470]' : 'from-[#34784d] to-[#56b376]'}`}
                 style={{ width: `${stamPct}%` }}
               />
               <div className="absolute inset-x-0 top-0 h-[1px] bg-white/15" />
@@ -96,7 +106,7 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
               {Array.from({ length: hud.maxFlasks }).map((_, idx) => (
                 <FlaskSocketIcon key={idx} state={idx < hud.flasks ? 'full' : 'empty'} />
               ))}
-              <span className="ml-1 text-[11px] text-[#9d9284] font-mono-num">[R]</span>
+              <span className="ml-1 text-[11px] text-[#9d9284] font-mono-num">[{healKey}]</span>
             </div>
             <span className="text-[11px] text-[#d4a853] truncate max-w-[140px]">
               {hud.weaponName}
@@ -108,7 +118,7 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
           <div className="mt-2 pt-1.5 border-t border-[#2d241c]">
             <div className="flex items-center justify-between text-[11px] mb-1">
               <span className="text-[#cfc6b8] truncate max-w-[195px]">
-                <span className="font-mono-num text-[#9d9284] mr-1">[C]</span>
+                <span className="font-mono-num text-[#9d9284] mr-1">[{skillKey}]</span>
                 {hud.weaponArtName}
               </span>
               <span
@@ -238,9 +248,26 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
         </div>
       )}
 
-      {hud.promptText && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#0c0910]/95 border border-[#d4a853] px-4 py-2 text-xs md:text-sm text-[#e5be6e] tracking-wide whitespace-nowrap shadow-[0_6px_24px_rgba(0,0,0,0.85)]">
-          {hud.promptText}
+      {(hud.promptText || showCombatHint) && (
+        <div className={`fixed left-1/2 -translate-x-1/2 flex w-max max-w-[calc(100vw-2rem)] flex-col items-center gap-2 ${hud.boss ? 'bottom-28' : showCombatHint ? 'bottom-4' : 'bottom-20'}`}>
+          {hud.promptText && (
+            <div className="bg-[#0c0910]/95 border border-[#d4a853] px-4 py-2 text-center text-xs md:text-sm text-[#e5be6e] tracking-wide shadow-[0_6px_24px_rgba(0,0,0,0.85)]">
+              {hud.promptText}
+            </div>
+          )}
+          {showCombatHint && (
+            <div
+              className="bg-[#0c0910]/95 border border-[#79603f] px-4 py-2 text-center text-xs md:text-sm text-[#efe3d2]"
+              data-testid="combat-hint"
+              aria-live="polite"
+            >
+              {hud.riposteReady ? (
+                <><strong className="text-[#ffd470]">Riposte prête.</strong> Attaquez avec {attackKey}.</>
+              ) : (
+                <>Repérez le triangle. Juste avant l’impact, déviez avec {parryKey} ou esquivez avec {dodgeKey}.</>
+              )}
+            </div>
+          )}
         </div>
       )}
 

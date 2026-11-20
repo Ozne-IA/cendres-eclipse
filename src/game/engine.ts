@@ -9,7 +9,7 @@ import {
   RELICS_POOL,
   WEAPONS_DEF,
 } from './data';
-import { InputHub } from './input';
+import { formatKeyLabel, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { renderGameFrame } from './renderer';
@@ -52,7 +52,7 @@ export interface EngineCallbacks {
   onHudUpdate: (hud: HudSnapshot) => void;
   onBlessingChoices: (choices: BlessingDef[]) => void;
   onMerchantOpen: (run: RunState) => void;
-  onRunSummary: (summary: RunSummary) => void;
+  onRunSummary: (summary: RunSummary | null) => void;
 }
 
 export class CendresEngine {
@@ -338,6 +338,7 @@ export class CendresEngine {
   }
 
   resetSave(): void {
+    this.cb.onRunSummary(null);
     this.save = defaultSave();
     this.applySettingsSideEffects();
     persistSave(this.save);
@@ -356,11 +357,13 @@ export class CendresEngine {
   }
 
   openTitle(): void {
+    this.cb.onRunSummary(null);
     AudioFX.ui();
     this.setPhase('title');
   }
 
   startNewRun(): void {
+    this.cb.onRunSummary(null);
     AudioFX.ui();
     this.updateSave((s) => ({
       ...s,
@@ -376,6 +379,7 @@ export class CendresEngine {
   }
 
   startTrainingMode(): void {
+    this.cb.onRunSummary(null);
     AudioFX.ui();
     this.run = createRunState(this.save, Math.random, true);
     this.deathDelayTimer = 0;
@@ -388,7 +392,8 @@ export class CendresEngine {
     this.vfx.clear();
     this.camera.x = 0;
     this.camera.y = 0;
-    this.showBanner("Cour d'Entraînement", 'Testez vos armes, Arts d’Éclipse [C] & parades', '#ffd470', 2.4);
+    this.promptText = '';
+    this.showBanner("Cour d'Entraînement", 'La vitalité et les fioles se régénèrent en cas de défaite.', '#ffd470', 2.4);
     this.setPhase('playing');
     this.pushHud(true);
   }
@@ -408,33 +413,46 @@ export class CendresEngine {
   }
 
   extractVictory(): void {
-    if (!this.run) return;
+    if (!this.run || this.run.isTraining || this.phase !== 'blessing') return;
     AudioFX.victory();
-    const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
-    const summary: RunSummary = {
-      victory: true,
-      depthReached: this.run.depth,
-      kills: this.run.kills,
-      parries: this.run.parries,
-      perfectDodges: this.run.perfectDodges,
-      bestParryStreak: this.run.bestParryStreak,
-      damageTaken: Math.round(this.run.damageTaken),
-      elapsedSec: Math.round(this.run.elapsedSec),
-      ascensionLevel: this.run.ascensionLevel,
-      weaponName: wDef.name,
-      activeSynergies: [...this.run.activeSynergies],
-      loot: { ...this.run.loot },
-    };
-    this.updateSave((s) => bankRunIntoSave(s, this.run!, true));
-    this.cb.onRunSummary(summary);
+    this.bankExpedition(true);
     this.setPhase('gameover');
   }
 
   extractReturnBastion(): void {
-    if (this.run) {
-      this.updateSave((s) => bankRunIntoSave(s, this.run!, false));
-    }
+    if (this.phase !== 'paused') return;
+    this.bankExpedition(false);
     this.openBastion();
+  }
+
+  private bankExpedition(victory: boolean, boss?: Enemy): void {
+    const run = this.run;
+    if (!run || run.isTraining) return;
+
+    const previousResources = this.save.res;
+    const weapon = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
+    this.updateSave((save) => bankRunIntoSave(save, run, victory));
+    const resources = this.save.res;
+    this.cb.onRunSummary({
+      victory,
+      depthReached: run.depth,
+      kills: run.kills,
+      parries: run.parries,
+      perfectDodges: run.perfectDodges,
+      bestParryStreak: run.bestParryStreak,
+      damageTaken: Math.round(run.damageTaken),
+      elapsedSec: Math.round(run.elapsedSec),
+      ascensionLevel: run.ascensionLevel,
+      weaponName: weapon.name,
+      activeSynergies: [...run.activeSynergies],
+      rewards: {
+        cendres: resources.cendres - previousResources.cendres,
+        fer: resources.fer - previousResources.fer,
+        larmes: resources.larmes - previousResources.larmes,
+      },
+      bossNameRemaining: boss?.name,
+      bossHpPct: boss ? Math.ceil((boss.hp / boss.maxHp) * 100) : undefined,
+    });
   }
 
   selectBlessing(blessingId: string): void {
@@ -552,6 +570,7 @@ export class CendresEngine {
 
   private loadRoom(depth: number): void {
     if (!this.run) return;
+    this.promptText = '';
     this.room = generateRoom(depth, this.save);
     this.run.depth = depth;
 
@@ -619,25 +638,7 @@ export class CendresEngine {
       this.vfx.update(dt);
       if (this.deathDelayTimer <= 0) {
         const boss = this.room.enemies.find((e) => e.isBoss && e.hp > 0);
-        const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
-        const summary: RunSummary = {
-          victory: false,
-          depthReached: this.run.depth,
-          kills: this.run.kills,
-          parries: this.run.parries,
-          perfectDodges: this.run.perfectDodges,
-          bestParryStreak: this.run.bestParryStreak,
-          damageTaken: Math.round(this.run.damageTaken),
-          elapsedSec: Math.round(this.run.elapsedSec),
-          ascensionLevel: this.run.ascensionLevel,
-          weaponName: wDef.name,
-          activeSynergies: [...this.run.activeSynergies],
-          loot: { ...this.run.loot },
-          bossNameRemaining: boss?.name,
-          bossHpPct: boss ? Math.ceil((boss.hp / boss.maxHp) * 100) : undefined,
-        };
-        this.updateSave((s) => bankRunIntoSave(s, this.run!, false));
-        this.cb.onRunSummary(summary);
+        this.bankExpedition(false, boss);
         this.setPhase('gameover');
       }
       return;
@@ -2096,6 +2097,10 @@ export class CendresEngine {
     const player = this.player;
     const run = this.run;
     let prompt = '';
+    const interact = this.input.lastInputMode === 'Manette'
+      ? 'A / Croix'
+      : formatKeyLabel(this.save.settings?.keyBindings?.interact ?? DEFAULT_KEY_BINDINGS.interact);
+    const action = `[${interact}]`;
 
     for (const pr of this.room.props) {
       if (pr.type === 'urn') continue;
@@ -2105,7 +2110,7 @@ export class CendresEngine {
       if (!near) continue;
 
       if ((pr.type === 'chest' || pr.type === 'gilded_chest') && !pr.opened) {
-        prompt = pr.type === 'gilded_chest' ? '[E] Ouvrir le Reliquaire Doré' : '[E] Ouvrir le Reliquaire';
+        prompt = pr.type === 'gilded_chest' ? `${action} Ouvrir le Reliquaire Doré` : `${action} Ouvrir le Reliquaire`;
         if (inp.interact) {
           pr.opened = true;
           const mult = getLootMultiplier(this.save, run);
@@ -2129,8 +2134,8 @@ export class CendresEngine {
         }
       } else if (pr.type === 'brazier' && !pr.used) {
         prompt = run.isTraining
-          ? '[E] Se régénérer au Brasero (Illimité)'
-          : '[E] Se réchauffer au Brasero (+35% PV & +1 Fiole)';
+          ? `${action} Se régénérer au Brasero (Illimité)`
+          : `${action} Se réchauffer au Brasero (+35% PV & +1 Fiole)`;
         if (inp.interact) {
           if (!run.isTraining) pr.used = true;
           const heal = run.isTraining ? run.maxHp : Math.round(run.maxHp * 0.35);
@@ -2146,7 +2151,7 @@ export class CendresEngine {
           );
         }
       } else if (pr.type === 'shrine' && !pr.used) {
-        prompt = '[E] Autel de Sang (Sacrifier 20% PV -> +55🔥 & +1💧)';
+        prompt = `${action} Autel de Sang (Sacrifier 20% PV -> +55🔥 & +1💧)`;
         if (inp.interact) {
           pr.used = true;
           const sac = Math.max(1, Math.round(run.maxHp * 0.2));
@@ -2166,14 +2171,14 @@ export class CendresEngine {
           this.particles.addText(pr.x, pr.y - 22, `+55🔥 +1💧`, '#7ab8ff');
         }
       } else if (pr.type === 'merchant') {
-        prompt = '[E] Parler au Marchand Errant';
+        prompt = `${action} Parler au Marchand Errant`;
         if (inp.interact) {
           AudioFX.ui();
           this.cb.onMerchantOpen({ ...run });
           this.setPhase('merchant');
         }
       } else if (pr.type === 'lore' && !pr.used && pr.loreId) {
-        prompt = '[E] Déchiffrer la Stèle';
+        prompt = `${action} Déchiffrer la Stèle`;
         if (inp.interact) {
           pr.used = true;
           const lore = LORE_TABLETS.find((l) => l.id === pr.loreId);
@@ -2186,7 +2191,7 @@ export class CendresEngine {
         }
       } else if (pr.type === 'npc' && !pr.used && pr.npcId) {
         const npcName = NPCS_DEF[pr.npcId].name;
-        prompt = `[E] Secourir ${npcName}`;
+        prompt = `${action} Secourir ${npcName}`;
         if (inp.interact) {
           pr.used = true;
           const id = pr.npcId;
@@ -2201,13 +2206,13 @@ export class CendresEngine {
         if (pr.locked) {
           prompt = 'Terrassez le Gardien pour ouvrir le Passage';
         } else if (run.isTraining) {
-          prompt = '[E] Quitter la Cour et revenir au Bastion';
+          prompt = `${action} Quitter la Cour et revenir au Bastion`;
           if (inp.interact) {
             this.openBastion();
             return;
           }
         } else {
-          prompt = `[E] Descendre vers la Strate ${run.depth + 1}`;
+          prompt = `${action} Descendre vers la Strate ${run.depth + 1}`;
           if (inp.interact) {
             AudioFX.ui();
             this.cb.onBlessingChoices(pickBlessingChoices(run, 3));
@@ -2252,7 +2257,8 @@ export class CendresEngine {
     const weaponTier = this.save.weaponTiers[this.save.weapon] || 0;
     const oathDef = OATHS_DEF[this.save.oath] || OATHS_DEF.argile;
 
-    const hudKey = `${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.run.perfectDodges}|${this.save.weapon}|${skillCd}|${this.run.activeSynergies.length}|${this.achievementToast}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
+    const riposteReady = (this.player?.riposteBuffT ?? 0) > 0;
+    const hudKey = `${this.input.lastInputMode}|${riposteReady}|${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.run.perfectDodges}|${this.save.weapon}|${skillCd}|${this.run.activeSynergies.length}|${this.achievementToast}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
     if (!force && hudKey === this.lastHudKey) return;
     this.lastHudKey = hudKey;
 
@@ -2291,6 +2297,7 @@ export class CendresEngine {
       fps: fpsVal,
       showFps,
       inputMode: this.input.lastInputMode,
+      riposteReady,
       promptText: this.promptText,
       achievementToast: this.achievementToast || undefined,
       boss: boss

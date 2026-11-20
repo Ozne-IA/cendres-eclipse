@@ -1,4 +1,5 @@
 import {
+  drawAttackWarning,
   drawDetailedEnemy,
   drawDetailedPlayer,
   drawDetailedProp,
@@ -559,7 +560,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   // 10. Enemies & Bosses
   for (const e of room.enemies) {
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
-    drawDetailedEnemy(ctx, e, player, time, highContrast, showEnemyBars);
+    drawDetailedEnemy(ctx, e, time, showEnemyBars);
   }
 
   // 11. Luminous Projectiles
@@ -703,6 +704,15 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
 
   // 15b. Cinematic Biome Atmospheric Color Grading & Ambient Vignette
   renderAtmosphericColorGrading(ctx, b, W, H);
+
+  // Attack cues stay legible over particles, foreground fog, and color grading.
+  ctx.save();
+  ctx.translate(-Math.round(camX - sx), -Math.round(camY - sy));
+  for (const enemy of room.enemies) {
+    if (enemy.state !== 'windup' || enemy.x + enemy.w < camX - 120 || enemy.x > camX + W + 120) continue;
+    drawAttackWarning(ctx, enemy, player, highContrast);
+  }
+  ctx.restore();
 
   // 16. Compact Corner Minimap
   if (st.phase === 'playing' && st.settings?.showMinimap !== false) {

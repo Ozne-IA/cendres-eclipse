@@ -117,6 +117,7 @@ export default function App() {
           save={save}
           installPrompt={installPrompt}
           onStartRun={() => engineRef.current?.startNewRun()}
+          onStartTraining={() => engineRef.current?.startTrainingMode()}
           onOpenBastion={() => engineRef.current?.openBastion()}
           onOpenMenu={() => setMenuOpen(true)}
           onOpenLauncher={() => setLauncherOpen(true)}
@@ -127,6 +128,7 @@ export default function App() {
       {phase === 'playing' && hud && (
         <GameHud
           hud={hud}
+          keyBindings={save.settings?.keyBindings}
           muted={save.muted}
           onToggleMute={() => engineRef.current?.toggleMute()}
           onOpenPause={() => engineRef.current?.openPause()}
@@ -136,6 +138,7 @@ export default function App() {
       {phase === 'bastion' && (
         <BastionModal
           save={save}
+          expeditionRewards={runSummary?.rewards}
           onUpdateSave={(updater) => engineRef.current?.updateSave(updater)}
           onResetSave={() => engineRef.current?.resetSave()}
           onStartRun={() => engineRef.current?.startNewRun()}
@@ -167,7 +170,10 @@ export default function App() {
         <PauseModal
           hud={hud}
           onResume={() => engineRef.current?.resumeGame()}
-          onRestart={() => engineRef.current?.startNewRun()}
+          onRestart={() => {
+            if (hud?.isTraining) engineRef.current?.startTrainingMode();
+            else engineRef.current?.startNewRun();
+          }}
           onOpenMenu={() => setMenuOpen(true)}
           onReturnBastion={() => engineRef.current?.extractReturnBastion()}
         />

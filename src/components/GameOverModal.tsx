@@ -1,6 +1,7 @@
 import React from 'react';
 import { SYNERGIES_POOL } from '../game/data';
 import type { RunSummary } from '../game/types';
+import { ExpeditionRewards } from './ExpeditionRewards';
 
 interface GameOverModalProps {
   summary: RunSummary;
@@ -19,7 +20,7 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
       data-ui-interactive="true"
       data-testid="gameover-modal"
     >
-      <div className="w-full max-w-lg bg-[#110e15] border border-[#4a3b2c] p-7 text-center shadow-[0_0_60px_rgba(0,0,0,0.95)]">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto dark-scroll bg-[#110e15] border border-[#4a3b2c] p-7 text-center shadow-[0_0_60px_rgba(0,0,0,0.95)]">
         <h2
           className={`font-display text-2xl md:text-3xl uppercase tracking-[0.18em] m-0 ${
             summary.victory ? 'text-[#ffd470]' : 'text-[#c4303e]'
@@ -32,7 +33,7 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
             ? 'Vous regagnez le Bastion avec la totalité de votre butin et les honneurs de l’Abîme.'
             : summary.bossNameRemaining
             ? `Terrassé devant ${summary.bossNameRemaining} (${summary.bossHpPct}% PV restants).`
-            : 'Vos cendres récoltées ont été rapatriées au Bastion.'}
+            : 'Vous pouvez dépenser vos gains au Bastion avant de repartir.'}
         </p>
         <div className="text-[11px] font-mono-num text-[#cfc6b8] mb-5">
           {summary.weaponName}
@@ -79,11 +80,8 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
           </div>
         </div>
 
-        <div className="bg-[#18141e] border border-[#352b22] px-4 py-2.5 mb-5 text-left flex flex-wrap items-center justify-between gap-2 text-xs font-mono-num">
-          <span className="text-[#9d9284] uppercase text-[11px]">Butin rapatrié</span>
-          <span className="text-[#d4a853]">
-            +{summary.loot.cendres}🔥 · +{summary.loot.fer}⛓️ · +{summary.loot.larmes}💧
-          </span>
+        <div className="mb-5">
+          <ExpeditionRewards rewards={summary.rewards} />
         </div>
 
         {summary.activeSynergies.length > 0 && (
