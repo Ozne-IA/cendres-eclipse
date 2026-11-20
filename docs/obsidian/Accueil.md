@@ -17,10 +17,13 @@ Cendres de l’Éclipse est un roguelike d’action 2D. Le joueur alterne entre 
 
 ## Graphe du code
 
-Depuis la racine du dépôt, exécuter la commande suivante lorsque le skill Graphify est en place. Les notes générées apparaissent dans le dossier `Graphify/` de ce coffre.
+Depuis la racine du dépôt, construire le graphe avec le skill Graphify, puis l’exporter vers ce coffre.
 
 ```sh
+python .agents/skills/graphify/scripts/run.py build
 python .agents/skills/graphify/scripts/run.py obsidian
 ```
+
+Dans Obsidian, ouvrir `Graphify/graph.canvas` pour explorer le graphe généré.
 
 Le graphe généré décrit les dépendances du code. Les notes de ce coffre documentent les choix et les vérifications du projet.
