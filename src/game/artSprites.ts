@@ -547,7 +547,7 @@ export function drawDetailedPlayer(
   ctx.lineWidth = 0.9;
   ctx.strokeRect(-player.facing * 8 - 2.5, -17.5 - bob * 0.4, 5.5, 6);
 
-  // Layered Lamellar Shoulder Pauldrons with Rivets & Torch Rim-Light
+  // Layered Lamellar Shoulder Pauldrons with Rivets & Torch Rim-Light (cinematic polish)
   for (const side of [-1, 1] as const) {
     const pxP = side * 6.8;
     const pyP = -player.h + 16.5 - bob;
@@ -555,10 +555,17 @@ export function drawDetailedPlayer(
     ctx.beginPath();
     ctx.ellipse(pxP, pyP, 7.2, 5.2, side * -0.22, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255, 224, 178, 0.24)';
-    ctx.beginPath();
-    ctx.ellipse(pxP, pyP - 1.5, 4.8, 2, side * -0.22, 0, Math.PI * 2);
-    ctx.fill();
+
+    // Stronger rim light on the facing shoulder
+    if (!flash) {
+      ctx.fillStyle = side === player.facing
+        ? 'rgba(255, 210, 150, 0.38)'
+        : 'rgba(255, 224, 178, 0.18)';
+      ctx.beginPath();
+      ctx.ellipse(pxP, pyP - 1.6, 5.1, 2.3, side * -0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.strokeStyle = side === player.facing ? skin.trim : '#120f16';
     ctx.lineWidth = 1.1;
     ctx.stroke();
