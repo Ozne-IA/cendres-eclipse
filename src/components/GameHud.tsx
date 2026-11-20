@@ -231,22 +231,22 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Center Area: World Banner & Interaction Prompt */}
-      {hud.banner.visible && (
-        <div className="fixed top-[34%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none px-4 w-full max-w-2xl">
-          <h1
-            className="font-display text-2xl md:text-5xl uppercase tracking-[0.2em] m-0"
-            style={{ color: hud.banner.color, textShadow: '0 4px 28px #000' }}
-          >
-            {hud.banner.title}
-          </h1>
-          <p className="mt-2 text-sm md:text-base text-[#cfc6b8] tracking-wider" style={{ textShadow: '0 2px 12px #000' }}>
-            {hud.banner.sub}
-          </p>
-        </div>
-      )}
+        {/* World banner */}
+        {hud.banner.visible && (
+          <div className="hud-banner fixed top-[34%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none px-4 w-full max-w-2xl">
+            <h1
+              className="font-display text-2xl md:text-5xl uppercase tracking-[0.2em] m-0"
+              style={{ color: hud.banner.color, textShadow: '0 4px 28px #000' }}
+            >
+              {hud.banner.title}
+            </h1>
+            <p className="mt-2 text-sm md:text-base text-[#cfc6b8] tracking-wider" style={{ textShadow: '0 2px 12px #000' }}>
+              {hud.banner.sub}
+            </p>
+          </div>
+        )}
+      </div>
 
       {(hud.promptText || showCombatHint) && (
         <div className={`fixed left-1/2 -translate-x-1/2 flex w-max max-w-[calc(100vw-2rem)] flex-col items-center gap-2 ${hud.boss ? 'bottom-28' : showCombatHint ? 'bottom-4' : 'bottom-20'}`}>

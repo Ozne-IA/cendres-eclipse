@@ -37,3 +37,13 @@
   .hud-zone { width: 100%; overflow-wrap: anywhere; }
   .hud-zone > .flex { flex-wrap: wrap; gap: .25rem .45rem; }
 }
+@media (orientation: landscape) and (max-height: 520px) {
+  .hud-top { position: relative; }
+  .hud-banner {
+    position: absolute;
+    top: calc(100% + .35rem);
+    translate: -50% 0;
+  }
+  .hud-banner h1 { font-size: clamp(1.125rem, 4.8vh, 1.5rem); }
+  .hud-banner p { margin-top: .125rem; font-size: .75rem; }
+}
