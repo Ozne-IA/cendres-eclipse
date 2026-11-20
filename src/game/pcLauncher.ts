@@ -53,12 +53,24 @@ if errorlevel 1 (
 
 if not exist "node_modules" (
   echo [INFO] Installation des dependances...
-  call npm install
+  call npm install --legacy-peer-deps
+  if errorlevel 1 (
+    echo.
+    echo [ERREUR] L'installation des dependances a echoue.
+    pause
+    exit /b 1
+  )
 )
 
 if not exist "dist\\index.html" (
   echo [INFO] Compilation de la version PC optimisee...
   call npm run build
+  if not exist "dist\\index.html" (
+    echo.
+    echo [ERREUR] La compilation a echoue. Verifiez les messages ci-dessus.
+    pause
+    exit /b 1
+  )
 )
 
 echo [INFO] Demarrage du serveur local sur http://127.0.0.1:${port} ...
@@ -109,9 +121,19 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   exit 1
 }
 
+if (-not (Test-Path "node_modules")) {
+  Write-Host "[INFO] Installation des dependances npm..." -ForegroundColor Yellow
+  npm install --legacy-peer-deps
+}
+
 if (-not (Test-Path "dist\\index.html")) {
   Write-Host "[INFO] Compilation du build PC..." -ForegroundColor Yellow
   npm run build
+  if (-not (Test-Path "dist\\index.html")) {
+    Write-Host "[ERREUR] La compilation a echoue. dist\\index.html est introuvable." -ForegroundColor Red
+    Read-Host "Appuyez sur Entree pour quitter"
+    exit 1
+  }
 }
 
 $Url = "${url}".Replace(":${port}", ":$Port")

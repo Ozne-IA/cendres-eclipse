@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cendres de l'Éclipse — Roguelike Dark Fantasy</title>
+<style>
+  :root {
+    --bg: #0b0a0e;
+    --panel: rgba(18, 15, 22, 0.94);
+    --border: #4a3b2c;
+    --gold: #d4a853;
+    --crimson: #a82835;
+    --ember: #e06b2b;
+    --stamina: #4f9d69;
+    --text: #e6dfd3;
+    --muted: #988e80;
+  }
+  * { box-sizing: border-box; user-select: none; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+  #game-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: #070609;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    padding: 18px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .bars {
+    width: 310px;
+    background: rgba(10, 8, 12, 0.72);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.65);
+  }
+  .bar-row { margin-bottom: 7px; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+  .bar-track {
+    height: 10px;
+    background: #1c1820;
+    border: 1px solid #352b22;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    transition: width 0.08s linear;
+  }
+  #hp-fill { background: linear-gradient(90deg, #6b151e, #c4303e); }
+  #stam-fill { background: linear-gradient(90deg, #2d6640, #5db87a); }
+
+  .hud-flasks {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--gold);
+  }
+  .flask-pip {
+    width: 14px;
+    height: 18px;
+    border: 1px solid var(--gold);
+    background: radial-gradient(circle at 50% 65%, #ff8c3b, #8f2414);
+    border-radius: 3px 3px 6px 6px;
+    display: inline-block;
+  }
+  .flask-pip.empty {
+    background: #1a161d;
+    border-color: #4b4136;
+    opacity: 0.45;
+  }
+
+  .hud-right {
+    text-align: right;
+    background: rgba(10, 8, 12, 0.72);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    min-width: 240px;
+  }
+  .zone-title {
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .res-line {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text);
+    display: flex;
+    justify-content: flex-end;
+    gap: 14px;
+  }
+  .ctrl-badge {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: sans-serif;
+  }
+
+  /* Boss bar */
+  #boss-bar-wrap {
+    align-self: center;
+    width: min(680px, 82vw);
+    display: none;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  #boss-name {
+    font-size: 16px;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 8px #000;
+  }
+  #boss-track {
+    height: 14px;
+    background: #171219;
+    border: 1px solid #6b4f35;
+    box-shadow: 0 0 18px rgba(0,0,0,0.85);
+  }
+  #boss-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #751420, #d43848);
+    width: 100%;
+  }
+  #boss-stagger-track {
+    height: 4px;
+    background: #1a171c;
+    margin-top: 3px;
+  }
+  #boss-stagger-fill {
+    height: 100%;
+    background: #e5b85c;
+    width: 0%;
+  }
+
+  /* Prompt & Banner */
+  #prompt-box {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 12, 18, 0.9);
+    border: 1px solid var(--gold);
+    padding: 8px 18px;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 0.06em;
+    display: none;
+    pointer-events: none;
+  }
+  #banner {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    width: 100%;
+  }
+  #banner h1 {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 56px);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-shadow: 0 4px 24px #000;
+  }
+  #banner p {
+    margin: 8px 0 0;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  /* Overlays / Menus */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(7, 6, 10, 0.86);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 20;
+  }
+  .overlay.active { display: flex; }
+  .modal {
+    width: min(980px, 95vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow: 0 0 60px rgba(0,0,0,0.9);
+    padding: 24px 28px;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #332920;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+  }
+  .modal-header h2 {
+    margin: 0;
+    color: var(--gold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 22px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: rgba(28, 23, 33, 0.85);
+    border: 1px solid #3c3024;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .card h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+  .card p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+    font-family: sans-serif;
+  }
+  .btn {
+    background: linear-gradient(180deg, #2e241b, #1d1611);
+    color: var(--gold);
+    border: 1px solid #6b5235;
+    padding: 9px 14px;
+    font-family: 'Georgia', serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #473626, #2b2017);
+    border-color: var(--gold);
+    color: #fff2d6;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: linear-gradient(180deg, #6e1c26, #421016);
+    border-color: #b54552;
+    color: #ffe8ea;
+    padding: 12px 22px;
+    font-size: 15px;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #8e2431, #59141c);
+    border-color: #ff7887;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-family: sans-serif;
+    padding: 2px 7px;
+    border: 1px solid #4e4031;
+    color: var(--gold);
+    background: rgba(0,0,0,0.35);
+  }
+  .oath-btn.selected {
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(212, 168, 83, 0.35);
+  }
+  .controls-help {
+    font-family: sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    background: rgba(12,10,15,0.65);
+    border: 1px solid #2e251d;
+    padding: 10px 14px;
+    margin-top: 14px;
+  }
+  .controls-help strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="bars">
+        <div class="bar-row">
+          <div class="bar-label"><span>Vitalité d'Argile</span><span id="hp-text">100 / 100</span></div>
+          <div class="bar-track"><div class="bar-fill" id="hp-fill" style="width:100%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Souffle</span><span id="stam-text">100 / 100</span></div>
+          <div class="bar-track"><div class="bar-fill" id="stam-fill" style="width:100%"></div></div>
+        </div>
+        <div class="hud-flasks">
+          <span>Sève [R / Y] :</span>
+          <span id="flask-pips"></span>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="zone-title" id="zone-title">Bastion du Crépuscule</div>
+        <div class="res-line">
+          <span title="Cendres">🔥 <b id="res-cendres">0</b></span>
+          <span title="Fer Noir">⛓️ <b id="res-fer">0</b></span>
+          <span title="Larmes de Lune">💧 <b id="res-larmes">0</b></span>
+        </div>
+        <div class="ctrl-badge" id="ctrl-badge">Clavier/Souris • [Échap] Menu/Bastion</div>
+      </div>
+    </div>
+
+    <div id="boss-bar-wrap">
+      <div id="boss-name">L'Archonte du Beffroi</div>
+      <div id="boss-track"><div id="boss-fill"></div></div>
+      <div id="boss-stagger-track"><div id="boss-stagger-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="prompt-box">[E / ▲] Interagir</div>
+  <div id="banner"><h1 id="banner-title"></h1><p id="banner-sub"></p></div>
+
+  <!-- BASTION (GESTION) OVERLAY -->
+  <div class="overlay active" id="bastion-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2>Bastion du Crépuscule</h2>
+          <span style="font-size:13px; color:var(--muted);">Gestion du Sanctuaire &amp; Préparation d'Expédition</span>
+        </div>
+        <div style="text-align:right; font-size:14px;">
+          🔥 Cendres : <b id="m-cendres" style="color:var(--gold)">0</b> &nbsp;|&nbsp;
+          ⛓️ Fer Noir : <b id="m-fer" style="color:#b8c0cc">0</b> &nbsp;|&nbsp;
+          💧 Larmes : <b id="m-larmes" style="color:#7ab8ff">0</b>
+        </div>
+      </div>
+
+      <h3 style="color:var(--gold); margin:0 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:0.1em;">1. Infrastructures du Bastion</h3>
+      <div class="grid-3" id="buildings-grid"></div>
+
+      <h3 style="color:var(--gold); margin:18px 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:0.1em;">2. Errants du Refuge (Production passive par expédition)</h3>
+      <div class="grid-3" id="npcs-grid"></div>
+
+      <h3 style="color:var(--gold); margin:18px 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:0.1em;">3. Serment d'Expédition</h3>
+      <div class="grid-3" id="oaths-grid"></div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; flex-wrap:wrap; gap:12px;">
+        <button class="btn" id="btn-reset-save" style="border-color:#5a262c; color:#c97c84;">Réinitialiser sauvegarde</button>
+        <button class="btn btn-primary" id="btn-start-run">Descendre dans l'Abîme ⚔️</button>
+      </div>
+
+      <div class="controls-help">
+        <strong>Clavier + Souris (AZERTY &amp; QWERTY) :</strong>
+        Déplacer <b>Q/A / D / Flèches</b> • Sauter (Double saut) <b>Espace / Z / W / ↑</b> • Roulade (i-frames) <b>Shift</b> •
+        Attaque <b>Clic Gauche / J</b> • Parade / Déviation (Sekiro) <b>Clic Droit / K</b> • Attaque Lourde <b>F / L</b> •
+        Fiole de Sève <b>R</b> • Interagir <b>E</b> • Pause <b>Échap</b>.<br>
+        <strong>Manette :</strong>
+        Stick Gauche / Croix : Déplacer • <b>A</b> : Sauter • <b>B</b> : Roulade • <b>X</b> : Attaque • <b>LB</b> : Parade • <b>RB/RT</b> : Attaque Lourde • <b>Y</b> : Soin • <b>Croix Haut</b> : Interagir • <b>Start</b> : Pause.
+      </div>
+    </div>
+  </div>
+
+  <!-- BLESSING (ROGUELIKE) OVERLAY -->
+  <div class="overlay" id="blessing-overlay">
+    <div class="modal" style="max-width:780px;">
+      <div class="modal-header">
+        <h2>Bénédiction de l'Éclipse</h2>
+        <span class="tag" id="blessing-depth-tag">Strate 1</span>
+      </div>
+      <p style="color:var(--muted); margin-top:0;">Choisissez un serment éphémère pour la suite de votre descente :</p>
+      <div class="grid-3" id="blessings-grid"></div>
+    </div>
+  </div>
+
+  <!-- PAUSE OVERLAY -->
+  <div class="overlay" id="pause-overlay">
+    <div class="modal" style="max-width:460px; text-align:center;">
+      <h2 style="color:var(--gold); margin-top:0; letter-spacing:0.15em;">PAUSE</h2>
+      <p style="color:var(--muted); font-size:13px;">Si vous rentrez au Bastion maintenant, vous conservez les ressources déjà récoltées dans les coffres et sur les ennemis vaincus.</p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px;">
+        <button class="btn btn-primary" id="btn-resume">Reprendre</button>
+        <button class="btn" id="btn-return-bastion">Rentrer au Bastion du Crépuscule</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // =========================================================================
+  // 1. AUDIO ENGINE (Web Audio API - Synthèse Dark Fantasy)
+  // =========================================================================
+  const AudioFX = (() => {
+    let ctx = null;
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ctx = new AC();
+      }
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+    function tone(freq, type, dur, vol = 0.12, slide = null) {
+      const c = ensure();
+      if (!c) return;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, c.currentTime);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), c.currentTime + dur);
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.connect(g);
+      g.connect(c.destination);
+      o.start();
+      o.stop(c.currentTime + dur);
+    }
+    return {
+      jump: () => tone(190, 'triangle', 0.13, 0.08, 340),
+      dash: () => tone(140, 'sawtooth', 0.14, 0.07, 55),
+      slash: () => tone(420, 'sawtooth', 0.09, 0.08, 120),
+      heavy: () => tone(170, 'sawtooth', 0.22, 0.13, 65),
+      parry: () => {
+        tone(980, 'square', 0.16, 0.14, 1450);
+        tone(1480, 'triangle', 0.24, 0.12, 880);
+      },
+      hit: () => tone(110, 'square', 0.14, 0.14, 42),
+      hurt: () => tone(95, 'sawtooth', 0.24, 0.16, 38),
+      heal: () => {
+        tone(330, 'sine', 0.25, 0.09, 520);
+        setTimeout(() => tone(520, 'sine', 0.28, 0.08, 660), 70);
+      },
+      death: () => {
+        tone(120, 'sawtooth', 0.9, 0.16, 35);
+        tone(85, 'triangle', 1.1, 0.14, 28);
+      },
+      ui: () => tone(540, 'triangle', 0.07, 0.06, 420),
+      boss: () => tone(75, 'sawtooth', 0.7, 0.15, 42)
+    };
+  })();
+
+  // =========================================================================
+  // 2. SAVE & MANAGEMENT DATA (BASTION)
+  // =========================================================================
+  const SAVE_KEY = 'cendres_eclipse_save_v1';
+
+  const BUILDINGS_DEF = {
+    foyer: {
+      name: 'Foyer Éternel',
+      desc: '+20 Vitalité max et +12 Souffle max par niveau.',
+      max: 5,
+      baseCost: { cendres: 35, fer: 2 }
+    },
+    forge: {
+      name: 'Forge des Ombres',
+      desc: '+18% dégâts de lame et +15% dégâts de riposte par niveau.',
+      max: 5,
+      baseCost: { cendres: 40, fer: 3 }
+    },
+    autel: {
+      name: 'Autel de Sève',
+      desc: '+1 Fiole de Sève Ardente (niv 1, 3, 5) et +12 soin par niveau.',
+      max: 5,
+      baseCost: { cendres: 45, larmes: 1 }
+    },
+    vigie: {
+      name: 'Tour de Vigie',
+      desc: '+15% ressources récoltées et chances de Fer/Larmes améliorées.',
+      max: 5,
+      baseCost: { cendres: 35, fer: 2, larmes: 1 }
+    },
+    refuge: {
+      name: 'Refuge des Errants',
+      desc: 'Débloque des emplacements pour assigner des survivants secourus.',
+      max: 3,
+      baseCost: { cendres: 50, fer: 3 }
+    }
+  };
+
+  const NPCS_DEF = {
+    vaelen: {
+      name: 'Vaelen le Forgeron',
+      desc: 'Produit +2 Fer Noir après chaque expédition.',
+      unlockDesc: 'Trouvé dans les Strates (ou débloqué au Refuge).',
+      bonus: (s) => ({ fer: 2 })
+    },
+    meryl: {
+      name: 'Sœur Méryl',
+      desc: 'Distille +30 Cendres purifiées après chaque expédition.',
+      unlockDesc: 'Trouvée dans les Strates (ou débloqué au Refuge).',
+      bonus: (s) => ({ cendres: 30 })
+    },
+    orin: {
+      name: 'Orin le Veilleur',
+      desc: 'Récolte +1 Larme de Lune après chaque expédition.',
+      unlockDesc: 'Trouvé dans les Strates (ou débloqué au Refuge).',
+      bonus: (s) => ({ larmes: 1 })
+    }
+  };
+
+  const OATHS_DEF = {
+    argile: {
+      name: "Serment d'Argile",
+      desc: 'Équilibré. Aucun malus, progression classique.'
+    },
+    sang: {
+      name: 'Serment de Sang',
+      desc: '+45% Cendres & Butin, mais -25% Vitalité max.'
+    },
+    airain: {
+      name: "Serment d'Airain",
+      desc: 'Fenêtre de parade élargie et +40% dégâts de posture, mais régénération du Souffle réduite.'
+    }
+  };
+
+  function defaultSave() {
+    return {
+      res: { cendres: 60, fer: 3, larmes: 1 },
+      buildings: { foyer: 0, forge: 0, autel: 0, vigie: 0, refuge: 1 },
+      npcsUnlocked: { vaelen: true, meryl: false, orin: false },
+      npcsAssigned: ['vaelen'],
+      oath: 'argile',
+      bestDepth: 1,
+      runs: 0
+    };
+  }
+
+  let save = loadSave();
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return defaultSave();
+      const parsed = JSON.parse(raw);
+      return { ...defaultSave(), ...parsed };
+    } catch {
+      return defaultSave();
+    }
+  }
+  function persistSave() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  }
+
+  function buildingCost(key) {
+    const def = BUILDINGS_DEF[key];
+    const lvl = save.buildings[key] || 0;
+    const mult = Math.pow(1.65, lvl);
+    const cost = {};
+    for (const [r, v] of Object.entries(def.baseCost)) {
+      cost[r] = Math.round(v * mult);
+    }
+    return cost;
+  }
+
+  function canAfford(cost) {
+    return Object.entries(cost).every(([r, v]) => (save.res[r] || 0) >= v);
+  }
+  function payCost(cost) {
+    for (const [r, v] of Object.entries(cost)) save.res[r] -= v;
+  }
+
+  // =========================================================================
+  // 3. UNIFIED INPUT (KEYBOARD AZERTY/QWERTY + MOUSE + GAMEPAD)
+  // =========================================================================
+  const keys = new Set();
+  const keysJust = new Set();
+  const mouseJust = new Set();
+  let lastInputMode = 'Clavier / Souris';
+  let prevPadButtons = [];
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.code;
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
+    if (!keys.has(k)) keysJust.add(k);
+    keys.add(k);
+    lastInputMode = 'Clavier / Souris';
+  });
+  window.addEventListener('keyup', (e) => {
+    keys.delete(e.code);
+  });
+  window.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.overlay')) return;
+    mouseJust.add(e.button);
+    lastInputMode = 'Clavier / Souris';
+  });
+  window.addEventListener('contextmenu', (e) => {
+    if (!e.target.closest('.overlay')) e.preventDefault();
+  });
+
+  function pollInput() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const pad = pads && Array.from(pads).find(Boolean);
+
+    const inp = {
+      moveX: 0,
+      jump: false,
+      jumpHeld: false,
+      dash: false,
+      attack: false,
+      heavy: false,
+      parry: false,
+      heal: false,
+      interact: false,
+      pause: false,
+      down: false
+    };
+
+    // Keyboard (supports AZERTY Q/Z and QWERTY A/W via physical Key codes + Arrow keys)
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) inp.moveX -= 1;
+    if (keys.has('KeyD') || keys.has('ArrowRight')) inp.moveX += 1;
+    if (keys.has('KeyS') || keys.has('ArrowDown')) inp.down = true;
+
+    inp.jumpHeld = keys.has('Space') || keys.has('KeyW') || keys.has('ArrowUp');
+    if (keysJust.has('Space') || keysJust.has('KeyW') || keysJust.has('ArrowUp')) inp.jump = true;
+    if (keysJust.has('ShiftLeft') || keysJust.has('ShiftRight')) inp.dash = true;
+    if (keysJust.has('KeyJ') || mouseJust.has(0)) inp.attack = true;
+    if (keysJust.has('KeyK') || mouseJust.has(2)) inp.parry = true;
+    if (keysJust.has('KeyF') || keysJust.has('KeyL')) inp.heavy = true;
+    if (keysJust.has('KeyR')) inp.heal = true;
+    if (keysJust.has('KeyE')) inp.interact = true;
+    if (keysJust.has('Escape')) inp.pause = true;
+
+    // Gamepad standard mapping
+    if (pad) {
+      const ax = Math.abs(pad.axes[0]) > 0.22 ? pad.axes[0] : 0;
+      if (ax !== 0) {
+        inp.moveX = Math.sign(ax);
+        lastInputMode = 'Manette détectée';
+      }
+      if (pad.buttons[14]?.pressed) { inp.moveX = -1; lastInputMode = 'Manette détectée'; }
+      if (pad.buttons[15]?.pressed) { inp.moveX = 1; lastInputMode = 'Manette détectée'; }
+      if (pad.buttons[13]?.pressed || (pad.axes[1] > 0.6)) inp.down = true;
+
+      const just = (idx) => {
+        const cur = !!pad.buttons[idx]?.pressed;
+        const prev = !!prevPadButtons[idx];
+        if (cur) lastInputMode = 'Manette détectée';
+        return cur && !prev;
+      };
+
+      if (pad.buttons[0]?.pressed) inp.jumpHeld = true;
+      if (just(0)) inp.jump = true;       // A / Croix
+      if (just(1)) inp.dash = true;       // B / Rond
+      if (just(2)) inp.attack = true;     // X / Carré
+      if (just(3)) inp.heal = true;       // Y / Triangle
+      if (just(4)) inp.parry = true;      // LB / L1
+      if (just(5) || just(7)) inp.heavy = true; // RB / RT
+      if (just(12)) inp.interact = true;  // D-Pad Up
+      if (just(9)) inp.pause = true;      // Start
+
+      prevPadButtons = pad.buttons.map(b => !!b.pressed);
+    }
+
+    keysJust.clear();
+    mouseJust.clear();
+    document.getElementById('ctrl-badge').textContent = `${lastInputMode} • [Échap / Start] Pause`;
+    return inp;
+  }
+
+  // =========================================================================
+  // 4. GAME STATE & ROGUELIKE BLESSINGS
+  // =========================================================================
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let W = 1280, H = 720;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const BLESSINGS_POOL = [
+    { id: 'ember_blade', name: 'Lame Embrasée', desc: '+25% dégâts sur toutes les attaques.' },
+    { id: 'mist_step', name: 'Pas de Brume', desc: 'Roulade coûte 35% moins de Souffle et va plus loin.' },
+    { id: 'thunder_parry', name: 'Déviation Foudroyante', desc: 'Une parade parfaite déclenche une onde de choc (35 dégâts).' },
+    { id: 'vampiric', name: 'Sève Vampirique', desc: 'Chaque ennemi vaincu restaure 8 points de Vitalité.' },
+    { id: 'iron_lungs', name: 'Souffle d\'Airain', desc: '+35 Souffle max et +30% régénération d\'endurance.' },
+    { id: 'vital_vessel', name: 'Vase d\'Argile Pur', desc: '+45 Vitalité max et soigne immédiatement 45 PV.' },
+    { id: 'greed', name: 'Œil de l\'Éclipse', desc: '+40% Cendres obtenues durant cette expédition.' }
+  ];
+
+  let state = 'bastion'; // 'bastion' | 'playing' | 'blessing' | 'paused' | 'dead'
+  let run = null;
+  let room = null;
+  let player = null;
+  let particles = [];
+  let floatingTexts = [];
+  let hitStop = 0;
+  let shake = 0;
+  let camera = { x: 0, y: 0 };
+
+  function createRun() {
+    const hpBonus = save.buildings.foyer * 20;
+    const stamBonus = save.buildings.foyer * 12;
+    const oathHpMult = save.oath === 'sang' ? 0.75 : 1;
+    const maxHp = Math.round((110 + hpBonus) * oathHpMult);
+    const maxStam = 100 + stamBonus;
+    const maxFlasks = 2 + (save.buildings.autel >= 1 ? 1 : 0) + (save.buildings.autel >= 3 ? 1 : 0) + (save.buildings.autel >= 5 ? 1 : 0);
+
+    return {
+      depth: 1,
+      blessings: new Set(),
+      maxHp,
+      hp: maxHp,
+      maxStam,
+      stam: maxStam,
+      maxFlasks,
+      flasks: maxFlasks,
+      loot: { cendres: 0, fer: 0, larmes: 0 }
+    };
+  }
+
+  function createPlayer(x, y) {
+    return {
+      x, y, w: 28, h: 48,
+      vx: 0, vy: 0,
+      facing: 1,
+      onGround: false,
+      coyote: 0,
+      jumpBuf: 0,
+      jumpsLeft: 2,
+      dashT: 0,
+      dashCd: 0,
+      invulnT: 0,
+      attackT: 0,
+      attackType: 'light',
+      attackHitIds: new Set(),
+      parryT: 0,
+      parryCd: 0,
+      stamRegenDelay: 0,
+      healT: 0
+    };
+  }
+
+  // =========================================================================
+  // 5. PROCEDURAL LEVEL GENERATOR (PLATEFORME + BOSS)
+  // =========================================================================
+  const BIOMES = [
+    { name: 'Catacombes de Cendre', skyTop: '#100c14', skyBot: '#21151b', stone: '#2b232a', trim: '#594537' },
+    { name: 'Viaduc des Écorchés', skyTop: '#0c1118', skyBot: '#18242e', stone: '#232b33', trim: '#4f5d6b' },
+    { name: 'Flèche d\'Obsidienne', skyTop: '#16090e', skyBot: '#2b1018', stone: '#261a20', trim: '#783f44' }
+  ];
+
+  function generateRoom(depth) {
+    const isBoss = depth % 3 === 0;
+    const biome = BIOMES[Math.floor((depth - 1) / 3) % BIOMES.length];
+    const width = isBoss ? 1500 : 2100 + Math.min(800, depth * 80);
+    const height = 900;
+    const groundY = 720;
+
+    const platforms = [];
+    const hazards = [];
+    const props = []; // chests, npcs, exitDoor
+    const enemies = [];
+    const projectiles = [];
+
+    if (isBoss) {
+      // Arène de Boss avec 2 plateformes latérales pour le jeu vertical
+      platforms.push({ x: 0, y: groundY, w: width, h: 220, type: 'solid' });
+      platforms.push({ x: 180, y: groundY - 140, w: 220, h: 18, type: 'oneway' });
+      platforms.push({ x: width - 400, y: groundY - 140, w: 220, h: 18, type: 'oneway' });
+      platforms.push({ x: width / 2 - 140, y: groundY - 245, w: 280, h: 18, type: 'oneway' });
+
+      const bossType = (depth / 3) % 2 === 1 ? 'archon' : 'mother';
+      enemies.push(createEnemy(bossType, width - 340, groundY, depth));
+      props.push({ type: 'exit', x: width - 130, y: groundY - 82, w: 56, h: 82, locked: true });
+    } else {
+      // Salle de plateforme procédurale par segments
+      platforms.push({ x: 0, y: groundY, w: 360, h: 220, type: 'solid' });
+      let curX = 360;
+      while (curX < width - 420) {
+        const segW = 240 + Math.floor(Math.random() * 180);
+        const gap = Math.random() < 0.35 ? 95 + Math.random() * 55 : 0;
+        if (gap > 0) {
+          // Pont haut ou fosse avec piques en bas
+          hazards.push({ x: curX, y: groundY + 40, w: gap, h: 40 });
+          curX += gap;
+        }
+        const elev = Math.random() < 0.45 ? -(40 + Math.floor(Math.random() * 80)) : 0;
+        const py = groundY + elev;
+        platforms.push({ x: curX, y: py, w: segW, h: 240 - elev, type: 'solid' });
+
+        // Plateformes aériennes & ennemis
+        if (Math.random() < 0.78) {
+          const platY = py - (115 + Math.floor(Math.random() * 65));
+          const platW = 140 + Math.floor(Math.random() * 110);
+          const isCrumble = Math.random() < 0.3;
+          platforms.push({
+            x: curX + 30, y: platY, w: platW, h: 18,
+            type: isCrumble ? 'crumble' : 'oneway',
+            crumbleT: 0, broken: false
+          });
+          if (Math.random() < 0.45) {
+            enemies.push(createEnemy('watcher', curX + 70, platY - 40, depth));
+          }
+        }
+
+        // Ennemi au sol
+        const roll = Math.random();
+        if (roll < 0.55) {
+          enemies.push(createEnemy('penitent', curX + segW * 0.55, py, depth));
+        } else if (roll < 0.85) {
+          enemies.push(createEnemy('flagellant', curX + segW * 0.55, py, depth));
+        }
+
+        // Coffre ou survivant rare
+        if (Math.random() < 0.25) {
+          props.push({ type: 'chest', x: curX + segW * 0.3, y: py - 32, w: 36, h: 32, opened: false });
+        }
+        curX += segW;
+      }
+
+      // Plateforme de sortie
+      platforms.push({ x: curX, y: groundY, w: width - curX, h: 220, type: 'solid' });
+      props.push({ type: 'exit', x: width - 130, y: groundY - 82, w: 56, h: 82, locked: false });
+
+      // Chance de sauver un PNJ si pas encore débloqué
+      const lockedNpcs = Object.keys(NPCS_DEF).filter(k => !save.npcsUnlocked[k]);
+      if (lockedNpcs.length > 0 && Math.random() < 0.35) {
+        const pick = lockedNpcs[Math.floor(Math.random() * lockedNpcs.length)];
+        props.push({ type: 'npc', npcId: pick, x: width - 260, y: groundY - 48, w: 30, h: 48, rescued: false });
+      }
+    }
+
+    return { depth, isBoss, biome, width, height, groundY, platforms, hazards, props, enemies, projectiles };
+  }
+
+  function createEnemy(kind, x, groundY, depth) {
+    const scale = 1 + (depth - 1) * 0.18;
+    const base = {
+      id: Math.random(),
+      kind,
+      x, y: groundY - 48,
+      w: 30, h: 48,
+      vx: 0, vy: 0,
+      facing: -1,
+      state: 'idle',
+      stateT: 0,
+      cd: 0.6 + Math.random() * 0.6,
+      stagger: 0,
+      maxStagger: 100,
+      isBoss: false
+    };
+    if (kind === 'penitent') {
+      return { ...base, name: "Pénitent d'Os", hp: Math.round(52 * scale), maxHp: Math.round(52 * scale), dmg: Math.round(16 * scale), color: '#b5a899' };
+    }
+    if (kind === 'watcher') {
+      return { ...base, y: groundY - 70, name: 'Veilleur de Suie', hp: Math.round(40 * scale), maxHp: Math.round(40 * scale), dmg: Math.round(14 * scale), color: '#6b8ea6', flying: true };
+    }
+    if (kind === 'flagellant') {
+      return { ...base, w: 38, h: 58, y: groundY - 58, name: "Flagellant d'Airain", hp: Math.round(92 * scale), maxHp: Math.round(92 * scale), dmg: Math.round(24 * scale), color: '#b8763e' };
+    }
+    if (kind === 'archon') {
+      return { ...base, w: 54, h: 86, y: groundY - 86, name: "L'Archonte du Beffroi", hp: Math.round(320 * scale), maxHp: Math.round(320 * scale), dmg: Math.round(28 * scale), maxStagger: 150, isBoss: true, color: '#d4a853' };
+    }
+    return { ...base, w: 58, h: 90, y: groundY - 90, name: 'La Mère des Cendres', hp: Math.round(370 * scale), maxHp: Math.round(370 * scale), dmg: Math.round(30 * scale), maxStagger: 160, isBoss: true, color: '#c43b4d' };
+  }
+
+  // =========================================================================
+  // 6. HELPERS: PARTICLES, TEXTS, BANNER
+  // =========================================================================
+  function spawnParticles(x, y, color, count = 12, speed = 220) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = (0.3 + Math.random() * 0.7) * speed;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 40,
+        life: 0.25 + Math.random() * 0.35,
+        maxLife: 0.6,
+        size: 2 + Math.random() * 3,
+        color
+      });
+    }
+  }
+
+  function addFloatText(x, y, text, color = '#e6dfd3') {
+    floatingTexts.push({ x, y, text, color, life: 0.85 });
+  }
+
+  let bannerTimeout = null;
+  function showBanner(title, sub, color = '#d4a853', dur = 2400) {
+    const b = document.getElementById('banner');
+    document.getElementById('banner-title').textContent = title;
+    document.getElementById('banner-title').style.color = color;
+    document.getElementById('banner-sub').textContent = sub;
+    b.style.opacity = '1';
+    clearTimeout(bannerTimeout);
+    bannerTimeout = setTimeout(() => { b.style.opacity = '0'; }, dur);
+  }
+
+  // =========================================================================
+  // 7. RUN FLOW & BASTION UI
+  // =========================================================================
+  function startNewRun() {
+    AudioFX.ui();
+    save.runs += 1;
+    persistSave();
+    run = createRun();
+    document.getElementById('bastion-overlay').classList.remove('active');
+    loadRoom(1);
+    state = 'playing';
+  }
+
+  function loadRoom(depth) {
+    room = generateRoom(depth);
+    run.depth = depth;
+    if (depth > save.bestDepth) { save.bestDepth = depth; persistSave(); }
+    player = createPlayer(110, room.groundY - 48);
+    particles = [];
+    floatingTexts = [];
+    camera.x = 0;
+    camera.y = 0;
+
+    document.getElementById('zone-title').textContent = `Strate ${depth} — ${room.biome.name}`;
+    const boss = room.enemies.find(e => e.isBoss);
+    const bossWrap = document.getElementById('boss-bar-wrap');
+    if (boss) {
+      bossWrap.style.display = 'block';
+      document.getElementById('boss-name').textContent = boss.name;
+      AudioFX.boss();
+      showBanner(boss.name, `Strate ${depth} — Gardien de l'Abîme`, '#d4a853', 2800);
+    } else {
+      bossWrap.style.display = 'none';
+      showBanner(`Strate ${depth}`, room.biome.name, '#d4a853', 1800);
+    }
+  }
+
+  function bankRunResources() {
+    if (!run) return;
+    // Ajouter les ressources récoltées + production des PNJ assignés
+    save.res.cendres += run.loot.cendres;
+    save.res.fer += run.loot.fer;
+    save.res.larmes += run.loot.larmes;
+
+    const slots = save.buildings.refuge || 0;
+    save.npcsAssigned.slice(0, slots).forEach(id => {
+      const prod = NPCS_DEF[id]?.bonus(save) || {};
+      for (const [k, v] of Object.entries(prod)) save.res[k] = (save.res[k] || 0) + v;
+    });
+    persistSave();
+  }
+
+  function openBastion() {
+    state = 'bastion';
+    document.getElementById('pause-overlay').classList.remove('active');
+    document.getElementById('blessing-overlay').classList.remove('active');
+    document.getElementById('boss-bar-wrap').style.display = 'none';
+    document.getElementById('bastion-overlay').classList.add('active');
+    renderBastionUI();
+  }
+
+  function renderBastionUI() {
+    document.getElementById('m-cendres').textContent = save.res.cendres;
+    document.getElementById('m-fer').textContent = save.res.fer;
+    document.getElementById('m-larmes').textContent = save.res.larmes;
+
+    // Buildings
+    const bGrid = document.getElementById('buildings-grid');
+    bGrid.innerHTML = '';
+    for (const [key, def] of Object.entries(BUILDINGS_DEF)) {
+      const lvl = save.buildings[key] || 0;
+      const isMax = lvl >= def.max;
+      const cost = buildingCost(key);
+      const costStr = Object.entries(cost).map(([r, v]) => `${r === 'cendres' ? '🔥' : r === 'fer' ? '⛓️' : '💧'}${v}`).join('  ');
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>${def.name}</h3>
+            <span class="tag">Niv. ${lvl}/${def.max}</span>
+          </div>
+          <p style="margin-top:8px;">${def.desc}</p>
+        </div>
+        <button class="btn" ${isMax || !canAfford(cost) ? 'disabled' : ''}>
+          ${isMax ? 'Niveau Maximum' : `Améliorer (${costStr})`}
+        </button>
+      `;
+      card.querySelector('button').onclick = () => {
+        if (isMax || !canAfford(cost)) return;
+        payCost(cost);
+        save.buildings[key] = lvl + 1;
+        persistSave();
+        AudioFX.ui();
+        renderBastionUI();
+      };
+      bGrid.appendChild(card);
+    }
+
+    // NPCs
+    const nGrid = document.getElementById('npcs-grid');
+    nGrid.innerHTML = '';
+    const maxSlots = save.buildings.refuge || 0;
+    for (const [id, def] of Object.entries(NPCS_DEF)) {
+      const unlocked = !!save.npcsUnlocked[id];
+      const assigned = save.npcsAssigned.includes(id);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>${def.name}</h3>
+            <span class="tag">${unlocked ? (assigned ? 'Assigné' : 'Disponible') : 'Disparu'}</span>
+          </div>
+          <p style="margin-top:8px;">${unlocked ? def.desc : def.unlockDesc}</p>
+        </div>
+        <button class="btn" ${!unlocked ? 'disabled' : ''}>
+          ${!unlocked ? 'À secourir dans l\'Abîme' : (assigned ? 'Retirer du Refuge' : `Assigner (${save.npcsAssigned.length}/${maxSlots})`)}
+        </button>
+      `;
+      card.querySelector('button').onclick = () => {
+        if (!unlocked) return;
+        if (assigned) {
+          save.npcsAssigned = save.npcsAssigned.filter(x => x !== id);
+        } else if (save.npcsAssigned.length < maxSlots) {
+          save.npcsAssigned.push(id);
+        }
+        persistSave();
+        AudioFX.ui();
+        renderBastionUI();
+      };
+      nGrid.appendChild(card);
+    }
+
+    // Oaths
+    const oGrid = document.getElementById('oaths-grid');
+    oGrid.innerHTML = '';
+    for (const [id, def] of Object.entries(OATHS_DEF)) {
+      const sel = save.oath === id;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div>
+          <h3>${def.name}</h3>
+          <p style="margin-top:8px;">${def.desc}</p>
+        </div>
+        <button class="btn oath-btn ${sel ? 'selected' : ''}">${sel ? '✓ Serment Actif' : 'Prêter Serment'}</button>
+      `;
+      card.querySelector('button').onclick = () => {
+        save.oath = id;
+        persistSave();
+        AudioFX.ui();
+        renderBastionUI();
+      };
+      oGrid.appendChild(card);
+    }
+  }
+
+  function openBlessingChoice() {
+    state = 'blessing';
+    document.getElementById('blessing-depth-tag').textContent = `Strate ${run.depth} vaincue`;
+    const grid = document.getElementById('blessings-grid');
+    grid.innerHTML = '';
+    const available = BLESSINGS_POOL.filter(b => !run.blessings.has(b.id));
+    const choices = (available.length >= 3 ? available : BLESSINGS_POOL).sort(() => Math.random() - 0.5).slice(0, 3);
+    choices.forEach(b => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div><h3>${b.name}</h3><p style="margin-top:8px;">${b.desc}</p></div>
+        <button class="btn btn-primary">Accepter</button>
+      `;
+      card.querySelector('button').onclick = () => {
+        run.blessings.add(b.id);
+        if (b.id === 'vital_vessel') { run.maxHp += 45; run.hp = Math.min(run.maxHp, run.hp + 45); }
+        if (b.id === 'iron_lungs') { run.maxStam += 35; run.stam = run.maxStam; }
+        AudioFX.heal();
+        document.getElementById('blessing-overlay').classList.remove('active');
+        state = 'playing';
+        loadRoom(run.depth + 1);
+      };
+      grid.appendChild(card);
+    });
+    document.getElementById('blessing-overlay').classList.add('active');
+  }
+
+  // Buttons wiring
+  document.getElementById('btn-start-run').onclick = startNewRun;
+  document.getElementById('btn-resume').onclick = () => {
+    document.getElementById('pause-overlay').classList.remove('active');
+    state = 'playing';
+  };
+  document.getElementById('btn-return-bastion').onclick = () => {
+    bankRunResources();
+    openBastion();
+  };
+  document.getElementById('btn-reset-save').onclick = () => {
+    if (confirm('Effacer toute votre progression du Bastion ?')) {
+      save = defaultSave();
+      persistSave();
+      renderBastionUI();
+    }
+  };
+
+  // =========================================================================
+  // 8. UPDATE LOOP (PHYSIQUE, COMBAT, IA, PARADE)
+  // =========================================================================
+  function getLootMultiplier() {
+    let m = 1 + (save.buildings.vigie || 0) * 0.15;
+    if (save.oath === 'sang') m += 0.45;
+    if (run.blessings.has('greed')) m += 0.40;
+    return m;
+  }
+
+  function getPlayerDmg(isHeavy, isRiposte = false) {
+    let base = isHeavy ? 42 : 24;
+    base *= 1 + (save.buildings.forge || 0) * 0.18;
+    if (run.blessings.has('ember_blade')) base *= 1.25;
+    if (isRiposte) base *= 1.45 + (save.buildings.forge || 0) * 0.15;
+    return Math.round(base);
+  }
+
+  function hurtPlayer(dmg, sourceX) {
+    if (player.invulnT > 0 || state !== 'playing') return;
+
+    // Check Parry (Sekiro Deflect!)
+    if (player.parryT > 0) {
+      AudioFX.parry();
+      hitStop = 0.09;
+      shake = 8;
+      player.invulnT = 0.25;
+      run.stam = Math.min(run.maxStam, run.stam + 22);
+      spawnParticles(player.x + player.w / 2 + player.facing * 16, player.y + 20, '#ffd470', 20, 320);
+      addFloatText(player.x, player.y - 12, 'DÉVIATION !', '#ffd470');
+
+      // Stagger nearby attacking enemy
+      room.enemies.forEach(e => {
+        if (Math.abs((e.x + e.w / 2) - (player.x + player.w / 2)) < 130) {
+          const stag = save.oath === 'airain' ? 75 : 55;
+          e.stagger += stag;
+          if (run.blessings.has('thunder_parry')) {
+            e.hp -= 35;
+            addFloatText(e.x, e.y - 22, '-35 ⚡', '#ffd470');
+          }
+          if (e.stagger >= e.maxStagger) {
+            e.stagger = 0;
+            e.state = 'staggered';
+            e.stateT = 2.0;
+            addFloatText(e.x, e.y - 36, 'BRISÉ !', '#ff8c42');
+          }
+        }
+      });
+      return;
+    }
+
+    // Normal hit
+    run.hp = Math.max(0, run.hp - dmg);
+    player.invulnT = 0.65;
+    player.vx = (player.x < sourceX ? -1 : 1) * 240;
+    player.vy = -180;
+    hitStop = 0.06;
+    shake = 10;
+    AudioFX.hurt();
+    spawnParticles(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
+    addFloatText(player.x, player.y - 10, `-${dmg}`, '#ff4d5e');
+
+    if (run.hp <= 0) {
+      state = 'dead';
+      AudioFX.death();
+      showBanner("L'ARGILE SE BRISE", 'Retour au Bastion avec vos ressources récoltées…', '#c4303e', 2600);
+      bankRunResources();
+      setTimeout(() => { openBastion(); }, 2500);
+    }
+  }
+
+  function update(dt, inp) {
+    if (inp.pause) {
+      if (state === 'playing') {
+        state = 'paused';
+        document.getElementById('pause-overlay').classList.add('active');
+      } else if (state === 'paused') {
+        state = 'playing';
+        document.getElementById('pause-overlay').classList.remove('active');
+      }
+      return;
+    }
+
+    if (state !== 'playing') return;
+
+    if (hitStop > 0) { hitStop -= dt; return; }
+    if (shake > 0) shake = Math.max(0, shake - dt * 28);
+
+    // --- Stamina regen ---
+    if (player.stamRegenDelay > 0) {
+      player.stamRegenDelay -= dt;
+    } else {
+      let regen = 32;
+      if (save.oath === 'airain') regen *= 0.72;
+      if (run.blessings.has('iron_lungs')) regen *= 1.3;
+      run.stam = Math.min(run.maxStam, run.stam + regen * dt);
+    }
+
+    // --- Player Timers ---
+    player.coyote = Math.max(0, player.coyote - dt);
+    player.jumpBuf = Math.max(0, player.jumpBuf - dt);
+    player.dashCd = Math.max(0, player.dashCd - dt);
+    player.invulnT = Math.max(0, player.invulnT - dt);
+    player.parryT = Math.max(0, player.parryT - dt);
+    player.parryCd = Math.max(0, player.parryCd - dt);
+    player.healT = Math.max(0, player.healT - dt);
+
+    if (inp.jump) player.jumpBuf = 0.14;
+
+    // --- Actions ---
+    // Heal
+    if (inp.heal && run.flasks > 0 && run.hp < run.maxHp && player.healT <= 0) {
+      run.flasks--;
+      const healAmt = 45 + (save.buildings.autel || 0) * 12;
+      run.hp = Math.min(run.maxHp, run.hp + healAmt);
+      player.healT = 0.5;
+      AudioFX.heal();
+      spawnParticles(player.x + player.w / 2, player.y + 24, '#ff9842', 16, 160);
+      addFloatText(player.x, player.y - 16, `+${healAmt} PV`, '#ff9842');
+    }
+
+    // Dash / Roll
+    const dashCost = run.blessings.has('mist_step') ? 14 : 22;
+    if (inp.dash && player.dashCd <= 0 && player.dashT <= 0 && run.stam >= dashCost) {
+      run.stam -= dashCost;
+      player.stamRegenDelay = 0.45;
+      player.dashT = 0.18;
+      player.dashCd = 0.36;
+      player.invulnT = Math.max(player.invulnT, 0.24);
+      const spd = run.blessings.has('mist_step') ? 760 : 620;
+      player.vx = (inp.moveX !== 0 ? inp.moveX : player.facing) * spd;
+      player.vy = 0;
+      AudioFX.dash();
+      spawnParticles(player.x + player.w / 2, player.y + 30, '#8d8278', 8, 120);
+    }
+
+    // Parry
+    if (inp.parry && player.parryCd <= 0 && player.attackT <= 0 && run.stam >= 10) {
+      run.stam -= 10;
+      player.stamRegenDelay = 0.35;
+      player.parryT = save.oath === 'airain' ? 0.30 : 0.22;
+      player.parryCd = 0.42;
+      AudioFX.ui();
+    }
+
+    // Attacks
+    if (inp.attack && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 14) {
+      run.stam -= 14;
+      player.stamRegenDelay = 0.5;
+      player.attackT = 0.22;
+      player.attackType = 'light';
+      player.attackHitIds.clear();
+      AudioFX.slash();
+    } else if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 28) {
+      run.stam -= 28;
+      player.stamRegenDelay = 0.7;
+      player.attackT = 0.34;
+      player.attackType = 'heavy';
+      player.attackHitIds.clear();
+      AudioFX.heavy();
+    }
+
+    // --- Movement & Gravity ---
+    if (player.dashT > 0) {
+      player.dashT -= dt;
+    } else {
+      const moveSpeed = 310;
+      if (inp.moveX !== 0) {
+        player.facing = inp.moveX > 0 ? 1 : -1;
+        player.vx += (inp.moveX * moveSpeed - player.vx) * Math.min(1, dt * 16);
+      } else {
+        player.vx *= Math.pow(0.001, dt);
+      }
+
+      // Jump & Double Jump
+      if (player.jumpBuf > 0) {
+        if (player.coyote > 0) {
+          player.vy = -560;
+          player.onGround = false;
+          player.coyote = 0;
+          player.jumpBuf = 0;
+          player.jumpsLeft = 1;
+          AudioFX.jump();
+        } else if (player.jumpsLeft > 0) {
+          player.vy = -510;
+          player.jumpsLeft--;
+          player.jumpBuf = 0;
+          AudioFX.jump();
+          spawnParticles(player.x + player.w / 2, player.y + player.h, '#9c9286', 7, 100);
+        }
+      }
+
+      // Variable jump height
+      if (!inp.jumpHeld && player.vy < -200) {
+        player.vy += 1200 * dt;
+      }
+
+      player.vy = Math.min(920, player.vy + 1450 * dt);
+    }
+
+    // Horizontal move
+    player.x = Math.max(0, Math.min(room.width - player.w, player.x + player.vx * dt));
+
+    // Vertical move & platform collision
+    const prevBot = player.y + player.h;
+    player.y += player.vy * dt;
+    player.onGround = false;
+
+    for (const p of room.platforms) {
+      if (p.broken) continue;
+      if (p.type === 'crumble' && p.crumbleT > 0) {
+        p.crumbleT -= dt;
+        if (p.crumbleT <= 0) {
+          p.broken = true;
+          setTimeout(() => { p.broken = false; p.crumbleT = 0; }, 2600);
+        }
+      }
+      const overlapX = player.x + player.w > p.x && player.x < p.x + p.w;
+      if (!overlapX) continue;
+
+      if (p.type === 'solid') {
+        if (player.vy >= 0 && prevBot <= p.y + 12 && player.y + player.h >= p.y) {
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          player.coyote = 0.11;
+          player.jumpsLeft = 2;
+        }
+      } else if (!inp.down) {
+        if (player.vy >= 0 && prevBot <= p.y + 10 && player.y + player.h >= p.y) {
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          player.coyote = 0.11;
+          player.jumpsLeft = 2;
+          if (p.type === 'crumble' && p.crumbleT === 0) p.crumbleT = 0.65;
+        }
+      }
+    }
+
+    // Hazards / Abyss
+    for (const h of room.hazards) {
+      if (player.x + player.w > h.x && player.x < h.x + h.w && player.y + player.h > h.y) {
+        hurtPlayer(24, h.x + h.w / 2);
+        player.y = room.groundY - 120;
+        player.vy = -300;
+      }
+    }
+    if (player.y > room.height + 80) {
+      hurtPlayer(25, player.x);
+      player.x = 120;
+      player.y = room.groundY - 120;
+      player.vy = 0;
+    }
+
+    // --- Player Attack Hitbox ---
+    if (player.attackT > 0) {
+      player.attackT -= dt;
+      const reach = player.attackType === 'heavy' ? 68 : 54;
+      const ax = player.facing === 1 ? player.x + player.w - 6 : player.x - reach + 6;
+      const ay = player.y - 4;
+      const ah = player.h + 8;
+
+      for (const e of room.enemies) {
+        if (e.hp <= 0 || player.attackHitIds.has(e.id)) continue;
+        if (ax < e.x + e.w && ax + reach > e.x && ay < e.y + e.h && ay + ah > e.y) {
+          player.attackHitIds.add(e.id);
+          const isRiposte = e.state === 'staggered';
+          const dmg = getPlayerDmg(player.attackType === 'heavy', isRiposte);
+          e.hp -= dmg;
+          e.stagger += player.attackType === 'heavy' ? 40 : 20;
+          e.vx = player.facing * (player.attackType === 'heavy' ? 220 : 110);
+          hitStop = player.attackType === 'heavy' || isRiposte ? 0.06 : 0.025;
+          shake = isRiposte ? 9 : 4;
+          AudioFX.hit();
+          spawnParticles(e.x + e.w / 2, e.y + e.h / 2, isRiposte ? '#ffd470' : '#d44242', 12, 230);
+          addFloatText(e.x + e.w / 2, e.y - 10, isRiposte ? `RIPOSTE -${dmg}!` : `-${dmg}`, isRiposte ? '#ffd470' : '#f2d8b3');
+
+          if (e.hp <= 0) onEnemyKilled(e);
+        }
+      }
+    }
+
+    // --- Enemies AI ---
+    for (const e of room.enemies) {
+      if (e.hp <= 0) continue;
+      const dx = (player.x + player.w / 2) - (e.x + e.w / 2);
+      const dy = (player.y + player.h / 2) - (e.y + e.h / 2);
+      const dist = Math.hypot(dx, dy);
+
+      if (e.state === 'staggered') {
+        e.stateT -= dt;
+        e.vx *= 0.85;
+        if (e.stateT <= 0) e.state = 'idle';
+      } else if (e.state === 'windup') {
+        e.stateT -= dt;
+        e.vx *= 0.85;
+        if (e.stateT <= 0) {
+          e.state = 'attack';
+          e.stateT = 0.24;
+          if (e.kind === 'watcher' || (e.isBoss && dist > 210 && Math.random() < 0.55)) {
+            // Projectile
+            const ang = Math.atan2(dy, dx);
+            const count = e.isBoss ? 3 : 1;
+            for (let i = 0; i < count; i++) {
+              const a = ang + (i - (count - 1) / 2) * 0.22;
+              room.projectiles.push({
+                x: e.x + e.w / 2, y: e.y + e.h / 2,
+                vx: Math.cos(a) * 340, vy: Math.sin(a) * 340,
+                r: 7, dmg: e.dmg, friendly: false
+              });
+            }
+          } else {
+            e.vx = e.facing * (e.isBoss ? 420 : 300);
+          }
+        }
+      } else if (e.state === 'attack') {
+        e.stateT -= dt;
+        // Contact damage during lunge
+        if (player.x < e.x + e.w + 10 && player.x + player.w > e.x - 10 && player.y < e.y + e.h && player.y + player.h > e.y) {
+          hurtPlayer(e.dmg, e.x + e.w / 2);
+        }
+        if (e.stateT <= 0) {
+          e.state = 'idle';
+          e.cd = e.isBoss ? 0.75 : 1.05;
+        }
+      } else {
+        // Idle / Chase
+        e.cd = Math.max(0, e.cd - dt);
+        if (dist < (e.isBoss ? 800 : 420)) {
+          e.facing = dx >= 0 ? 1 : -1;
+          const range = e.kind === 'watcher' ? 280 : (e.isBoss ? 140 : 78);
+          if (dist > range) {
+            const spd = e.isBoss ? 165 : (e.kind === 'flagellant' ? 105 : 140);
+            e.vx += (e.facing * spd - e.vx) * Math.min(1, dt * 6);
+          } else {
+            e.vx *= 0.85;
+            if (e.cd <= 0) {
+              e.state = 'windup';
+              e.stateT = e.kind === 'flagellant' ? 0.58 : (e.isBoss ? 0.48 : 0.42);
+            }
+          }
+        } else {
+          e.vx *= 0.9;
+        }
+      }
+
+      e.x = Math.max(20, Math.min(room.width - e.w - 20, e.x + e.vx * dt));
+      if (!e.flying) {
+        e.vy += 1400 * dt;
+        e.y += e.vy * dt;
+        for (const p of room.platforms) {
+          if (p.type === 'solid' && e.x + e.w > p.x && e.x < p.x + p.w && e.vy >= 0 && e.y + e.h >= p.y && e.y + e.h <= p.y + 32) {
+            e.y = p.y - e.h;
+            e.vy = 0;
+          }
+        }
+      }
+    }
+
+    // --- Projectiles (Parryable!) ---
+    for (let i = room.projectiles.length - 1; i >= 0; i--) {
+      const pr = room.projectiles[i];
+      pr.x += pr.vx * dt;
+      pr.y += pr.vy * dt;
+      if (pr.x < 0 || pr.x > room.width || pr.y < 0 || pr.y > room.height) {
+        room.projectiles.splice(i, 1);
+        continue;
+      }
+      if (!pr.friendly && pr.x + pr.r > player.x && pr.x - pr.r < player.x + player.w && pr.y + pr.r > player.y && pr.y - pr.r < player.y + player.h) {
+        if (player.parryT > 0) {
+          // Reflect projectile back!
+          pr.friendly = true;
+          pr.vx *= -1.45;
+          pr.vy *= -1.45;
+          pr.dmg *= 2;
+          AudioFX.parry();
+          addFloatText(player.x, player.y - 14, 'RENVOI !', '#ffd470');
+        } else {
+          hurtPlayer(pr.dmg, pr.x);
+          room.projectiles.splice(i, 1);
+        }
+      } else if (pr.friendly) {
+        for (const e of room.enemies) {
+          if (e.hp > 0 && pr.x > e.x && pr.x < e.x + e.w && pr.y > e.y && pr.y < e.y + e.h) {
+            e.hp -= pr.dmg;
+            AudioFX.hit();
+            addFloatText(e.x, e.y - 10, `-${pr.dmg}`, '#ffd470');
+            if (e.hp <= 0) onEnemyKilled(e);
+            room.projectiles.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    // --- Interactions (Chests, NPCs, Exit Door) ---
+    let promptText = '';
+    for (const pr of room.props) {
+      const near = Math.abs((player.x + player.w / 2) - (pr.x + pr.w / 2)) < 56 && Math.abs((player.y + player.h) - (pr.y + pr.h)) < 64;
+      if (!near) continue;
+
+      if (pr.type === 'chest' && !pr.opened) {
+        promptText = '[E / ▲] Ouvrir le Reliquaire';
+        if (inp.interact) {
+          pr.opened = true;
+          const mult = getLootMultiplier();
+          const c = Math.round((18 + Math.random() * 14) * mult);
+          const f = Math.random() < (0.45 + (save.buildings.vigie || 0) * 0.08) ? 1 : 0;
+          run.loot.cendres += c;
+          run.loot.fer += f;
+          AudioFX.heal();
+          addFloatText(pr.x, pr.y - 16, `+${c}🔥 ${f ? `+${f}⛓️` : ''}`, '#d4a853');
+        }
+      } else if (pr.type === 'npc' && !pr.rescued) {
+        promptText = `[E / ▲] Secourir ${NPCS_DEF[pr.npcId].name}`;
+        if (inp.interact) {
+          pr.rescued = true;
+          save.npcsUnlocked[pr.npcId] = true;
+          persistSave();
+          AudioFX.heal();
+          addFloatText(pr.x, pr.y - 20, `${NPCS_DEF[pr.npcId].name} rejoint le Bastion !`, '#7ab8ff');
+        }
+      } else if (pr.type === 'exit') {
+        if (pr.locked) {
+          promptText = 'Vainquez le Gardien pour ouvrir le Passage';
+        } else {
+          promptText = `[E / ▲] Descendre vers la Strate ${run.depth + 1}`;
+          if (inp.interact) {
+            openBlessingChoice();
+            return;
+          }
+        }
+      }
+    }
+    const pBox = document.getElementById('prompt-box');
+    if (promptText) {
+      pBox.textContent = promptText;
+      pBox.style.display = 'block';
+    } else {
+      pBox.style.display = 'none';
+    }
+
+    // --- Particles & Floating Texts ---
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.vy += 300 * dt;
+      pt.life -= dt;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y -= 36 * dt;
+      ft.life -= dt;
+      if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    // --- Camera ---
+    const targetCamX = Math.max(0, Math.min(room.width - W, player.x + player.w / 2 - W * 0.42));
+    const targetCamY = Math.max(0, Math.min(room.height - H, player.y + player.h / 2 - H * 0.56));
+    camera.x += (targetCamX - camera.x) * Math.min(1, dt * 8);
+    camera.y += (targetCamY - camera.y) * Math.min(1, dt * 8);
+
+    updateHUD();
+  }
+
+  function onEnemyKilled(e) {
+    spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#d4a853', e.isBoss ? 45 : 18, 280);
+    const mult = getLootMultiplier();
+    const cendres = Math.round((e.isBoss ? 75 : (e.kind === 'flagellant' ? 22 : 12)) * mult);
+    run.loot.cendres += cendres;
+    if (e.isBoss || Math.random() < 0.25) run.loot.fer += e.isBoss ? 2 : 1;
+    if (e.isBoss || Math.random() < 0.08 + (save.buildings.vigie || 0) * 0.03) run.loot.larmes += 1;
+
+    if (run.blessings.has('vampiric')) {
+      run.hp = Math.min(run.maxHp, run.hp + 8);
+    }
+    if (e.isBoss) {
+      room.props.forEach(p => { if (p.type === 'exit') p.locked = false; });
+      showBanner('GARDIEN TERRASSÉ', 'Le passage vers les profondeurs est ouvert', '#ffd470', 2600);
+      document.getElementById('boss-bar-wrap').style.display = 'none';
+    }
+  }
+
+  function updateHUD() {
+    if (!run) return;
+    document.getElementById('hp-fill').style.width = `${(run.hp / run.maxHp) * 100}%`;
+    document.getElementById('hp-text').textContent = `${Math.ceil(run.hp)} / ${run.maxHp}`;
+    document.getElementById('stam-fill').style.width = `${(run.stam / run.maxStam) * 100}%`;
+    document.getElementById('stam-text').textContent = `${Math.floor(run.stam)} / ${run.maxStam}`;
+
+    const pips = document.getElementById('flask-pips');
+    pips.innerHTML = '';
+    for (let i = 0; i < run.maxFlasks; i++) {
+      const s = document.createElement('span');
+      s.className = 'flask-pip' + (i >= run.flasks ? ' empty' : '');
+      pips.appendChild(s);
+    }
+
+    document.getElementById('res-cendres').textContent = save.res.cendres + run.loot.cendres;
+    document.getElementById('res-fer').textContent = save.res.fer + run.loot.fer;
+    document.getElementById('res-larmes').textContent = save.res.larmes + run.loot.larmes;
+
+    const boss = room?.enemies.find(e => e.isBoss && e.hp > 0);
+    if (boss) {
+      document.getElementById('boss-fill').style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+      document.getElementById('boss-stagger-fill').style.width = `${Math.min(100, (boss.stagger / boss.maxStagger) * 100)}%`;
+    }
+  }
+
+  // =========================================================================
+  // 9. RENDERING (GOTHIC PARALLAX + ECLIPSE + COMBAT FX)
+  // =========================================================================
+  function render() {
+    const b = room ? room.biome : BIOMES[0];
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, b.skyTop);
+    grad.addColorStop(1, b.skyBot);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Brass Eclipse in Background
+    const ex = W * 0.72 - camera.x * 0.04;
+    const ey = H * 0.24;
+    const glow = ctx.createRadialGradient(ex, ey, 35, ex, ey, 160);
+    glow.addColorStop(0, 'rgba(224, 107, 43, 0.55)');
+    glow.addColorStop(0.5, 'rgba(168, 40, 53, 0.16)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(ex, ey, 160, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#070609';
+    ctx.beginPath(); ctx.arc(ex, ey, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4a853';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Parallax Gothic Pillars
+    ctx.fillStyle = 'rgba(12, 10, 16, 0.55)';
+    for (let i = 0; i < 12; i++) {
+      const px = ((i * 280 - camera.x * 0.22) % (W + 400)) - 100;
+      ctx.fillRect(px, 80, 44, H);
+      ctx.fillRect(px - 10, 80, 64, 18);
+    }
+
+    if (!room || !player) return;
+
+    ctx.save();
+    const sx = (Math.random() - 0.5) * shake;
+    const sy = (Math.random() - 0.5) * shake;
+    ctx.translate(-camera.x + sx, -camera.y + sy);
+
+    // Platforms
+    for (const p of room.platforms) {
+      if (p.broken) continue;
+      if (p.type === 'crumble' && p.crumbleT > 0) ctx.globalAlpha = 0.5 + Math.sin(p.crumbleT * 40) * 0.3;
+      ctx.fillStyle = b.stone;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = p.type === 'crumble' ? '#8c5338' : b.trim;
+      ctx.fillRect(p.x, p.y, p.w, 5);
+      ctx.globalAlpha = 1;
+    }
+
+    // Hazards (Spikes)
+    ctx.fillStyle = '#73202a';
+    for (const h of room.hazards) {
+      for (let x = h.x; x < h.x + h.w; x += 16) {
+        ctx.beginPath();
+        ctx.moveTo(x, h.y + 24);
+        ctx.lineTo(x + 8, h.y);
+        ctx.lineTo(x + 16, h.y + 24);
+        ctx.fill();
+      }
+    }
+
+    // Props
+    for (const pr of room.props) {
+      if (pr.type === 'chest') {
+        ctx.fillStyle = pr.opened ? '#362d26' : '#805a30';
+        ctx.fillRect(pr.x, pr.y, pr.w, pr.h);
+        ctx.strokeStyle = '#d4a853';
+        ctx.strokeRect(pr.x, pr.y, pr.w, pr.h);
+      } else if (pr.type === 'npc' && !pr.rescued) {
+        ctx.fillStyle = '#6c8ebf';
+        ctx.fillRect(pr.x, pr.y, pr.w, pr.h);
+        ctx.fillStyle = '#e6dfd3';
+        ctx.fillRect(pr.x + 7, pr.y + 6, 16, 12);
+      } else if (pr.type === 'exit') {
+        ctx.fillStyle = pr.locked ? '#24191e' : '#18141c';
+        ctx.fillRect(pr.x, pr.y, pr.w, pr.h);
+        ctx.strokeStyle = pr.locked ? '#6b2832' : '#d4a853';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(pr.x, pr.y, pr.w, pr.h);
+        ctx.lineWidth = 1;
+      }
+    }
+
+    // Enemies
+    for (const e of room.enemies) {
+      if (e.hp <= 0) continue;
+      ctx.fillStyle = e.state === 'staggered' ? '#ffd470' : e.color;
+      ctx.fillRect(e.x, e.y, e.w, e.h);
+
+      // Eyes & Windup Telegraph!
+      ctx.fillStyle = e.state === 'windup' ? '#ff3344' : '#0b0a0e';
+      const eyeX = e.facing === 1 ? e.x + e.w - 10 : e.x + 4;
+      ctx.fillRect(eyeX, e.y + 10, 6, 6);
+
+      if (e.state === 'windup') {
+        ctx.strokeStyle = '#ff4455';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x + e.w / 2, e.y - 12, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+
+      if (!e.isBoss && e.hp < e.maxHp) {
+        ctx.fillStyle = '#1a1418';
+        ctx.fillRect(e.x, e.y - 10, e.w, 4);
+        ctx.fillStyle = '#c4303e';
+        ctx.fillRect(e.x, e.y - 10, e.w * (e.hp / e.maxHp), 4);
+      }
+    }
+
+    // Projectiles
+    for (const pr of room.projectiles) {
+      ctx.fillStyle = pr.friendly ? '#ffd470' : '#d43850';
+      ctx.beginPath();
+      ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Player (Éveillé d'Argile)
+    if (player.invulnT <= 0 || Math.floor(player.invulnT * 20) % 2 === 0) {
+      // Cloak
+      ctx.fillStyle = player.dashT > 0 ? '#8c7e70' : '#3a2c32';
+      ctx.fillRect(player.x, player.y + 12, player.w, player.h - 12);
+      // Mask / Head
+      ctx.fillStyle = '#d6cbb9';
+      ctx.fillRect(player.x + 5, player.y, player.w - 10, 15);
+      // Glowing eye
+      ctx.fillStyle = '#e06b2b';
+      ctx.fillRect(player.facing === 1 ? player.x + 17 : player.x + 7, player.y + 5, 4, 4);
+    }
+
+    // Parry Shield Aura
+    if (player.parryT > 0) {
+      ctx.strokeStyle = '#ffd470';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x + player.w / 2 + player.facing * 12, player.y + 22, 24, -1.1, 1.1, player.facing === -1);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
+    // Sword Slash Arc
+    if (player.attackT > 0) {
+      const reach = player.attackType === 'heavy' ? 66 : 52;
+      ctx.fillStyle = player.attackType === 'heavy' ? 'rgba(224, 107, 43, 0.45)' : 'rgba(230, 223, 211, 0.38)';
+      const ax = player.facing === 1 ? player.x + player.w - 4 : player.x - reach + 4;
+      ctx.fillRect(ax, player.y + 4, reach, player.h - 10);
+    }
+
+    // Particles
+    for (const pt of particles) {
+      ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(pt.x, pt.y, pt.size, pt.size);
+    }
+    ctx.globalAlpha = 1;
+
+    // Floating Texts
+    ctx.font = 'bold 14px Georgia';
+    ctx.textAlign = 'center';
+    for (const ft of floatingTexts) {
+      ctx.globalAlpha = Math.min(1, ft.life * 1.5);
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, ft.x, ft.y);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 10. MAIN LOOP
+  // =========================================================================
+  let lastT = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - lastT) / 1000);
+    lastT = now;
+    const inp = pollInput();
+    update(dt, inp);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  renderBastionUI();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
