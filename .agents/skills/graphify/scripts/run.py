@@ -60,8 +60,14 @@ def main() -> int:
     )
     python = graphify_python()
 
-    def run(*arguments: str) -> None:
-        subprocess.run([str(python), "-m", "graphify", *arguments], cwd=ROOT, env=env, check=True)
+    def run(*arguments: str, quiet: bool = False) -> None:
+        subprocess.run(
+            [str(python), "-m", "graphify", *arguments],
+            cwd=ROOT,
+            env=env,
+            check=True,
+            stdout=subprocess.DEVNULL if quiet else None,
+        )
 
     if args.command == "build":
         run("extract", ".", "--code-only", "--max-workers", "4")
@@ -73,7 +79,7 @@ def main() -> int:
     elif args.command == "explain":
         run("explain", args.symbol, "--graph", GRAPH)
     else:
-        run("export", "obsidian", "--graph", GRAPH, "--dir", OBSIDIAN_EXPORT)
+        run("export", "obsidian", "--graph", GRAPH, "--dir", OBSIDIAN_EXPORT, quiet=True)
         # Graphify treats its export as a vault. This project uses docs/obsidian
         # as the vault root, so Canvas cards need vault-relative note paths.
         canvas_path = ROOT / OBSIDIAN_EXPORT / "graph.canvas"
@@ -83,6 +89,8 @@ def main() -> int:
             if node["type"] == "file":
                 node["file"] = f"{folder}/{node['file']}"
         canvas_path.write_text(json.dumps(canvas, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"Canvas Obsidian : {OBSIDIAN_EXPORT}/graph.canvas")
+        print("Ouvrez docs/obsidian/ comme coffre dans Obsidian.")
     return 0
 
 
