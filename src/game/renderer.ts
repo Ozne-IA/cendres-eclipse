@@ -30,7 +30,7 @@ import {
   getStonePattern,
   getTitleHeroArtwork,
 } from './textures';
-import type { ArmorSkinKey, GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
+import type { ArmorSkinKey, BiomeDef, GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
 import {
   renderGroundFissuresVfx,
   renderScreenVfx,
