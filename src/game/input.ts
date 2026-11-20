@@ -34,9 +34,10 @@ export class InputHub {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    const target = e.target as HTMLElement | null;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    const target = e.target instanceof Element ? e.target : null;
     const k = e.code;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if ((k === 'Space' || k === 'Enter') && target?.closest('button, a[href]')) return;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
       e.preventDefault();
     }
@@ -50,11 +51,11 @@ export class InputHub {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
+    this.lastInputMode = 'Clavier / Souris';
     const target = e.target as HTMLElement | null;
     if (target && target.closest('[data-ui-interactive="true"]')) return;
     if (!this.mouseHeld.has(e.button)) this.mouseJust.add(e.button);
     this.mouseHeld.add(e.button);
-    this.lastInputMode = 'Clavier / Souris';
   };
 
   private onMouseUp = (e: MouseEvent): void => {

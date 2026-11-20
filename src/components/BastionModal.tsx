@@ -32,9 +32,11 @@ import type {
 } from '../game/types';
 import { AudioFX } from '../game/audio';
 import { CinderIcon, IronIcon, TearIcon } from './GameIcons';
+import { ExpeditionRewards } from './ExpeditionRewards';
 
 interface BastionModalProps {
   save: SaveData;
+  expeditionRewards?: ResourceBag;
   onUpdateSave: (updater: (prev: SaveData) => SaveData) => void;
   onResetSave: () => void;
   onStartRun: () => void;
@@ -54,6 +56,7 @@ function formatCost(cost: Partial<ResourceBag>): string {
 
 export function BastionModal({
   save,
+  expeditionRewards,
   onUpdateSave,
   onResetSave,
   onStartRun,
@@ -131,6 +134,9 @@ export function BastionModal({
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto dark-scroll p-6 space-y-6">
+          {expeditionRewards && tab === 'buildings' && (
+            <ExpeditionRewards rewards={expeditionRewards} />
+          )}
           {tab === 'buildings' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {(Object.keys(BUILDINGS_DEF) as BuildingKey[]).map((key) => {
@@ -139,11 +145,12 @@ export function BastionModal({
                 const isMax = lvl >= def.max;
                 const cost = getBuildingCost(save, key);
                 const affordable = canAfford(save.res, cost);
+                const recommendFoyer = !!expeditionRewards && key === 'foyer' && lvl === 0 && affordable;
 
                 return (
                   <div
                     key={key}
-                    className="bg-[#18141e] border border-[#3a2f24] p-4 flex flex-col justify-between gap-4"
+                    className={`bg-[#18141e] border p-4 flex flex-col justify-between gap-4 ${recommendFoyer ? 'border-[#a47e48]' : 'border-[#3a2f24]'}`}
                   >
                     <div>
                       <div className="flex justify-between items-baseline gap-2">
@@ -153,6 +160,7 @@ export function BastionModal({
                         </span>
                       </div>
                       <p className="text-xs text-[#b8afa2] leading-relaxed mt-2 mb-0">{def.desc}</p>
+                      {recommendFoyer && <p className="text-xs text-[#ffd470] mt-2 mb-0">Première amélioration conseillée</p>}
                     </div>
                     <button
                       type="button"

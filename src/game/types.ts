@@ -446,7 +446,7 @@ export interface RunSummary {
   ascensionLevel: number;
   weaponName: string;
   activeSynergies: string[];
-  loot: ResourceBag;
+  rewards: ResourceBag;
   bossNameRemaining?: string;
   bossHpPct?: number;
 }
@@ -486,6 +486,7 @@ export interface HudSnapshot {
   fps?: number;
   showFps: boolean;
   inputMode: string;
+  riposteReady: boolean;
   promptText: string;
   achievementToast?: string;
   boss: {

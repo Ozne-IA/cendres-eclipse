@@ -97,7 +97,7 @@ export function PauseModal({
             onClick={onRestart}
             className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#e8e1d5] border border-[#4a3b2c] hover:border-[#d4a853] cursor-pointer"
           >
-            Recommencer l&apos;expédition
+            {hud?.isTraining ? 'Recommencer l’entraînement' : 'Recommencer l’expédition'}
           </button>
           <button
             type="button"

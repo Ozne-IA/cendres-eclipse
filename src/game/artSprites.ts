@@ -817,12 +817,60 @@ function drawCrescentRibbon(
   ctx.restore();
 }
 
+export function drawAttackWarning(
+  ctx: CanvasRenderingContext2D,
+  enemy: Enemy,
+  player: Player,
+  highContrast: boolean
+): void {
+  const x = enemy.x + enemy.w / 2;
+  const y = enemy.y - 34;
+  const size = highContrast ? 18 : 14;
+  const ink = '#120a10';
+  const edge = highContrast ? '#ffeb3b' : '#ff8b72';
+
+  ctx.save();
+  ctx.lineJoin = 'round';
+  if (enemy.kind === 'arbalest') {
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, enemy.y + enemy.h * 0.44);
+    ctx.lineTo(player.x + player.w / 2, player.y + player.h / 2);
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = highContrast ? 3 : 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(x, y - size);
+  ctx.lineTo(x + size, y + size * 0.72);
+  ctx.lineTo(x - size, y + size * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = ink;
+  ctx.fill();
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.fillStyle = highContrast ? '#ffffff' : '#fff2de';
+  ctx.fillRect(x - 1.5, y - size * 0.42, 3, size * 0.55);
+  ctx.beginPath();
+  ctx.arc(x, y + size * 0.4, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawDetailedEnemy(
   ctx: CanvasRenderingContext2D,
   e: Enemy,
-  player: Player,
   time: number,
-  highContrastTelegraphs = false,
   showEnemyBars = true
 ): void {
   if (e.state === 'dead') {
@@ -1274,28 +1322,6 @@ export function drawDetailedEnemy(
     ctx.fillRect(eyeX, -e.h + 7, 6, 3.5);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(eyeX + (e.facing === 1 ? 3 : 1), -e.h + 8, 2, 1.6);
-  }
-
-  // Windup Telegraph Ring & Arbalest Aim Laser
-  if (e.state === 'windup') {
-    ctx.save();
-    ctx.strokeStyle = highContrastTelegraphs ? '#ffeb3b' : 'rgba(255, 68, 85, 0.92)';
-    ctx.lineWidth = highContrastTelegraphs ? 4.0 : 2.6;
-    ctx.beginPath();
-    ctx.arc(0, -e.h - 16, (highContrastTelegraphs ? 12 : 9) + Math.sin(time * 24) * 2.5, 0, Math.PI * 2);
-    ctx.stroke();
-
-    if (e.kind === 'arbalest') {
-      ctx.strokeStyle = highContrastTelegraphs ? 'rgba(255, 235, 59, 0.92)' : 'rgba(255, 68, 85, 0.72)';
-      ctx.lineWidth = highContrastTelegraphs ? 2.4 : 1.3;
-      ctx.setLineDash([7, 4]);
-      ctx.beginPath();
-      ctx.moveTo(0, -e.h * 0.56);
-      ctx.lineTo(player.x + player.w / 2 - cx, player.y + player.h / 2 - cy);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    ctx.restore();
   }
 
   ctx.restore();
