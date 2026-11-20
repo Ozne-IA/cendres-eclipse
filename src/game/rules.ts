@@ -148,6 +148,9 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   const base = defaultSave();
   if (!isPlainRecord(raw)) return base;
   const source = raw as Record<string, unknown>;
+  if (source.version !== undefined
+    && (typeof source.version !== 'number' || !Number.isInteger(source.version)
+      || source.version < 1 || source.version > 2)) return base;
 
   const rawRes = isPlainRecord(source.res) ? source.res : {};
   const res = { ...base.res };
