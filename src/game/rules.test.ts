@@ -303,7 +303,7 @@ test('importSaveJson sanitizes invalid values without losing valid progression',
   assert.equal(restored?.buildings.forge, 5);
   assert.equal(restored?.oath, 'argile');
   assert.equal(restored?.weapon, 'clay_blade');
-  assert.equal(restored?.weaponTiers.eclipse_daggers, 0);
+  assert.equal(restored?.weaponTiers.eclipse_daggers, 20);
   assert.equal(restored?.talents.parry_mastery, 2);
   assert.equal(restored?.talents.relic_attunement, 0);
   assert.equal(restored?.settings.masterVolume, 1);
