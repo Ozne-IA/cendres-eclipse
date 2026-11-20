@@ -271,3 +271,71 @@ test('Ascension tier scales loot/enemies and victory unlocks next tier while Tra
   assert.ok(deepRoom.platforms.length >= 3);
 });
 
+
+
+test('importSaveJson sanitizes invalid values without losing valid progression', () => {
+  const raw = {
+    version: 2,
+    res: { cendres: 900, fer: -12, larmes: 'many' },
+    buildings: { foyer: 3, forge: 999, refuge: 1, unknown: 50 },
+    oath: 'not-a-real-oath',
+    weapon: 'missing_weapon',
+    weaponsUnlocked: { clay_blade: true, eclipse_daggers: 'yes' },
+    weaponTiers: { clay_blade: 2, eclipse_daggers: 999 },
+    talents: { parry_mastery: 2, relic_attunement: -4 },
+    settings: {
+      difficulty: 'nightmare',
+      masterVolume: 8,
+      musicEnabled: false,
+      keyBindings: { parry: 'KeyP', attack: 42 },
+    },
+    records: { totalKills: 123, victories: -5 },
+    bestiaryKills: { penitent: 7, unknown_enemy: 100 },
+    achievementsUnlocked: ['ach_victory_1', 'not_an_achievement'],
+  };
+
+  const restored = importSaveJson(JSON.stringify(raw));
+  assert.ok(restored);
+  assert.equal(restored?.res.cendres, 900);
+  assert.equal(restored?.res.fer, 0);
+  assert.equal(restored?.res.larmes, 1);
+  assert.equal(restored?.buildings.foyer, 3);
+  assert.equal(restored?.buildings.forge, 5);
+  assert.equal(restored?.oath, 'argile');
+  assert.equal(restored?.weapon, 'clay_blade');
+  assert.equal(restored?.weaponTiers.eclipse_daggers, 0);
+  assert.equal(restored?.talents.parry_mastery, 2);
+  assert.equal(restored?.talents.relic_attunement, 0);
+  assert.equal(restored?.settings.masterVolume, 1);
+  assert.equal(restored?.settings.musicEnabled, false);
+  assert.equal(restored?.settings.keyBindings.parry, 'KeyP');
+  assert.equal(restored?.settings.keyBindings.attack, 'KeyJ');
+  assert.equal(restored?.records.totalKills, 123);
+  assert.equal(restored?.records.victories, 0);
+  assert.equal(restored?.bestiaryKills.penitent, 7);
+  assert.equal(restored?.bestiaryKills.watcher, undefined);
+  assert.deepEqual(restored?.achievementsUnlocked, ['ach_victory_1']);
+});
+
+test('importSaveJson rejects unsupported versions and oversized payloads', () => {
+  assert.equal(importSaveJson(JSON.stringify({
+    version: 99,
+    res: { cendres: 1 },
+    buildings: {},
+  })), null);
+  assert.equal(importSaveJson(' '.repeat(512 * 1024 + 1)), null);
+});
+
+test('mergeSave keeps legacy v2 saves compatible and fills missing fields', () => {
+  const restored = importSaveJson(JSON.stringify({
+    version: 2,
+    res: { cendres: 250 },
+    buildings: { refuge: 2 },
+  }));
+  assert.ok(restored);
+  assert.equal(restored?.res.cendres, 250);
+  assert.equal(restored?.res.fer, 3);
+  assert.equal(restored?.buildings.refuge, 2);
+  assert.equal(restored?.weapon, 'clay_blade');
+  assert.equal(restored?.settings.difficulty, 'awakened');
+});
