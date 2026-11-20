@@ -1,13 +1,4 @@
 import {
-  drawAttackWarning,
-  drawDetailedEnemy,
-  drawDetailedPlayer,
-  drawDetailedProp,
-  drawPlantedRelicSword,
-  drawWeaponSprite,
-  getTorchGlow,
-} from './artSprites';
-import {
   renderDeepAtmosphericDecor,
   renderMidAtmosphereAndDust,
 } from './atmosphere';
@@ -17,6 +8,11 @@ import {
   type BloodSystem,
 } from './bloodDecals';
 import { BIOMES } from './data';
+import { drawAttackWarning, drawDetailedEnemy } from './enemyRender';
+import { drawDetailedPlayer } from './playerRender';
+import { drawDetailedProp } from './propRender';
+import { getTorchGlow } from './renderPrimitives';
+import { drawPlantedRelicSword, drawWeaponSprite } from './weaponRender';
 import type { ParticlePool } from './particles';
 import {
   computeCombatDepthFocus,

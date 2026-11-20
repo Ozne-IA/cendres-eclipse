@@ -124,7 +124,10 @@ cendres-eclipse/
 │   ├── game/
 │   │   ├── engine.ts        # Moteur principal de boucle de jeu (60 FPS)
 │   │   ├── renderer.ts      # Moteur de rendu Canvas 2D (décors, minimap, éclairage)
-│   │   ├── artSprites.ts    # Sprites vectoriels procéduraux (joueur, armes, skins)
+│   │   ├── playerRender.ts  # Joueur, armures et traînées d’attaque
+│   │   ├── weaponRender.ts  # Armes et épée-relique
+│   │   ├── enemyRender.ts   # Ennemis et signaux d’attaque
+│   │   ├── propRender.ts    # Coffres et objets interactifs
 │   │   ├── vfx.ts           # Système d'effets visuels (fissures, éclairs, étincelles)
 │   │   ├── audio.ts         # Moteur audio procédural (drone, musique adaptative, SFX)
 │   │   ├── rules.ts         # Règles de calcul, dégâts, progression et hauts faits
