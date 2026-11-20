@@ -666,12 +666,15 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   ctx.textAlign = 'center';
+  ctx.lineJoin = 'round';
   for (const ft of st.particles.texts) {
     if (!ft.active) continue;
     ctx.globalAlpha = Math.min(1, (ft.life / ft.maxLife) * 1.45);
-    ctx.font = `700 ${Math.round(14 * ft.scale)}px "JetBrains Mono", monospace`;
-    ctx.fillStyle = '#070609';
-    ctx.fillText(ft.text, ft.x + 1.5, ft.y + 1.5);
+    const emphasis = 1 + Math.max(0, ft.life / ft.maxLife - 0.8);
+    ctx.font = `700 ${Math.round(15 * ft.scale * emphasis)}px "JetBrains Mono", monospace`;
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#100c14';
+    ctx.strokeText(ft.text, ft.x, ft.y);
     ctx.fillStyle = ft.color;
     ctx.fillText(ft.text, ft.x, ft.y);
   }

@@ -1,0 +1,39 @@
+.hud-vital-title {
+  color: #f0cfb9;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+.hud-health::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to right, transparent 0 calc(25% - 1px), #20111a80 calc(25% - 1px) 25%);
+}
+.hud-flasks { min-width: 0; flex-wrap: wrap; }
+.hud-art-status, .hud-combo, .hud-phase {
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  padding: 0 .4em;
+  letter-spacing: .04em;
+}
+.hud-art-status { margin-left: .4em; }
+.hud-combo { color: #ffce89; background: #3f251b; }
+.hud-combo strong { font: bold 1.35em var(--font-display); }
+.hud-boss {
+  padding: .55rem .85rem .35rem;
+  border-top: 1px solid #8a6945;
+  background: linear-gradient(to right, #0c0910bb, #110d14f5 30% 70%, #0c0910bb);
+}
+.hud-phase, .hud-posture { font: 10px var(--font-mono); color: #dbc8a2; }
+.hud-phase { vertical-align: middle; white-space: nowrap; }
+.hud-posture { text-transform: uppercase; margin-top: .2rem; }
+@media (max-width: 620px) {
+  .game-hud { padding: .5rem; }
+  .hud-top { gap: .4rem; }
+  .hud-vitals, .hud-zone { padding: .45rem .55rem; }
+  .hud-utilities { flex-direction: column; align-items: flex-end; width: 34%; flex-shrink: 0; gap: .25rem; }
+  .hud-utilities > :last-child { flex-direction: row; }
+  .hud-zone { width: 100%; overflow-wrap: anywhere; }
+  .hud-zone > .flex { flex-wrap: wrap; gap: .25rem .45rem; }
+}

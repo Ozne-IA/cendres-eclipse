@@ -1910,11 +1910,15 @@ export class CendresEngine {
       if (run.blessings.includes('bronze_counter')) run.critNextAttack = true;
       const pxP = player.x + player.w / 2 + player.facing * 16;
       const pyP = player.y + 20;
-      this.particles.spawnBurst(pxP, pyP, '#ffd470', 22, 320);
+      const quietParry = this.save.settings?.reduceFlashes;
+      this.particles.spawnBurst(pxP, pyP, '#ffd470', quietParry ? 6 : 16, quietParry ? 120 : 270);
       this.particles.spawnRing(player.x + player.w / 2, player.y + 20, '#ffd470', 90, 0.26);
-      this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
-      this.vfx.triggerScreenFlash('#ffd470', 0.22);
-      for (let b = 0; b < 3; b++) {
+      if (!quietParry) {
+        this.particles.spawnBurst(pxP, pyP, '#fff3cb', 6, 180, 160, 1);
+        this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
+        this.vfx.triggerScreenFlash('#ffd470', 0.18);
+      }
+      for (let b = 0; !quietParry && b < 3; b++) {
         const ang = -0.8 + b * 0.8 + (player.facing === -1 ? Math.PI : 0);
         this.vfx.spawnLightning(
           pxP,
@@ -1926,7 +1930,7 @@ export class CendresEngine {
           0.18
         );
       }
-      this.particles.addText(player.x + 14, player.y - 16, 'DÉVIATION !', '#ffd470', 1.15);
+      this.particles.addText(player.x + 14, player.y - 16, 'PARADE PARFAITE', '#ffe2a3', 1.15);
 
       const stagPower =
         ((this.save.oath === 'airain' ? 78 : 55) +
