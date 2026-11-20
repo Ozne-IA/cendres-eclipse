@@ -83,36 +83,171 @@ export function defaultSave(): SaveData {
   };
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function safeNumber(value: unknown, fallback: number, min = 0, max = 1_000_000_000): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+function mergeNumericRecord<T extends Record<string, number>>(
+  defaults: T,
+  raw: unknown,
+  maximums: Partial<Record<keyof T, number>> = {}
+): T {
+  const source = isPlainRecord(raw) ? raw : {};
+  const result = { ...defaults };
+  for (const key of Object.keys(defaults) as Array<keyof T>) {
+    result[key] = safeNumber(
+      source[String(key)],
+      defaults[key],
+      0,
+      maximums[key] ?? 1_000_000_000
+    );
+  }
+  return result;
+}
+
+function mergeBooleanRecord<T extends Record<string, boolean>>(defaults: T, raw: unknown): T {
+  const source = isPlainRecord(raw) ? raw : {};
+  const result = { ...defaults };
+  for (const key of Object.keys(defaults) as Array<keyof T>) {
+    if (typeof source[String(key)] === 'boolean') result[key] = source[String(key)] as T[keyof T];
+  }
+  return result;
+}
+
+function mergeStringList(raw: unknown, fallback: string[], allowed?: Set<string>, maxItems = 500): string[] {
+  if (!Array.isArray(raw)) return [...fallback];
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 120) continue;
+    if (allowed && !allowed.has(value)) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+    if (result.length >= maxItems) break;
+  }
+  return result;
+}
+
+const RESOURCE_KEYS = ['cendres', 'fer', 'larmes'] as const;
+const OATH_KEYS = ['argile', 'sang', 'airain', 'eclipse', 'pelerin'] as const;
+const ARMOR_SKINS = ['eclipse', 'crimson', 'solaire', 'astral'] as const;
+const ENEMY_KINDS = [
+  'penitent', 'watcher', 'flagellant', 'lancer', 'arbalest',
+  'specter', 'pyromancer', 'archon', 'mother', 'sovereign',
+] as const;
+
 export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   const base = defaultSave();
-  if (!raw || typeof raw !== 'object') return base;
+  if (!isPlainRecord(raw)) return base;
+  const source = raw as Record<string, unknown>;
+
+  const rawRes = isPlainRecord(source.res) ? source.res : {};
+  const res = { ...base.res };
+  for (const key of RESOURCE_KEYS) {
+    res[key] = safeNumber(rawRes[key], base.res[key]);
+  }
+
+  const buildingMax = Object.fromEntries(
+    Object.entries(BUILDINGS_DEF).map(([key, def]) => [key, def.max])
+  ) as Partial<Record<keyof typeof base.buildings, number>>;
+  const buildings = mergeNumericRecord(base.buildings, source.buildings, buildingMax);
+  const npcsUnlocked = mergeBooleanRecord(base.npcsUnlocked, source.npcsUnlocked);
+  const npcLevels = mergeNumericRecord(base.npcLevels, source.npcLevels, {
+    vaelen: 99, meryl: 99, orin: 99, kaelith: 99, lyra: 99,
+  });
+  const weaponsUnlocked = mergeBooleanRecord(base.weaponsUnlocked, source.weaponsUnlocked);
+  const weaponTiers = mergeNumericRecord(base.weaponTiers, source.weaponTiers, {
+    clay_blade: 20, belfry_greatsword: 20, eclipse_daggers: 20,
+    ash_halberd: 20, scythe_eclipse: 20, twin_hammers: 20,
+  });
+  const talentMax = Object.fromEntries(
+    Object.entries(TALENTS_DEF).map(([key, def]) => [key, def.max])
+  ) as Partial<Record<keyof typeof base.talents, number>>;
+  const talents = mergeNumericRecord(base.talents, source.talents, talentMax);
+
+  const assigned = mergeStringList(source.npcsAssigned, base.npcsAssigned, new Set(Object.keys(NPCS_DEF)), 5)
+    .filter((id) => npcsUnlocked[id as keyof typeof npcsUnlocked]);
+  const validWeapon = typeof source.weapon === 'string' && source.weapon in WEAPONS_DEF
+    ? source.weapon as WeaponKey
+    : base.weapon;
+  const weapon = weaponsUnlocked[validWeapon] ? validWeapon : base.weapon;
+  const rawSettings = isPlainRecord(source.settings) ? source.settings : {};
+  const rawBindings = isPlainRecord(rawSettings.keyBindings) ? rawSettings.keyBindings : {};
+  const keyBindings = { ...DEFAULT_KEY_BINDINGS };
+  for (const key of Object.keys(DEFAULT_KEY_BINDINGS) as Array<keyof typeof DEFAULT_KEY_BINDINGS>) {
+    const value = rawBindings[key];
+    if (typeof value === 'string' && value.length > 0 && value.length <= 40) keyBindings[key] = value;
+  }
+
+  const settings = { ...DEFAULT_SETTINGS, keyBindings };
+  for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof typeof DEFAULT_SETTINGS>) {
+    if (key === 'keyBindings') continue;
+    const value = rawSettings[key];
+    const fallback = DEFAULT_SETTINGS[key];
+    if (typeof fallback === 'boolean') {
+      if (typeof value === 'boolean') (settings as Record<string, unknown>)[key] = value;
+    } else if (typeof fallback === 'number') {
+      const limits: Record<string, [number, number]> = {
+        masterVolume: [0, 1], sfxVolume: [0, 1], ambientVolume: [0, 1],
+        musicVolume: [0, 1], screenShakeScale: [0, 3], pcLauncherPort: [1, 65535],
+      };
+      const [min, max] = limits[key] ?? [0, 1];
+      (settings as Record<string, unknown>)[key] = safeNumber(value, fallback, min, max);
+    } else if (key === 'difficulty' && typeof value === 'string' && value in DIFFICULTIES_DEF) {
+      (settings as Record<string, unknown>)[key] = value;
+    } else if (['bloodIntensity', 'fogQuality', 'vfxQuality'].includes(key)
+      && (value === 'high' || value === 'medium' || value === 'off')) {
+      (settings as Record<string, unknown>)[key] = value;
+    }
+  }
+
+  const rawRecords = isPlainRecord(source.records) ? source.records : {};
+  const records = { ...base.records };
+  for (const key of Object.keys(base.records) as Array<keyof typeof base.records>) {
+    records[key] = safeNumber(rawRecords[key], base.records[key]);
+  }
+  const rawBestiary = isPlainRecord(source.bestiaryKills) ? source.bestiaryKills : {};
+  const bestiaryKills: SaveData['bestiaryKills'] = {};
+  for (const kind of ENEMY_KINDS) {
+    const value = rawBestiary[kind];
+    if (value !== undefined) bestiaryKills[kind] = safeNumber(value, 0);
+  }
+
   return {
     ...base,
-    ...raw,
-    res: { ...base.res, ...(raw.res || {}) },
-    buildings: { ...base.buildings, ...(raw.buildings || {}) },
-    npcsUnlocked: { ...base.npcsUnlocked, ...(raw.npcsUnlocked || {}) },
-    npcsAssigned: Array.isArray(raw.npcsAssigned) ? raw.npcsAssigned : base.npcsAssigned,
-    npcLevels: { ...base.npcLevels, ...(raw.npcLevels || {}) },
-    weaponsUnlocked: { ...base.weaponsUnlocked, ...(raw.weaponsUnlocked || {}) },
-    weaponTiers: { ...base.weaponTiers, ...(raw.weaponTiers || {}) },
-    talents: { ...base.talents, ...(raw.talents || {}) },
-    loreUnlocked: Array.isArray(raw.loreUnlocked) ? raw.loreUnlocked : base.loreUnlocked,
-    bestiaryKills: { ...(raw.bestiaryKills || {}) },
-    questsClaimed: Array.isArray(raw.questsClaimed) ? raw.questsClaimed : [],
-    achievementsUnlocked: Array.isArray(raw.achievementsUnlocked) ? raw.achievementsUnlocked : [],
-    armorSkin: raw.armorSkin || 'eclipse',
-    ascensionLevel: typeof raw.ascensionLevel === 'number' ? raw.ascensionLevel : 0,
-    maxAscensionUnlocked: typeof raw.maxAscensionUnlocked === 'number' ? raw.maxAscensionUnlocked : 0,
-    settings: {
-      ...base.settings,
-      ...(raw.settings || {}),
-      keyBindings: {
-        ...DEFAULT_KEY_BINDINGS,
-        ...(raw.settings?.keyBindings || {}),
-      },
-    },
-    records: { ...base.records, ...(raw.records || {}) },
+    version: 2,
+    res,
+    buildings,
+    npcsUnlocked,
+    npcsAssigned: assigned.length ? assigned : base.npcsAssigned,
+    npcLevels,
+    oath: typeof source.oath === 'string' && OATH_KEYS.includes(source.oath as typeof OATH_KEYS[number])
+      ? source.oath as SaveData['oath'] : base.oath,
+    weapon,
+    armorSkin: typeof source.armorSkin === 'string' && ARMOR_SKINS.includes(source.armorSkin as typeof ARMOR_SKINS[number])
+      ? source.armorSkin as SaveData['armorSkin'] : base.armorSkin,
+    weaponsUnlocked,
+    weaponTiers,
+    talents,
+    ascensionLevel: safeNumber(source.ascensionLevel, 0, 0, 5),
+    maxAscensionUnlocked: safeNumber(source.maxAscensionUnlocked, 0, 0, 5),
+    loreUnlocked: mergeStringList(source.loreUnlocked, base.loreUnlocked),
+    bestiaryKills,
+    questsClaimed: mergeStringList(source.questsClaimed, []),
+    achievementsUnlocked: mergeStringList(
+      source.achievementsUnlocked, [], new Set(ACHIEVEMENTS_DEF.map((item) => item.id))
+    ),
+    muted: typeof source.muted === 'boolean' ? source.muted : base.muted,
+    settings,
+    records,
   };
 }
 
