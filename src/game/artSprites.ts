@@ -975,6 +975,8 @@ export function drawDetailedEnemy(
     ctx.fillRect(e.facing * 2 - 5, -e.h + 6, 4, 11);
     ctx.fillStyle = e.state === 'windup' ? '#ff3344' : '#ff9c40';
     ctx.fillRect(e.facing * 4 - 1.5, -e.h + 9, 3.8, 3);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(e.facing * 4 - 0.5, -e.h + 9.5, 1.4, 1.4);
 
     // Curved rusted executioner sickle
     ctx.save();
@@ -1023,6 +1025,8 @@ export function drawDetailedEnemy(
 
     ctx.fillStyle = e.state === 'windup' ? '#ff3344' : '#ffd470';
     ctx.fillRect(e.facing * 3 - 2, -e.h + 11, 4, 2.5);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(e.facing * 3 - 1, -e.h + 11.5, 1.6, 1.2);
 
     // Gnarled staff + miniature swirling solar orb
     ctx.fillStyle = '#473024';
@@ -1264,10 +1268,12 @@ export function drawDetailedEnemy(
       ctx.lineWidth = 1;
     }
 
-    // Glowing Visor Eyes
+    // Glowing Visor Eyes with incandescence specular core
     ctx.fillStyle = e.state === 'windup' ? '#ff2b44' : e.isBoss ? '#ffd470' : '#ff8c3b';
     const eyeX = e.facing === 1 ? e.w * 0.08 : -e.w * 0.24;
     ctx.fillRect(eyeX, -e.h + 7, 6, 3.5);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(eyeX + (e.facing === 1 ? 3 : 1), -e.h + 8, 2, 1.6);
   }
 
   // Windup Telegraph Ring & Arbalest Aim Laser

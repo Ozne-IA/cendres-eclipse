@@ -356,6 +356,38 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
         ctx.fillRect(p.x + p.w - 20, p.y + p.h + 2, 8, 3);
         ctx.fillStyle = 'rgba(6, 5, 9, 0.45)';
         ctx.fillRect(drawX, p.y + p.h - 4, drawW, 4);
+
+        // Hanging gothic stone stalactites & weathered creeping roots beneath suspended platforms
+        const rootSeed = Math.round(p.x * 0.1);
+        ctx.fillStyle = '#100c14';
+        for (let rx = drawX + 16; rx < drawRight - 16; rx += 28) {
+          const rh = 6 + Math.abs(Math.sin(rx * 0.35 + rootSeed)) * 14;
+          const rSway = Math.sin(time * 1.8 + rx) * 1.6;
+          ctx.beginPath();
+          ctx.moveTo(rx - 2.5, p.y + p.h);
+          ctx.lineTo(rx + 2.5, p.y + p.h);
+          ctx.lineTo(rx + rSway, p.y + p.h + rh);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Suspended wrought-iron dungeon chains
+        if (Math.round(p.x) % 2 === 0) {
+          const chainX = p.x + p.w * 0.5;
+          if (chainX > camX - 30 && chainX < camX + W + 30) {
+            const cSway = Math.sin(time * 1.35 + chainX * 0.05) * 3.5;
+            ctx.strokeStyle = '#2b2320';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(chainX, p.y + p.h);
+            ctx.lineTo(chainX + cSway, p.y + p.h + 36);
+            ctx.stroke();
+            ctx.fillStyle = '#423630';
+            ctx.beginPath();
+            ctx.arc(chainX + cSway, p.y + p.h + 38, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       }
 
       // Sculpted Gothic Capstone Cornice
@@ -372,6 +404,19 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
       // Recessed shadow under cornice overhang
       ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
       ctx.fillRect(drawX, p.y + 6, drawW, 3);
+
+      // Subtle ash moss & spectral lichen tufts along stone platform surface
+      ctx.fillStyle =
+        b.id === 'sanctuaire'
+          ? 'rgba(212, 168, 83, 0.45)'
+          : b.id === 'fleche'
+          ? 'rgba(180, 52, 68, 0.36)'
+          : 'rgba(112, 138, 156, 0.35)';
+      for (let mx = drawX + 10; mx < drawRight - 10; mx += 32) {
+        if (Math.sin(mx * 11.7) > 0.18) {
+          ctx.fillRect(mx, p.y - 1.5, 6, 2);
+        }
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -504,6 +549,13 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     drawDetailedProp(ctx, pr, time);
   }
 
+  // 9b. Dynamic Ground Contact Shadows (Anchor characters and bosses to the gothic architecture)
+  for (const e of room.enemies) {
+    if (e.x + e.w < camX - 120 || e.x > camX + W + 120 || e.state === 'dead') continue;
+    drawCharacterGroundShadow(ctx, e.x, e.y, e.w, e.h, room, !!e.flying);
+  }
+  drawCharacterGroundShadow(ctx, player.x, player.y, player.w, player.h, room, false);
+
   // 10. Enemies & Bosses
   for (const e of room.enemies) {
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
@@ -548,6 +600,24 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
       ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  // 11b. Pilgrim Cinder Lantern Glow (Subtle warm radiant aura around protagonist)
+  const pilgrimAura = getColoredGlow('amber');
+  if (pilgrimAura) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const auraPulse = 0.22 + Math.sin(time * 3.2) * 0.04;
+    ctx.globalAlpha = auraPulse;
+    const auraR = 150;
+    ctx.drawImage(
+      pilgrimAura,
+      Math.round(player.x + player.w * 0.5 - auraR),
+      Math.round(player.y + player.h * 0.5 - auraR),
+      auraR * 2,
+      auraR * 2
+    );
+    ctx.restore();
   }
 
   // 12. Articulated Protagonist
@@ -631,10 +701,98 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
+  // 15b. Cinematic Biome Atmospheric Color Grading & Ambient Vignette
+  renderAtmosphericColorGrading(ctx, b, W, H);
+
   // 16. Compact Corner Minimap
   if (st.phase === 'playing' && st.settings?.showMinimap !== false) {
     renderMinimap(ctx, W, H, room, player);
   }
+}
+
+/**
+ * Projects a soft, dynamic ground contact shadow anchoring characters and enemies to the terrain.
+ */
+function drawCharacterGroundShadow(
+  ctx: CanvasRenderingContext2D,
+  charX: number,
+  charY: number,
+  charW: number,
+  charH: number,
+  room: RoomData,
+  isFlying = false
+): void {
+  const feetX = charX + charW * 0.5;
+  const feetY = charY + charH;
+  let groundY = room.groundY;
+  let minDiff = groundY - feetY;
+
+  for (const p of room.platforms) {
+    if (p.broken) continue;
+    if (feetX >= p.x && feetX <= p.x + p.w) {
+      const diff = p.y - feetY;
+      if (diff >= -8 && diff < minDiff) {
+        minDiff = diff;
+        groundY = p.y;
+      }
+    }
+  }
+
+  const dist = Math.max(0, groundY - feetY);
+  const maxDist = isFlying ? 280 : 180;
+  if (dist > maxDist) return;
+
+  const factor = 1 - dist / maxDist;
+  const baseAlpha = isFlying ? 0.32 : 0.55;
+  const shadowAlpha = baseAlpha * factor;
+  const shadowW = Math.max(8, (charW * 0.88 + dist * 0.06) * factor);
+  const shadowH = Math.max(2.5, charW * 0.24 * factor);
+
+  ctx.save();
+  ctx.fillStyle = `rgba(3, 2, 5, ${shadowAlpha.toFixed(3)})`;
+  ctx.beginPath();
+  ctx.ellipse(feetX, groundY + 1.2, shadowW * 0.5, shadowH * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Applies cinematic color grading tailored to the active biome to enhance chiaroscuro and atmospheric depth.
+ */
+function renderAtmosphericColorGrading(
+  ctx: CanvasRenderingContext2D,
+  biome: BiomeDef,
+  W: number,
+  H: number
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  if (biome.id === 'catacombes') {
+    // Warm subterranean amber & embers
+    ctx.fillStyle = 'rgba(255, 142, 48, 0.04)';
+    ctx.fillRect(0, 0, W, H);
+  } else if (biome.id === 'viaduc') {
+    // Chill cobalt spectral mountain mist
+    ctx.fillStyle = 'rgba(74, 118, 196, 0.05)';
+    ctx.fillRect(0, 0, W, H);
+  } else if (biome.id === 'fleche') {
+    // Ominous dried-blood crimson twilight
+    ctx.fillStyle = 'rgba(172, 38, 54, 0.05)';
+    ctx.fillRect(0, 0, W, H);
+  } else if (biome.id === 'sanctuaire') {
+    // Luminous ethereal celestial gold
+    ctx.fillStyle = 'rgba(255, 218, 98, 0.045)';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Soft atmospheric corner vignette
+  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, H * 0.42, W * 0.5, H * 0.5, W * 0.74);
+  vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vig.addColorStop(1, 'rgba(5, 4, 8, 0.38)');
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
 }
 
 function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H: number, time: number): void {

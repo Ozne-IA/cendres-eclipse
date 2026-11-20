@@ -1004,6 +1004,9 @@ export class CendresEngine {
         this.footstepTimer = 0.27;
         const surf = room.isBoss ? 'stone' : room.platforms.some((p) => p.type === 'crumble' && Math.abs(player.y + player.h - p.y) < 6 && player.x > p.x && player.x < p.x + p.w) ? 'wood' : 'ash';
         AudioFX.footstep(surf);
+        // Subtle dynamic ash dust puffs under running sabatons
+        const footX = player.x + (player.facing === 1 ? 4 : player.w - 4);
+        this.particles.spawnBurst(footX, player.y + player.h, '#736b63', 2, 45);
       }
     } else {
       this.footstepTimer = 0.05;
