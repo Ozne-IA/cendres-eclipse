@@ -436,22 +436,27 @@ export function drawDetailedPlayer(
   ctx.stroke();
 
   // Flowing tattered shoulder mantle scarf
-  ctx.fillStyle = flash ? '#ffffff' : skin.capeLining;
+    ctx.fillStyle = flash ? '#fff5e4' : skin.capeOuter;
   ctx.beginPath();
-  ctx.moveTo(-3, -player.h + 13 - bob);
+  ctx.moveTo(capeDir * 1, -player.h + 14 - bob);
   ctx.quadraticCurveTo(
-    capeDir * (13 + speedDrag * 0.5),
-    -player.h + 14 + wave1 * 0.5,
-    capeDir * (26 + speedDrag * 0.85),
-    -player.h + 20 + wave2
+    capeDir * (13 + speedDrag * 0.9),
+    -29 + wave1 * 0.85,
+    capeDir * (24 + speedDrag),
+    -6 + wave2
   );
-  ctx.lineTo(capeDir * (20 + speedDrag * 0.65), -player.h + 25 + wave2);
-  ctx.lineTo(capeDir * (16 + speedDrag * 0.4), -player.h + 21 + wave1 * 0.4);
-  ctx.lineTo(0, -player.h + 18 - bob);
+  // Jagged frayed edge (cinematic polish)
+  ctx.lineTo(capeDir * (21 + speedDrag * 0.7), -4 + wave2 * 0.6);
+  ctx.lineTo(capeDir * (18 + speedDrag * 0.55), -9 + wave2 * 0.3);
+  ctx.lineTo(capeDir * (15 + speedDrag * 0.4), -3);
+  ctx.lineTo(capeDir * (11 + speedDrag * 0.35), -7);
+  ctx.lineTo(capeDir * 2, -7);
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = '#09070b';
+  ctx.lineWidth = 1.2;
   ctx.stroke();
-
+  
   // 2. Articulated Iron Greaves, Knee Cops & Sabaton Boots
   const drawLeg = (offset: number, dark: boolean) => {
     const hipX = offset * 0.25;
