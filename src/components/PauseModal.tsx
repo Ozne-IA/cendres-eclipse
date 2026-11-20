@@ -33,13 +33,20 @@ export function PauseModal({
             : 'En rentrant au Bastion du Crépuscule maintenant, vous conservez toutes les ressources déjà récoltées durant cette expédition.'}
         </p>
 
-        {hud && (hud.blessings.length > 0 || hud.relics.length > 0 || hud.activeSynergies.length > 0 || hud.ascensionLevel > 0) && (
+        {hud && (
           <div className="text-left bg-[#18141e] border border-[#352b22] p-3 mb-5 text-xs space-y-1.5">
-            {hud.ascensionLevel > 0 && (
-              <div className="text-[#8ab8e6]">
-                Pacte d&apos;Ascension {hud.ascensionLevel}
-              </div>
-            )}
+            <div className="text-[#e8e1d5] flex flex-wrap justify-between gap-2 font-mono-num">
+              <span>
+                {hud.weaponName}{hud.weaponTier > 0 ? ` +${hud.weaponTier}` : ''} · {hud.oathName}
+              </span>
+              <span className="text-[#9d9284]">
+                {Math.floor(hud.elapsedSec / 60)}:{(hud.elapsedSec % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+            <div className="text-[#9d9284] font-mono-num">
+              Esquives parfaites : {hud.perfectDodges} · Série parade : {hud.parryStreak}x
+              {hud.ascensionLevel > 0 ? ` · Ascension ${hud.ascensionLevel}` : ''}
+            </div>
             {hud.activeSynergies.length > 0 && (
               <div className="text-[#ff9d42]">
                 <span className="font-semibold">Synergies (Duos) : </span>

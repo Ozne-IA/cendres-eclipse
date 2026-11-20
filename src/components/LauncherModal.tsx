@@ -115,14 +115,14 @@ export function LauncherModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Desktop PWA Instant Install if supported */}
-          {installPrompt && (
+          {installPrompt ? (
             <div className="bg-[#1b1522] border border-[#d4a853] p-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-display text-sm text-[#ffd470]">
                   Installation directe Bureau (Application Native Chrome/Edge)
                 </div>
                 <div className="text-xs text-[#cfc6b8] mt-0.5">
-                  Ajoute un raccourci natif « Cendres de l&apos;Éclipse » dans votre menu Démarrer / Bureau sans barre de navigateur.
+                  Ajoute un raccourci natif « Cendres de l&apos;Éclipse » dans votre menu Démarrer / Bureau sans barre de navigateur, jouable hors-ligne.
                 </div>
               </div>
               <button
@@ -133,7 +133,12 @@ export function LauncherModal({
                 Installer sur ce PC
               </button>
             </div>
-          )}
+          ) : typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+            <div className="bg-[#1b1522] border border-[#5c4835] p-3.5 text-xs text-[#cfc6b8]">
+              <span className="font-display text-[#ffd470] uppercase tracking-wider mr-2">Installation Safari iOS :</span>
+              Appuyez sur <span className="text-[#ffd470]">Partager</span> puis sur <span className="text-[#ffd470]">Sur l&apos;écran d&apos;accueil</span> pour lancer le jeu hors-ligne en plein écran.
+            </div>
+          ) : null}
 
           {/* Launcher Configuration */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">

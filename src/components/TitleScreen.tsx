@@ -3,9 +3,11 @@ import { DIFFICULTIES_DEF } from '../game/data';
 import { formatKeyLabel } from '../game/input';
 import type { SaveData } from '../game/types';
 import { EclipseTitleEmblem, SoundIcon } from './GameIcons';
+import type { BeforeInstallPromptEvent } from './LauncherModal';
 
 interface TitleScreenProps {
   save: SaveData;
+  installPrompt?: BeforeInstallPromptEvent | null;
   onStartRun: () => void;
   onOpenBastion: () => void;
   onOpenMenu: () => void;
@@ -15,6 +17,7 @@ interface TitleScreenProps {
 
 export function TitleScreen({
   save,
+  installPrompt,
   onStartRun,
   onOpenBastion,
   onOpenMenu,
@@ -24,13 +27,36 @@ export function TitleScreen({
   const diff = DIFFICULTIES_DEF[save.settings?.difficulty || 'awakened'];
   const kb = save.settings?.keyBindings;
 
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+    } catch {
+      // ignore cancellation
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-10 flex flex-col justify-between p-8 md:p-14 pointer-events-none"
       data-testid="title-screen"
     >
-      {/* Top Bar: Launcher PC, Menu & Audio Toggle */}
+      {/* Top Bar: PWA Install, Launcher PC, Menu & Audio Toggle */}
       <div className="flex justify-end items-center gap-2.5 pointer-events-auto">
+        {installPrompt && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              void handleInstall();
+            }}
+            className="px-3.5 py-2 text-xs font-display uppercase tracking-wider text-[#ffd470] bg-[#1e1712]/95 border border-[#d4a853] hover:bg-[#2a2018] transition-colors cursor-pointer whitespace-nowrap"
+          >
+            Installer App
+          </button>
+        )}
+
         <button
           type="button"
           onClick={(e) => {

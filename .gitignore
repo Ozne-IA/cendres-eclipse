@@ -10,3 +10,6 @@ coverage/
 cendres-eclipse-save.json
 .env*
 !.env.example
+cendres-eclipse-save.json
+*.bak
+*.tmp

@@ -205,11 +205,12 @@ export function createRunState(
     if (pick) relics.push(pick.id);
   }
 
-  // Generate merchant stock
+  // Generate merchant stock (+1 choice if Sanctuaire des Runes is built)
+  const stockCount = 3 + ((save.buildings.sanctuaire || 0) > 0 ? 1 : 0);
   const pool = [...RELICS_POOL].filter((r) => !relics.includes(r.id));
   const merchantStock = pool
     .sort(() => rng() - 0.5)
-    .slice(0, 3)
+    .slice(0, stockCount)
     .map((r) => r.id);
 
   return {

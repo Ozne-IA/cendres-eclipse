@@ -37,11 +37,11 @@ const KEY_ACTION_LABELS: Array<{ action: KeyAction; label: string; alt: string }
   { action: 'jump', label: 'Sauter / Saut mural', alt: 'Bouton A' },
   { action: 'dash', label: 'Roulade / Esquive', alt: 'Bouton B' },
   { action: 'attack', label: 'Attaque légère', alt: 'Clic Gauche / X' },
-  { action: 'heavy', label: 'Attaque lourde', alt: 'L / Gâchette D' },
-  { action: 'parry', label: 'Déviation / Garde', alt: 'Clic Droit / LB' },
-  { action: 'skill', label: "Art d'arme (Éclipse)", alt: 'C / Gâchette G (LT)' },
-  { action: 'heal', label: 'Fiole de Sève', alt: 'Bouton Y' },
-  { action: 'interact', label: 'Interagir / Passage', alt: 'Entrée / Croix Haut' },
+  { action: 'heavy', label: 'Attaque lourde', alt: 'L / Y ou RT' },
+  { action: 'parry', label: 'Déviation / Garde', alt: 'Clic Droit / LB ou LT' },
+  { action: 'skill', label: "Art d'arme (Éclipse)", alt: 'C / Gâchette D (RB)' },
+  { action: 'heal', label: 'Fiole de Sève', alt: 'Croix D-Pad Haut' },
+  { action: 'interact', label: 'Interagir / Passage', alt: 'Entrée / A ou Haut' },
 ];
 
 const QUALITY_OPTIONS: Array<{ val: QualityLevel; label: string }> = [

@@ -98,7 +98,10 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
               ))}
               <span className="ml-1 text-[11px] text-[#9d9284] font-mono-num">[R]</span>
             </div>
-            <span className="text-[11px] text-[#d4a853] truncate max-w-[140px]">{hud.weaponName}</span>
+            <span className="text-[11px] text-[#d4a853] truncate max-w-[140px]">
+              {hud.weaponName}
+              {hud.weaponTier > 0 ? ` +${hud.weaponTier}` : ''}
+            </span>
           </div>
 
           {/* Weapon Art Cooldown Bar */}

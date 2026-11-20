@@ -839,7 +839,7 @@ export function drawDetailedEnemy(
     ctx.rotate(e.facing * -0.68 * (1 - e.deadT / 0.35));
   }
 
-  // Elite golden / blazing additive aura
+  // Elite trait visual aura (blazing = ember flame, armored = steel shield rim, swift = astral wind ring)
   if (e.elite !== 'none' && e.state !== 'dead') {
     const eliteGlow = getColoredGlow(e.elite === 'blazing' ? 'amber' : 'gold');
     if (eliteGlow) {
@@ -847,8 +847,9 @@ export function drawDetailedEnemy(
       ctx.drawImage(eliteGlow, -e.w * 1.1, -e.h * 1.15, e.w * 2.2, e.h * 1.3);
       ctx.globalAlpha = 1;
     }
-    ctx.strokeStyle = e.elite === 'blazing' ? '#ff8b3d' : '#ffd470';
-    ctx.lineWidth = 1.6;
+    ctx.strokeStyle =
+      e.elite === 'blazing' ? '#ff8b3d' : e.elite === 'armored' ? '#8ab8e6' : '#ffd470';
+    ctx.lineWidth = e.elite === 'armored' ? 2.2 : 1.6;
     ctx.beginPath();
     ctx.ellipse(0, -e.h / 2, e.w * 0.74, e.h * 0.62, 0, 0, Math.PI * 2);
     ctx.stroke();
@@ -1317,6 +1318,11 @@ export function drawDetailedEnemy(
     }
     if (e.sunderT > 0) {
       ctx.fillStyle = '#ffd470';
+      ctx.fillRect(badgeX, e.y - 22, 5, 4);
+      badgeX += 7;
+    }
+    if (e.elite === 'armored' && e.sunderT <= 0) {
+      ctx.fillStyle = '#8ab8e6';
       ctx.fillRect(badgeX, e.y - 22, 5, 4);
     }
   }

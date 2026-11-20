@@ -338,6 +338,15 @@ export function generateRoom(
             h: 34,
             opened: false,
           });
+          if (depth >= 2 && rng() < 0.45) {
+            platforms.push({
+              x: curX + segW * 0.72,
+              y: py - 10,
+              w: 48,
+              h: 10,
+              type: 'bounce',
+            });
+          }
         }
       }
 
@@ -375,6 +384,23 @@ export function generateRoom(
           kind: 'flamejet',
           timer: rng() * 3,
           active: false,
+        });
+      }
+      if (depth >= 3 && segIdx % 2 === 1 && rng() < 0.55) {
+        const pivotX = curX + segW * 0.52;
+        const pivotY = py - 210;
+        hazards.push({
+          x: pivotX - 20,
+          y: py - 52,
+          w: 40,
+          h: 34,
+          kind: 'pendulum',
+          timer: rng() * Math.PI * 2,
+          active: true,
+          pivotX,
+          pivotY,
+          length: 162,
+          angle: 0,
         });
       }
       if (rng() < 0.32) {
@@ -519,7 +545,8 @@ export function generateTrainingRoom(): RoomData {
     ],
     enemies: [
       createEnemy('penitent', 620, groundY, 1, 'none', 1.6, 0.35),
-      createEnemy('lancer', 920, groundY, 2, 'none', 1.5, 0.45),
+      createEnemy('watcher', 820, groundY, 1, 'none', 1.5, 0.35),
+      createEnemy('lancer', 940, groundY, 2, 'none', 1.5, 0.45),
       createEnemy('flagellant', 1180, groundY, 2, 'none', 1.8, 0.5),
     ],
     projectiles: [],

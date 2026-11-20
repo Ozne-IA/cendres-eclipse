@@ -439,9 +439,13 @@ export interface RunSummary {
   depthReached: number;
   kills: number;
   parries: number;
+  perfectDodges: number;
   bestParryStreak: number;
   damageTaken: number;
   elapsedSec: number;
+  ascensionLevel: number;
+  weaponName: string;
+  activeSynergies: string[];
   loot: ResourceBag;
   bossNameRemaining?: string;
   bossHpPct?: number;
@@ -467,10 +471,14 @@ export interface HudSnapshot {
   relics: string[];
   activeSynergies: string[];
   weaponName: string;
+  weaponTier: number;
+  oathName: string;
   weaponArtName: string;
   skillCd: number;
   skillMaxCd: number;
   parryStreak: number;
+  perfectDodges: number;
+  elapsedSec: number;
   comboHits: number;
   comboRank: string;
   affixName?: string;

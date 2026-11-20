@@ -33,6 +33,20 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onBeforeInstall = (e: Event) => {
@@ -89,9 +103,19 @@ export default function App() {
         />
       </div>
 
+      {!isOnline && (
+        <div
+          className="fixed bottom-3 left-4 z-40 px-3 py-1.5 text-[11px] font-display uppercase tracking-wider bg-[#1b1510]/95 text-[#ffd470] border border-[#8a652d] pointer-events-none"
+          data-testid="offline-badge"
+        >
+          Mode Hors-ligne · Cache PWA actif
+        </div>
+      )}
+
       {phase === 'title' && (
         <TitleScreen
           save={save}
+          installPrompt={installPrompt}
           onStartRun={() => engineRef.current?.startNewRun()}
           onOpenBastion={() => engineRef.current?.openBastion()}
           onOpenMenu={() => setMenuOpen(true)}
@@ -124,6 +148,7 @@ export default function App() {
         <BlessingModal
           depth={hud.depth}
           isAfterBoss={hud.depth % 3 === 0}
+          ownedIds={[...hud.blessings, ...hud.relics]}
           choices={blessingChoices}
           onSelect={(id) => engineRef.current?.selectBlessing(id)}
           onExtractVictory={() => engineRef.current?.extractVictory()}

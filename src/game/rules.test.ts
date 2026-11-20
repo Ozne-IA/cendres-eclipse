@@ -257,7 +257,17 @@ test('Ascension tier scales loot/enemies and victory unlocks next tier while Tra
   assert.equal(victorySave.maxAscensionUnlocked, 1);
 
   const trainingRoom = generateTrainingRoom();
-  assert.ok(trainingRoom.enemies.length >= 3);
+  assert.ok(trainingRoom.enemies.length >= 4);
+  assert.ok(trainingRoom.enemies.some((e) => e.kind === 'watcher'));
   assert.ok(trainingRoom.props.some((p) => p.type === 'exit' && !p.locked));
+
+  const sanctuarySave = defaultSave();
+  sanctuarySave.buildings.sanctuaire = 1;
+  const sanctRun = createRunState(sanctuarySave, () => 0.5, false);
+  assert.equal(sanctRun.merchantStock.length, 4);
+
+  const deepRoom = generateRoom(4, sanctuarySave, () => 0.2);
+  assert.ok(deepRoom.enemies.length >= 3);
+  assert.ok(deepRoom.platforms.length >= 3);
 });
 

@@ -454,6 +454,37 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
         ctx.fillStyle = 'rgba(255, 130, 48, 0.85)';
         ctx.fillRect(h.x + 6, h.y + 2, h.w - 12, 4);
       }
+    } else if (h.kind === 'pendulum' && h.pivotX !== undefined && h.pivotY !== undefined && h.length) {
+      const ang = h.angle ?? 0;
+      const bx = h.pivotX + Math.sin(ang) * h.length;
+      const by = h.pivotY + Math.cos(ang) * h.length;
+      ctx.save();
+      // Anchor bracket & wrought iron chain
+      ctx.fillStyle = '#332826';
+      ctx.fillRect(h.pivotX - 7, h.pivotY - 4, 14, 8);
+      ctx.strokeStyle = '#6c5a4a';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(h.pivotX, h.pivotY);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+
+      // Crescent guillotine pendulum blade
+      ctx.translate(bx, by);
+      ctx.rotate(-ang);
+      ctx.fillStyle = '#474f5c';
+      ctx.beginPath();
+      ctx.moveTo(-24, -4);
+      ctx.quadraticCurveTo(0, 22, 24, -4);
+      ctx.quadraticCurveTo(0, 6, -24, -4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#d4dde8';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.fillStyle = '#8b2430';
+      ctx.fillRect(-10, 4, 20, 2.5);
+      ctx.restore();
     }
   }
 
@@ -989,14 +1020,21 @@ function renderMinimap(
 
   for (const pr of room.props) {
     if (pr.opened || pr.used || pr.broken) continue;
-    ctx.fillStyle = pr.type === 'exit' ? '#ffd470' : '#8ab8e6';
+    ctx.fillStyle =
+      pr.type === 'exit'
+        ? pr.locked
+          ? '#6e5a42'
+          : '#ffd470'
+        : pr.type === 'npc'
+        ? '#5db87a'
+        : '#8ab8e6';
     ctx.fillRect(mx + pr.x * scaleX - 1, my + pr.y * scaleY - 3, 3, 3);
   }
 
-  ctx.fillStyle = '#c4303e';
   for (const e of room.enemies) {
     if (e.hp <= 0 || e.state === 'dead') continue;
-    ctx.fillRect(mx + e.x * scaleX - 1, my + e.y * scaleY - 2, e.isBoss ? 4 : 2.5, e.isBoss ? 4 : 2.5);
+    ctx.fillStyle = e.isBoss ? '#ffd470' : e.elite !== 'none' ? '#ff9d42' : '#c4303e';
+    ctx.fillRect(mx + e.x * scaleX - 1, my + e.y * scaleY - 2, e.isBoss ? 4.5 : 2.5, e.isBoss ? 4.5 : 2.5);
   }
 
   ctx.fillStyle = '#ffffff';
