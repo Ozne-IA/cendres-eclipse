@@ -1,3 +1,4 @@
+import { setPreferCinematicArt } from './textures';
 import { AudioFX } from './audio';
 import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
 import {
@@ -107,6 +108,7 @@ export class CendresEngine {
 
   private applySettingsSideEffects(): void {
     const s = this.save.settings || DEFAULT_SETTINGS;
+    setPreferCinematicArt(s.artStyle === 'cinematic');
     AudioFX.setMuted(this.save.muted);
     AudioFX.updateSettings(s);
     this.input.setKeyBindings(s.keyBindings || DEFAULT_KEY_BINDINGS);

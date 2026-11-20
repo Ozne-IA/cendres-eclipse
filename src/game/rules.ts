@@ -204,6 +204,8 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
       };
       const [min, max] = limits[key] ?? [0, 1];
       (settings as Record<string, unknown>)[key] = safeNumber(value, fallback, min, max, key === 'pcLauncherPort');
+    } else if (key === 'artStyle' && (value === 'classic' || value === 'cinematic')) {
+      settings.artStyle = value;
     } else if (key === 'difficulty' && typeof value === 'string' && value in DIFFICULTIES_DEF) {
       (settings as Record<string, unknown>)[key] = value;
     } else if (['bloodIntensity', 'fogQuality', 'vfxQuality'].includes(key)
