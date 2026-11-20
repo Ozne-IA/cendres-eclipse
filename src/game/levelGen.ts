@@ -193,6 +193,9 @@ export function generateRoom(
   const isBoss = depth % 3 === 0;
   const biome = BIOMES[Math.floor((depth - 1) / 3) % BIOMES.length];
   const diff = DIFFICULTIES_DEF[save.settings?.difficulty || 'awakened'];
+  const asc = Math.max(0, Math.min(5, save.ascensionLevel || 0));
+  const ascHpMult = diff.enemyHpMult * (1 + asc * 0.16);
+  const ascDmgMult = diff.enemyDmgMult * (1 + asc * 0.14);
   const affix = depth >= 2 ? ROOM_AFFIXES[Math.floor(rng() * ROOM_AFFIXES.length)] : null;
   const width = isBoss ? 1560 : 2250 + Math.min(850, depth * 90);
   const height = 920;
@@ -231,7 +234,7 @@ export function generateRoom(
 
     const cycle = (depth / 3) % 3;
     const bossKind: EnemyKind = cycle === 1 ? 'archon' : cycle === 2 ? 'mother' : 'sovereign';
-    enemies.push(createEnemy(bossKind, width - 350, groundY, depth, 'none', diff.enemyHpMult, diff.enemyDmgMult));
+    enemies.push(createEnemy(bossKind, width - 350, groundY, depth, 'none', ascHpMult, ascDmgMult));
 
     // Pre-boss campfire brazier near entry for tactical prep
     if (depth > 3) {
@@ -323,7 +326,7 @@ export function generateRoom(
 
         if (rng() < 0.46) {
           const skyEnemy: EnemyKind = depth >= 2 && rng() < 0.35 ? 'arbalest' : 'watcher';
-          enemies.push(createEnemy(skyEnemy, curX + 68, platY, depth, 'none', diff.enemyHpMult, diff.enemyDmgMult));
+          enemies.push(createEnemy(skyEnemy, curX + 68, platY, depth, 'none', ascHpMult, ascDmgMult));
         }
         if (rng() < 0.28) {
           props.push({
@@ -346,10 +349,10 @@ export function generateRoom(
 
       const chosen = pool[Math.floor(rng() * pool.length)];
       const isElite: EliteTrait =
-        depth >= 2 && rng() < 0.14 + Math.min(0.15, depth * 0.02)
+        depth >= 2 && rng() < 0.14 + Math.min(0.15, depth * 0.02) + asc * 0.05
           ? (['swift', 'blazing', 'armored'][Math.floor(rng() * 3)] as EliteTrait)
           : 'none';
-      enemies.push(createEnemy(chosen, curX + segW * 0.56, py, depth, isElite, diff.enemyHpMult, diff.enemyDmgMult));
+      enemies.push(createEnemy(chosen, curX + segW * 0.56, py, depth, isElite, ascHpMult, ascDmgMult));
 
       // Destructible urns & flame traps
       if (rng() < 0.5) {
@@ -483,5 +486,48 @@ export function generateRoom(
     enemies,
     projectiles: [],
     torches,
+  };
+}
+
+export function generateTrainingRoom(): RoomData {
+  const width = 1480;
+  const height = 920;
+  const groundY = 720;
+
+  return {
+    depth: 0,
+    isBoss: false,
+    biome: BIOMES[0],
+    affix: {
+      id: 'training_courtyard',
+      name: "Cour d'Entraînement",
+      desc: 'Testez vos combos, Arts d’arme et parades sans risque.',
+      color: '#ffd470',
+    },
+    width,
+    height,
+    groundY,
+    platforms: [
+      { x: 0, y: groundY, w: width, h: 240, type: 'solid' },
+      { x: 380, y: groundY - 125, w: 220, h: 18, type: 'oneway' },
+      { x: 780, y: groundY - 155, w: 240, h: 18, type: 'oneway' },
+    ],
+    hazards: [],
+    props: [
+      { id: 'train_brazier', type: 'brazier', x: 250, y: groundY - 38, w: 32, h: 38, used: false },
+      { id: 'train_exit', type: 'exit', x: width - 135, y: groundY - 86, w: 58, h: 86, locked: false },
+    ],
+    enemies: [
+      createEnemy('penitent', 620, groundY, 1, 'none', 1.6, 0.35),
+      createEnemy('lancer', 920, groundY, 2, 'none', 1.5, 0.45),
+      createEnemy('flagellant', 1180, groundY, 2, 'none', 1.8, 0.5),
+    ],
+    projectiles: [],
+    torches: [
+      { x: 160, y: groundY - 150 },
+      { x: 520, y: groundY - 150 },
+      { x: 880, y: groundY - 150 },
+      { x: 1240, y: groundY - 150 },
+    ],
   };
 }

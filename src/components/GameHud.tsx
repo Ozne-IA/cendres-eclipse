@@ -1,5 +1,5 @@
 import React from 'react';
-import { BLESSINGS_POOL, RELICS_POOL } from '../game/data';
+import { BLESSINGS_POOL, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
 import type { HudSnapshot } from '../game/types';
 import {
   CinderIcon,
@@ -21,16 +21,33 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
   const hpPct = Math.max(0, Math.min(100, (hud.hp / Math.max(1, hud.maxHp)) * 100));
   const ghostPct = Math.max(hpPct, Math.min(100, (hud.ghostHp / Math.max(1, hud.maxHp)) * 100));
   const stamPct = Math.max(0, Math.min(100, (hud.stam / Math.max(1, hud.maxStam)) * 100));
+  const skillReady = hud.skillCd <= 0.05;
+  const skillPct =
+    hud.skillMaxCd > 0
+      ? Math.max(0, Math.min(100, ((hud.skillMaxCd - hud.skillCd) / hud.skillMaxCd) * 100))
+      : 100;
 
   return (
     <div
       className="fixed inset-0 pointer-events-none p-4 md:p-6 flex flex-col justify-between z-10"
       data-testid="game-hud"
     >
+      {/* Top-Center Achievement Toast */}
+      {hud.achievementToast && (
+        <div
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-20 bg-[#140f19]/95 border border-[#d4a853] px-5 py-2.5 text-center shadow-[0_8px_32px_rgba(0,0,0,0.88)]"
+          data-testid="achievement-toast"
+        >
+          <div className="font-display text-xs uppercase tracking-[0.18em] text-[#ffd470]">
+            {hud.achievementToast}
+          </div>
+        </div>
+      )}
+
       {/* Top Perimeter Clusters (2 compact corners) */}
       <div className="flex justify-between items-start gap-4">
-        {/* Top-Left: Vitality, Breath, Flasks & Build */}
-        <div className="relative w-[296px] bg-[#0c0910]/90 border border-[#5c4835] px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.75)]">
+        {/* Top-Left: Vitality, Breath, Flasks, Weapon Art & Build */}
+        <div className="relative w-[308px] bg-[#0c0910]/90 border border-[#5c4835] px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.75)]">
           <span aria-hidden="true" className="absolute -top-px -left-px w-2 h-2 border-t-2 border-l-2 border-[#d4a853]" />
           <span aria-hidden="true" className="absolute -top-px -right-px w-2 h-2 border-t-2 border-r-2 border-[#d4a853]" />
           <span aria-hidden="true" className="absolute -bottom-px -left-px w-2 h-2 border-b-2 border-l-2 border-[#d4a853]" />
@@ -81,13 +98,42 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
               ))}
               <span className="ml-1 text-[11px] text-[#9d9284] font-mono-num">[R]</span>
             </div>
-            <span className="text-[11px] text-[#d4a853] truncate max-w-[130px]">{hud.weaponName}</span>
+            <span className="text-[11px] text-[#d4a853] truncate max-w-[140px]">{hud.weaponName}</span>
           </div>
 
-          {(hud.blessings.length > 0 || hud.relics.length > 0 || hud.parryStreak >= 2 || hud.comboHits >= 2) && (
+          {/* Weapon Art Cooldown Bar */}
+          <div className="mt-2 pt-1.5 border-t border-[#2d241c]">
+            <div className="flex items-center justify-between text-[11px] mb-1">
+              <span className="text-[#cfc6b8] truncate max-w-[195px]">
+                <span className="font-mono-num text-[#9d9284] mr-1">[C]</span>
+                {hud.weaponArtName}
+              </span>
+              <span
+                className={`font-mono-num ${skillReady ? 'text-[#ffd470]' : 'text-[#9d9284]'}`}
+                data-testid="hud-skill-status"
+              >
+                {skillReady ? 'Prêt' : `${hud.skillCd.toFixed(1)}s`}
+              </span>
+            </div>
+            <div className="h-1 bg-[#17121b] border border-[#322820] overflow-hidden">
+              <div
+                className={`h-full ${skillReady ? 'bg-[#ffd470]' : 'bg-[#7d5e34]'}`}
+                style={{ width: `${skillPct}%` }}
+              />
+            </div>
+          </div>
+
+          {(hud.blessings.length > 0 ||
+            hud.relics.length > 0 ||
+            hud.activeSynergies.length > 0 ||
+            hud.parryStreak >= 2 ||
+            hud.comboHits >= 2) && (
             <div className="mt-2 pt-1.5 border-t border-[#2d241c] text-[11px] text-[#9d9284] flex items-center justify-between gap-2">
               <span className="truncate">
                 {hud.blessings.length} Bénéd. · {hud.relics.length} Rel.
+                {hud.activeSynergies.length > 0 && (
+                  <span className="text-[#ff9d42]"> · {hud.activeSynergies.length} Duo</span>
+                )}
               </span>
               <div className="flex items-center gap-2 whitespace-nowrap font-mono-num">
                 {hud.comboHits >= 2 && (
@@ -113,11 +159,15 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
             <span aria-hidden="true" className="absolute -bottom-px -left-px w-2 h-2 border-b-2 border-l-2 border-[#d4a853]" />
             <span aria-hidden="true" className="absolute -bottom-px -right-px w-2 h-2 border-b-2 border-r-2 border-[#d4a853]" />
             <div className="font-display text-xs md:text-sm text-[#e5be6e] tracking-wider uppercase">
-              Strate {hud.depth} · {hud.biomeName}
+              {hud.isTraining
+                ? "Cour d'Entraînement · Bastion"
+                : `Strate ${hud.depth} · ${hud.biomeName}`}
             </div>
-            {hud.affixName && (
+            {!hud.isTraining && (hud.affixName || hud.ascensionLevel > 0) && (
               <div className="text-[11px] text-[#8ab8e6] mt-0.5" title={hud.affixDesc}>
-                {hud.affixName}
+                {hud.ascensionLevel > 0 ? `Ascension ${hud.ascensionLevel}` : ''}
+                {hud.ascensionLevel > 0 && hud.affixName ? ' · ' : ''}
+                {hud.affixName || ''}
               </div>
             )}
             <div className="mt-1.5 flex items-center justify-end gap-3.5 text-xs font-mono-num text-[#f2ece1]">
@@ -216,10 +266,11 @@ export function GameHud({ hud, muted, onToggleMute, onOpenPause }: GameHudProps)
         <div />
       )}
 
-      {/* Tooltip-free active blessing/relic count reference for accessibility */}
+      {/* Tooltip-free active blessing/relic/synergy reference for accessibility */}
       <span className="sr-only">
         {hud.blessings.map((id) => BLESSINGS_POOL.find((b) => b.id === id)?.name).join(', ')}
         {hud.relics.map((id) => RELICS_POOL.find((r) => r.id === id)?.name).join(', ')}
+        {hud.activeSynergies.map((id) => SYNERGIES_POOL.find((s) => s.id === id)?.name).join(', ')}
       </span>
     </div>
   );

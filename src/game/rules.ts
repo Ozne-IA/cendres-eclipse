@@ -1,4 +1,5 @@
 import {
+  ACHIEVEMENTS_DEF,
   BLESSINGS_POOL,
   BUILDINGS_DEF,
   DEFAULT_KEY_BINDINGS,
@@ -7,10 +8,12 @@ import {
   NPCS_DEF,
   RELICS_POOL,
   SAVE_KEY,
+  SYNERGIES_POOL,
   TALENTS_DEF,
   WEAPONS_DEF,
 } from './data';
 import type {
+  ArmorSkinKey,
   AttackMove,
   BuildingKey,
   NpcKey,
@@ -31,6 +34,9 @@ export function defaultSave(): SaveData {
     npcLevels: { vaelen: 1, meryl: 1, orin: 1, kaelith: 1, lyra: 1 },
     oath: 'argile',
     weapon: 'clay_blade',
+    armorSkin: 'eclipse',
+    ascensionLevel: 0,
+    maxAscensionUnlocked: 0,
     weaponsUnlocked: {
       clay_blade: true,
       belfry_greatsword: false,
@@ -58,6 +64,7 @@ export function defaultSave(): SaveData {
     loreUnlocked: ['stele_1'],
     bestiaryKills: {},
     questsClaimed: [],
+    achievementsUnlocked: [],
     muted: false,
     settings: {
       ...DEFAULT_SETTINGS,
@@ -93,6 +100,10 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
     loreUnlocked: Array.isArray(raw.loreUnlocked) ? raw.loreUnlocked : base.loreUnlocked,
     bestiaryKills: { ...(raw.bestiaryKills || {}) },
     questsClaimed: Array.isArray(raw.questsClaimed) ? raw.questsClaimed : [],
+    achievementsUnlocked: Array.isArray(raw.achievementsUnlocked) ? raw.achievementsUnlocked : [],
+    armorSkin: raw.armorSkin || 'eclipse',
+    ascensionLevel: typeof raw.ascensionLevel === 'number' ? raw.ascensionLevel : 0,
+    maxAscensionUnlocked: typeof raw.maxAscensionUnlocked === 'number' ? raw.maxAscensionUnlocked : 0,
     settings: {
       ...base.settings,
       ...(raw.settings || {}),
@@ -167,7 +178,11 @@ export function payCost(res: ResourceBag, cost: Partial<ResourceBag>): ResourceB
   return next;
 }
 
-export function createRunState(save: SaveData, rng: () => number = Math.random): RunState {
+export function createRunState(
+  save: SaveData,
+  rng: () => number = Math.random,
+  isTraining = false
+): RunState {
   const hpBonus = (save.buildings.foyer || 0) * 20;
   const stamBonus = (save.buildings.foyer || 0) * 12;
   const oathHpMult = save.oath === 'sang' ? 0.75 : 1;
@@ -199,8 +214,11 @@ export function createRunState(save: SaveData, rng: () => number = Math.random):
 
   return {
     depth: 1,
+    isTraining,
+    ascensionLevel: isTraining ? 0 : Math.min(save.ascensionLevel || 0, 5),
     blessings: [],
     relics,
+    activeSynergies: [],
     maxHp,
     hp: maxHp,
     ghostHp: maxHp,
@@ -213,6 +231,7 @@ export function createRunState(save: SaveData, rng: () => number = Math.random):
     parries: 0,
     parryStreak: 0,
     bestParryStreak: 0,
+    perfectDodges: 0,
     comboHits: 0,
     comboTimer: 0,
     damageTaken: 0,
@@ -221,6 +240,11 @@ export function createRunState(save: SaveData, rng: () => number = Math.random):
     critNextAttack: false,
     merchantStock,
   };
+}
+
+export function computeActiveSynergies(run: Pick<RunState, 'blessings' | 'relics'>): string[] {
+  const owned = new Set([...run.blessings, ...run.relics]);
+  return SYNERGIES_POOL.filter((s) => owned.has(s.requires[0]) && owned.has(s.requires[1])).map((s) => s.id);
 }
 
 export function computeComboRank(comboHits: number): {
@@ -243,6 +267,7 @@ export function getLootMultiplier(save: SaveData, run: RunState, affixId?: strin
   if (run.blessings.includes('greed')) m += 0.4;
   if (run.relics.includes('cinder_magnet')) m += 0.25;
   if (affixId === 'blood_moon') m += 0.3;
+  m += (run.ascensionLevel || 0) * 0.15;
   m += computeComboRank(run.comboHits).lootBonus;
   m *= diff.lootMult;
   return m;
@@ -348,9 +373,16 @@ export function calculateBastionProduction(save: SaveData): ResourceBag {
 }
 
 export function bankRunIntoSave(save: SaveData, run: RunState, victory: boolean): SaveData {
+  if (run.isTraining) return save;
   const prod = calculateBastionProduction(save);
+  const nextAscensionUnlocked =
+    victory && (save.ascensionLevel || 0) >= (save.maxAscensionUnlocked || 0)
+      ? Math.min(5, (save.maxAscensionUnlocked || 0) + 1)
+      : save.maxAscensionUnlocked || 0;
+
   const next: SaveData = {
     ...save,
+    maxAscensionUnlocked: nextAscensionUnlocked,
     res: {
       cendres: save.res.cendres + run.loot.cendres + prod.cendres,
       fer: save.res.fer + run.loot.fer + prod.fer,
@@ -366,7 +398,45 @@ export function bankRunIntoSave(save: SaveData, run: RunState, victory: boolean)
       totalPlaySec: (save.records.totalPlaySec || 0) + Math.round(run.elapsedSec),
     },
   };
-  return next;
+  return evaluateAchievements(next).save;
+}
+
+export function evaluateAchievements(save: SaveData): { save: SaveData; unlocked: string[] } {
+  const already = new Set(save.achievementsUnlocked || []);
+  const newlyUnlocked: string[] = [];
+  let bonusCendres = 0;
+
+  for (const ach of ACHIEVEMENTS_DEF) {
+    if (!already.has(ach.id) && ach.check(save)) {
+      already.add(ach.id);
+      newlyUnlocked.push(ach.title);
+      if (ach.rewardCendres) bonusCendres += ach.rewardCendres;
+    }
+  }
+
+  if (newlyUnlocked.length === 0) {
+    return { save, unlocked: [] };
+  }
+
+  return {
+    unlocked: newlyUnlocked,
+    save: {
+      ...save,
+      res: {
+        ...save.res,
+        cendres: save.res.cendres + bonusCendres,
+      },
+      achievementsUnlocked: Array.from(already),
+    },
+  };
+}
+
+export function isSkinUnlocked(save: SaveData, skin: ArmorSkinKey): boolean {
+  if (skin === 'eclipse') return true;
+  if (skin === 'crimson') return (save.achievementsUnlocked || []).includes('ach_slayer_25');
+  if (skin === 'solaire') return (save.achievementsUnlocked || []).includes('ach_parry_25');
+  if (skin === 'astral') return (save.achievementsUnlocked || []).includes('ach_victory_1');
+  return false;
 }
 
 export function exportSaveJson(save: SaveData): string {

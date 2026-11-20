@@ -107,6 +107,27 @@ export class InputHub {
     this.prevJumpHeld = false;
   }
 
+  rumble(weak = 0.25, strong = 0.45, durationMs = 110, enabled = true): void {
+    if (!enabled || typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    try {
+      const pads = navigator.getGamepads();
+      const pad = pads ? Array.from(pads).find(Boolean) : undefined;
+      const act = pad?.vibrationActuator as
+        | { playEffect?: (type: string, params: Record<string, number>) => Promise<unknown> }
+        | undefined;
+      if (act && typeof act.playEffect === 'function') {
+        void act.playEffect('dual-rumble', {
+          startDelay: 0,
+          duration: durationMs,
+          weakMagnitude: Math.max(0, Math.min(1, weak)),
+          strongMagnitude: Math.max(0, Math.min(1, strong)),
+        });
+      }
+    } catch {
+      // ignore unsupported gamepad rumble
+    }
+  }
+
   poll(): InputState {
     const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = pads ? Array.from(pads).find(Boolean) : undefined;
@@ -122,6 +143,7 @@ export class InputHub {
       heavy: false,
       parry: false,
       parryHeld: false,
+      skill: false,
       heal: false,
       interact: false,
       pause: false,
@@ -144,6 +166,7 @@ export class InputHub {
     if (this.keysJust.has(b.parry) || this.mouseJust.has(2)) inp.parry = true;
     inp.parryHeld = this.keys.has(b.parry) || this.mouseHeld.has(2);
     if (this.keysJust.has(b.heavy) || this.keysJust.has('KeyL')) inp.heavy = true;
+    if (this.keysJust.has(b.skill || 'KeyC')) inp.skill = true;
     if (this.keysJust.has(b.heal)) inp.heal = true;
     if (this.keysJust.has(b.interact) || this.keysJust.has('Enter')) inp.interact = true;
     if (this.keysJust.has('Escape') || this.keysJust.has('KeyP')) inp.pause = true;
@@ -180,11 +203,12 @@ export class InputHub {
       if (just(3)) inp.heal = true;
       if (just(4)) inp.parry = true;
       if (pad.buttons[4]?.pressed) inp.parryHeld = true;
+      if (just(6)) inp.skill = true;
       if (just(5) || just(7)) inp.heavy = true;
       if (just(12)) inp.interact = true;
       if (just(9)) inp.pause = true;
 
-      this.prevPadButtons = pad.buttons.map((b) => !!b.pressed);
+      this.prevPadButtons = pad.buttons.map((btn) => !!btn.pressed);
     }
 
     inp.jumpReleased = this.prevJumpHeld && !inp.jumpHeld;

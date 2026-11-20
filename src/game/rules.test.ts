@@ -4,19 +4,22 @@ import {
   bankRunIntoSave,
   calculateBastionProduction,
   canAfford,
+  computeActiveSynergies,
   computeComboRank,
   createRunState,
   defaultSave,
+  evaluateAchievements,
   exportSaveJson,
   getBuildingCost,
   getLootMultiplier,
   getParryWindowSec,
   getPlayerDamageStats,
   importSaveJson,
+  isSkinUnlocked,
   payCost,
   pickBlessingChoices,
 } from './rules';
-import { generateRoom } from './levelGen';
+import { generateRoom, generateTrainingRoom } from './levelGen';
 
 test('defaultSave initializes valid resources, weapon, oath, and buildings', () => {
   const s = defaultSave();
@@ -96,11 +99,13 @@ test('Bastion NPC production and bankRunIntoSave aggregate resources and records
   run.loot.cendres = 40;
 
   const updated = bankRunIntoSave(s, run, true);
-  assert.equal(updated.res.cendres, s.res.cendres + 40 + 32);
+  // 75 (start) + 40 (loot) + 32 (Bastion) + 150 (ach_victory_1) + 120 (ach_ascension_1) = 417
+  assert.equal(updated.res.cendres, s.res.cendres + 40 + 32 + 150 + 120);
   assert.equal(updated.res.fer, s.res.fer + 2);
   assert.equal(updated.records.bestDepth, 4);
   assert.equal(updated.records.victories, 1);
   assert.equal(updated.records.totalParries, 7);
+  assert.equal(updated.maxAscensionUnlocked, 1);
 });
 
 test('loot multiplier stacks Vigie, Oath of Blood, and Greed blessing', () => {
@@ -201,5 +206,58 @@ test('exportSaveJson and importSaveJson roundtrip valid saves and reject invalid
 
   assert.equal(importSaveJson('not-json'), null);
   assert.equal(importSaveJson('{"foo":"bar"}'), null);
+});
+
+test('computeActiveSynergies activates Eclipse Duo effects when both prerequisites are owned', () => {
+  const s = defaultSave();
+  const run = createRunState(s, () => 0.5);
+  assert.deepEqual(computeActiveSynergies(run), []);
+
+  run.blessings.push('cinder_burn', 'lunar_frost');
+  assert.ok(computeActiveSynergies(run).includes('thermal_shock'));
+
+  run.blessings.push('thunder_parry', 'bronze_counter');
+  assert.ok(computeActiveSynergies(run).includes('storm_anvil'));
+});
+
+test('evaluateAchievements unlocks skins and grants bonus Cendres once', () => {
+  const s = defaultSave();
+  assert.equal(isSkinUnlocked(s, 'eclipse'), true);
+  assert.equal(isSkinUnlocked(s, 'crimson'), false);
+
+  s.records.totalKills = 30;
+  s.records.totalParries = 25;
+  const first = evaluateAchievements(s);
+  assert.ok(first.save.achievementsUnlocked.includes('ach_slayer_25'));
+  assert.ok(first.save.achievementsUnlocked.includes('ach_parry_25'));
+  assert.equal(isSkinUnlocked(first.save, 'crimson'), true);
+  assert.equal(isSkinUnlocked(first.save, 'solaire'), true);
+  assert.ok(first.save.res.cendres > s.res.cendres);
+
+  const second = evaluateAchievements(first.save);
+  assert.equal(second.unlocked.length, 0);
+  assert.equal(second.save.res.cendres, first.save.res.cendres);
+});
+
+test('Ascension tier scales loot/enemies and victory unlocks next tier while Training stays isolated', () => {
+  const s = defaultSave();
+  s.ascensionLevel = 2;
+  const run = createRunState(s, () => 0.5, false);
+  const baseRun = createRunState(defaultSave(), () => 0.5, false);
+
+  assert.ok(getLootMultiplier(s, run) > getLootMultiplier(defaultSave(), baseRun));
+
+  const trainingRun = createRunState(s, () => 0.5, true);
+  trainingRun.kills = 99;
+  trainingRun.loot.cendres = 500;
+  const afterTraining = bankRunIntoSave(s, trainingRun, true);
+  assert.equal(afterTraining, s);
+
+  const victorySave = bankRunIntoSave(s, run, true);
+  assert.equal(victorySave.maxAscensionUnlocked, 1);
+
+  const trainingRoom = generateTrainingRoom();
+  assert.ok(trainingRoom.enemies.length >= 3);
+  assert.ok(trainingRoom.props.some((p) => p.type === 'exit' && !p.locked));
 });
 

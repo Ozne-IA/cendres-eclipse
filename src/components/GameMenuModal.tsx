@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AudioFX } from '../game/audio';
 import {
+  ACHIEVEMENTS_DEF,
+  ARMOR_SKINS_DEF,
   DEFAULT_KEY_BINDINGS,
   DIFFICULTIES_DEF,
 } from '../game/data';
@@ -37,6 +39,7 @@ const KEY_ACTION_LABELS: Array<{ action: KeyAction; label: string; alt: string }
   { action: 'attack', label: 'Attaque légère', alt: 'Clic Gauche / X' },
   { action: 'heavy', label: 'Attaque lourde', alt: 'L / Gâchette D' },
   { action: 'parry', label: 'Déviation / Garde', alt: 'Clic Droit / LB' },
+  { action: 'skill', label: "Art d'arme (Éclipse)", alt: 'C / Gâchette G (LT)' },
   { action: 'heal', label: 'Fiole de Sève', alt: 'Bouton Y' },
   { action: 'interact', label: 'Interagir / Passage', alt: 'Entrée / Croix Haut' },
 ];
@@ -283,6 +286,14 @@ export function GameMenuModal({
                     onUpdateSettings({ highContrastTelegraphs: !settings.highContrastTelegraphs })
                   }
                 />
+                <ToggleCard
+                  title="Vibrations Manette (Haptique)"
+                  desc="Impulsions tactiles lors des parades parfaites, esquives et chocs lourds."
+                  checked={settings.gamepadRumble !== false}
+                  onToggle={() =>
+                    onUpdateSettings({ gamepadRumble: !(settings.gamepadRumble !== false) })
+                  }
+                />
                 <div className="bg-[#18141e] border border-[#3a2f24] p-4 flex flex-col justify-between gap-2">
                   <div className="flex justify-between items-baseline">
                     <span className="font-display text-sm text-[#e8e1d5]">Secousses de caméra</span>
@@ -398,6 +409,20 @@ export function GameMenuModal({
                   onToggle={() => onUpdateSettings({ showMinimap: !settings.showMinimap })}
                 />
                 <ToggleCard
+                  title="Barres de vie &amp; posture ennemies"
+                  desc="Affiche les jauges de vie, posture et altérations au-dessus des ennemis blessés."
+                  checked={settings.showEnemyBars !== false}
+                  onToggle={() =>
+                    onUpdateSettings({ showEnemyBars: !(settings.showEnemyBars !== false) })
+                  }
+                />
+                <ToggleCard
+                  title="Réduire les flashs d'impact (Accessibilité)"
+                  desc="Supprime les éclairs plein écran lors des parades parfaites et exécutions."
+                  checked={!!settings.reduceFlashes}
+                  onToggle={() => onUpdateSettings({ reduceFlashes: !settings.reduceFlashes })}
+                />
+                <ToggleCard
                   title="Compteur d'images par seconde (FPS)"
                   desc="Affiche les performances temps réel dans le coin supérieur droit."
                   checked={settings.showFps}
@@ -442,9 +467,22 @@ export function GameMenuModal({
                 onChange={(v) => onUpdateSettings({ sfxVolume: v })}
               />
               <SliderCard
+                label="Volume Musique Adaptative"
+                value={settings.musicVolume ?? 0.45}
+                onChange={(v) => onUpdateSettings({ musicVolume: v })}
+              />
+              <SliderCard
                 label="Volume Bourdon Abyssal (Ambiance)"
                 value={settings.ambientVolume}
                 onChange={(v) => onUpdateSettings({ ambientVolume: v })}
+              />
+              <ToggleCard
+                title="Musique Dark Fantasy Adaptative"
+                desc="Séries de cordes et arpèges mineurs évoluant selon l’exploration, le combat et les Boss."
+                checked={settings.musicEnabled !== false}
+                onToggle={() =>
+                  onUpdateSettings({ musicEnabled: !(settings.musicEnabled !== false) })
+                }
               />
               <ToggleCard
                 title="Synthétiseur d’Ambiance Dark Fantasy"
@@ -528,6 +566,49 @@ export function GameMenuModal({
                 <StatBox label="Gardiens terrassés" value={String(save.records.bossesSlain)} />
                 <StatBox label="Déviations totales" value={String(save.records.totalParries)} />
                 <StatBox label="Meilleure série" value={`${save.records.maxParryStreak}x`} />
+              </div>
+
+              <div className="bg-[#18141e] border border-[#3a2f24] p-4 space-y-3">
+                <div className="flex justify-between items-baseline">
+                  <h3 className="font-display text-sm text-[#d4a853] m-0 uppercase tracking-wider">
+                    Hauts Faits &amp; Apparences
+                  </h3>
+                  <span className="font-mono-num text-xs text-[#9d9284]">
+                    {(save.achievementsUnlocked || []).length} / {ACHIEVEMENTS_DEF.length} débloqués
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {ACHIEVEMENTS_DEF.map((ach) => {
+                    const done = (save.achievementsUnlocked || []).includes(ach.id);
+                    return (
+                      <div
+                        key={ach.id}
+                        className={`p-3 border flex items-start justify-between gap-2 ${
+                          done ? 'bg-[#1c1722] border-[#6b5235]' : 'bg-[#120e17] border-[#2d241c] opacity-75'
+                        }`}
+                      >
+                        <div>
+                          <div className={`font-display text-xs ${done ? 'text-[#ffd470]' : 'text-[#b8afa2]'}`}>
+                            {ach.title}
+                          </div>
+                          <div className="text-[11px] text-[#9d9284] mt-0.5">{ach.desc}</div>
+                          <div className="text-[11px] font-mono-num text-[#8ab8e6] mt-1">
+                            {ach.rewardCendres ? `+${ach.rewardCendres} Cendres` : ''}
+                            {ach.rewardCendres && ach.rewardSkin ? ' · ' : ''}
+                            {ach.rewardSkin ? `Armure : ${ARMOR_SKINS_DEF[ach.rewardSkin].name}` : ''}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-display uppercase whitespace-nowrap ${
+                            done ? 'text-[#5db87a]' : 'text-[#7c7368]'
+                          }`}
+                        >
+                          {done ? 'Acquis' : 'Scellé'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="bg-[#18141e] border border-[#3a2f24] p-4 space-y-3">

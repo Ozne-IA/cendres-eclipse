@@ -115,6 +115,7 @@ export default function App() {
           onUpdateSave={(updater) => engineRef.current?.updateSave(updater)}
           onResetSave={() => engineRef.current?.resetSave()}
           onStartRun={() => engineRef.current?.startNewRun()}
+          onStartTraining={() => engineRef.current?.startTrainingMode()}
           onReturnTitle={() => engineRef.current?.openTitle()}
         />
       )}

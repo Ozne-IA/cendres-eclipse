@@ -1,5 +1,5 @@
 import React from 'react';
-import { BLESSINGS_POOL, RELICS_POOL } from '../game/data';
+import { BLESSINGS_POOL, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
 import type { HudSnapshot } from '../game/types';
 
 interface PauseModalProps {
@@ -28,11 +28,27 @@ export function PauseModal({
           Pause
         </h2>
         <p className="text-xs text-[#9d9284] leading-relaxed mt-3 mb-5">
-          En rentrant au Bastion du Crépuscule maintenant, vous conservez toutes les ressources déjà récoltées durant cette expédition.
+          {hud?.isTraining
+            ? 'Vous êtes dans la Cour d’Entraînement. Rentrez au Bastion pour ajuster votre équipement.'
+            : 'En rentrant au Bastion du Crépuscule maintenant, vous conservez toutes les ressources déjà récoltées durant cette expédition.'}
         </p>
 
-        {hud && (hud.blessings.length > 0 || hud.relics.length > 0) && (
+        {hud && (hud.blessings.length > 0 || hud.relics.length > 0 || hud.activeSynergies.length > 0 || hud.ascensionLevel > 0) && (
           <div className="text-left bg-[#18141e] border border-[#352b22] p-3 mb-5 text-xs space-y-1.5">
+            {hud.ascensionLevel > 0 && (
+              <div className="text-[#8ab8e6]">
+                Pacte d&apos;Ascension {hud.ascensionLevel}
+              </div>
+            )}
+            {hud.activeSynergies.length > 0 && (
+              <div className="text-[#ff9d42]">
+                <span className="font-semibold">Synergies (Duos) : </span>
+                {hud.activeSynergies
+                  .map((id) => SYNERGIES_POOL.find((s) => s.id === id)?.name)
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
             {hud.blessings.length > 0 && (
               <div className="text-[#b8afa2]">
                 <span className="text-[#d4a853]">Bénédictions : </span>

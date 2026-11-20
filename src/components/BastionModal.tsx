@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ARMOR_SKINS_DEF,
   BUILDINGS_DEF,
   ENEMY_LORE,
   LORE_TABLETS,
@@ -15,9 +16,11 @@ import {
   getBuildingCost,
   getNpcUpgradeCost,
   getWeaponUpgradeCost,
+  isSkinUnlocked,
   payCost,
 } from '../game/rules';
 import type {
+  ArmorSkinKey,
   BuildingKey,
   EnemyKind,
   NpcKey,
@@ -35,6 +38,7 @@ interface BastionModalProps {
   onUpdateSave: (updater: (prev: SaveData) => SaveData) => void;
   onResetSave: () => void;
   onStartRun: () => void;
+  onStartTraining: () => void;
   onReturnTitle: () => void;
 }
 
@@ -53,6 +57,7 @@ export function BastionModal({
   onUpdateSave,
   onResetSave,
   onStartRun,
+  onStartTraining,
   onReturnTitle,
 }: BastionModalProps) {
   const [tab, setTab] = useState<BastionTab>('buildings');
@@ -336,6 +341,15 @@ export function BastionModal({
                           <div className="text-[11px] font-mono-num text-[#9d9284]">
                             Dégâts ×{(w.dmgMult * (1 + tier * 0.12)).toFixed(2)} · Posture ×{w.staggerMult.toFixed(2)} · Crit {Math.round(w.critChance * 100)}%
                           </div>
+                          <div className="mt-2 pt-2 border-t border-[#2b221a] text-xs">
+                            <span className="text-[#ffd470] font-display uppercase tracking-wider">
+                              Art [C] : {w.artName}
+                            </span>
+                            <span className="text-[#9d9284] font-mono-num ml-2 text-[11px]">
+                              ({w.artStamCost} Souffle · {w.artCooldown}s)
+                            </span>
+                            <p className="text-[11px] text-[#b8afa2] mt-0.5 mb-0 leading-snug">{w.artDesc}</p>
+                          </div>
                         </div>
 
                         <div className="flex gap-2">
@@ -365,7 +379,7 @@ export function BastionModal({
                                   AudioFX.ui();
                                   onUpdateSave((s) => ({ ...s, weapon: key }));
                                 }}
-                                className="flex-1 py-2 px-3 text-xs font-display uppercase tracking-wider bg-[#261e17] text-[#d4a853] border border-[#6b5235] disabled:border-[#d4a853] disabled:text-[#ffd470] cursor-pointer"
+                                className="py-2 px-3 text-[11px] font-display uppercase tracking-wider bg-[#261e17] text-[#d4a853] border border-[#6b5235] disabled:border-[#d4a853] disabled:text-[#ffd470] cursor-pointer whitespace-nowrap"
                               >
                                 {equipped ? 'Équipée' : 'Équiper'}
                               </button>
@@ -380,7 +394,7 @@ export function BastionModal({
                                     weaponTiers: { ...s.weaponTiers, [key]: tier + 1 },
                                   }));
                                 }}
-                                className="flex-1 py-2 px-3 text-xs font-display uppercase tracking-wider bg-[#151b22] text-[#c2cbd6] border border-[#3a4b5c] hover:border-[#d4a853] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                                className="flex-1 py-2 px-3 text-[11px] font-display uppercase tracking-wider bg-[#151b22] text-[#c2cbd6] border border-[#3a4b5c] hover:border-[#d4a853] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap truncate"
                               >
                                 {tier >= 5 ? 'Max (+5)' : `Renforcer (${formatCost(upCost)})`}
                               </button>
@@ -431,6 +445,98 @@ export function BastionModal({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Armor Skins Selector */}
+              <div>
+                <h3 className="font-display text-sm uppercase tracking-widest text-[#d4a853] mb-3 mt-2">
+                  Apparence du Chevalier
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {(Object.keys(ARMOR_SKINS_DEF) as ArmorSkinKey[]).map((skinKey) => {
+                    const skin = ARMOR_SKINS_DEF[skinKey];
+                    const unlocked = isSkinUnlocked(save, skinKey);
+                    const equipped = (save.armorSkin || 'eclipse') === skinKey;
+                    return (
+                      <div
+                        key={skinKey}
+                        className={`bg-[#18141e] border p-3.5 flex flex-col justify-between gap-2.5 ${
+                          equipped ? 'border-[#d4a853]' : 'border-[#3a2f24]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-display text-sm text-[#e8e1d5]">{skin.name}</span>
+                            <div className="flex items-center gap-1" aria-hidden="true">
+                              <span className="w-3 h-3 border border-white/20" style={{ backgroundColor: skin.plate }} />
+                              <span className="w-3 h-3 border border-white/20" style={{ backgroundColor: skin.capeLining }} />
+                              <span className="w-3 h-3 border border-white/20" style={{ backgroundColor: skin.eye }} />
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-[#9d9284] mt-1.5 mb-0 leading-snug">
+                            {unlocked ? skin.desc : skin.unlockHint}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!unlocked || equipped}
+                          onClick={() => {
+                            AudioFX.ui();
+                            onUpdateSave((s) => ({ ...s, armorSkin: skinKey }));
+                          }}
+                          className={`w-full py-1.5 px-2 text-xs font-display uppercase tracking-wider border cursor-pointer disabled:cursor-not-allowed ${
+                            equipped
+                              ? 'bg-[#362819] text-[#ffd470] border-[#d4a853]'
+                              : unlocked
+                              ? 'bg-[#221b15] text-[#d4a853] border-[#5c4833] hover:border-[#d4a853]'
+                              : 'bg-[#120f17] text-[#6d655b] border-[#2d241c] opacity-60'
+                          }`}
+                        >
+                          {equipped ? 'Équipée' : unlocked ? 'Revêtir' : 'Verrouillée'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Ascension Pact Selector */}
+              <div className="bg-[#18141e] border border-[#3a2f24] p-4 space-y-3">
+                <div className="flex flex-wrap justify-between items-baseline gap-2">
+                  <h3 className="font-display text-sm uppercase tracking-widest text-[#d4a853] m-0">
+                    Pacte d&apos;Ascension ({save.ascensionLevel || 0} / 5)
+                  </h3>
+                  <span className="text-xs font-mono-num text-[#8ab8e6]">
+                    Débloqué jusqu&apos;au palier {save.maxAscensionUnlocked || 0} · +16% PV ennemis &amp; +15% Cendres / niveau
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((tier) => {
+                    const locked = tier > (save.maxAscensionUnlocked || 0);
+                    const active = (save.ascensionLevel || 0) === tier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          AudioFX.ui();
+                          onUpdateSave((s) => ({ ...s, ascensionLevel: tier }));
+                        }}
+                        className={`px-4 py-2 text-xs font-display uppercase tracking-wider border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap ${
+                          active
+                            ? 'bg-[#6e1c26] text-[#ffe8ea] border-[#d4a853]'
+                            : 'bg-[#120e17] text-[#cfc6b8] border-[#3a2f24] hover:border-[#d4a853]'
+                        }`}
+                      >
+                        {tier === 0 ? 'Standard (0)' : `Ascension ${tier}`}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-[#9d9284] m-0">
+                  Remportez une victoire complète au niveau d&apos;Ascension maximum actuel pour débloquer le palier suivant.
+                </p>
               </div>
             </>
           )}
@@ -595,14 +701,27 @@ export function BastionModal({
             </button>
           </div>
 
-          <button
-            type="button"
-            data-start="true"
-            onClick={onStartRun}
-            className="px-6 py-2.5 text-sm font-display uppercase tracking-widest bg-[#6e1c26] text-[#ffe8ea] border border-[#b54552] hover:bg-[#8e2431] hover:border-[#ff7887] cursor-pointer"
-          >
-            Descendre dans l&apos;Abîme
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              data-testid="start-training-btn"
+              onClick={() => {
+                AudioFX.ui();
+                onStartTraining();
+              }}
+              className="px-4 py-2.5 text-xs font-display uppercase tracking-wider bg-[#151b22] text-[#8ab8e6] border border-[#3a4b5c] hover:border-[#8ab8e6] cursor-pointer whitespace-nowrap"
+            >
+              Cour d&apos;Entraînement
+            </button>
+            <button
+              type="button"
+              data-start="true"
+              onClick={onStartRun}
+              className="px-6 py-2.5 text-sm font-display uppercase tracking-widest bg-[#6e1c26] text-[#ffe8ea] border border-[#b54552] hover:bg-[#8e2431] hover:border-[#ff7887] cursor-pointer whitespace-nowrap"
+            >
+              Descendre dans l&apos;Abîme
+            </button>
+          </div>
         </div>
       </div>
     </div>

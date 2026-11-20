@@ -27,6 +27,7 @@ export type KeyAction =
   | 'attack'
   | 'heavy'
   | 'parry'
+  | 'skill'
   | 'heal'
   | 'interact';
 
@@ -34,19 +35,26 @@ export type KeyBindings = Record<KeyAction, string>;
 
 export type QualityLevel = 'high' | 'medium' | 'off';
 
+export type ArmorSkinKey = 'eclipse' | 'crimson' | 'solaire' | 'astral';
+
 export interface GameSettings {
   difficulty: DifficultyMode;
   masterVolume: number;
   sfxVolume: number;
   ambientVolume: number;
   ambientDrone: boolean;
+  musicEnabled: boolean;
+  musicVolume: number;
   screenShakeScale: number;
   hitstopEnabled: boolean;
+  reduceFlashes: boolean;
+  gamepadRumble: boolean;
   bloodIntensity: QualityLevel;
   fogQuality: QualityLevel;
   vfxQuality: QualityLevel;
   parallaxEnabled: boolean;
   showDamageNumbers: boolean;
+  showEnemyBars: boolean;
   showMinimap: boolean;
   showFps: boolean;
   highContrastTelegraphs: boolean;
@@ -118,12 +126,16 @@ export interface SaveData {
   npcLevels: Record<NpcKey, number>;
   oath: OathKey;
   weapon: WeaponKey;
+  armorSkin: ArmorSkinKey;
+  ascensionLevel: number;
+  maxAscensionUnlocked: number;
   weaponsUnlocked: Record<WeaponKey, boolean>;
   weaponTiers: Record<WeaponKey, number>;
   talents: Record<TalentKey, number>;
   loreUnlocked: string[];
   bestiaryKills: Partial<Record<EnemyKind, number>>;
   questsClaimed: string[];
+  achievementsUnlocked: string[];
   muted: boolean;
   settings: GameSettings;
   records: SaveRecords;
@@ -158,12 +170,33 @@ export interface WeaponDef {
   name: string;
   style: string;
   desc: string;
+  artName: string;
+  artDesc: string;
+  artCooldown: number;
+  artStamCost: number;
   unlockCost: Partial<ResourceBag>;
   dmgMult: number;
   speedMult: number;
   reachPx: number;
   staggerMult: number;
   critChance: number;
+}
+
+export interface SynergyDef {
+  id: string;
+  name: string;
+  requires: [string, string];
+  desc: string;
+  color: string;
+}
+
+export interface AchievementDef {
+  id: string;
+  title: string;
+  desc: string;
+  rewardSkin?: ArmorSkinKey;
+  rewardCendres?: number;
+  check: (save: SaveData) => boolean;
 }
 
 export interface TalentDef {
@@ -368,12 +401,17 @@ export interface Player {
   wispAngle: number;
   wispCd: number;
   riposteBuffT: number;
+  skillCd: number;
+  skillMaxCd: number;
 }
 
 export interface RunState {
   depth: number;
+  isTraining?: boolean;
+  ascensionLevel: number;
   blessings: string[];
   relics: string[];
+  activeSynergies: string[];
   maxHp: number;
   hp: number;
   ghostHp: number;
@@ -386,6 +424,7 @@ export interface RunState {
   parries: number;
   parryStreak: number;
   bestParryStreak: number;
+  perfectDodges: number;
   comboHits: number;
   comboTimer: number;
   damageTaken: number;
@@ -417,6 +456,8 @@ export interface HudSnapshot {
   flasks: number;
   maxFlasks: number;
   depth: number;
+  isTraining?: boolean;
+  ascensionLevel: number;
   biomeName: string;
   cendresTotal: number;
   ferTotal: number;
@@ -424,7 +465,11 @@ export interface HudSnapshot {
   runCendres: number;
   blessings: string[];
   relics: string[];
+  activeSynergies: string[];
   weaponName: string;
+  weaponArtName: string;
+  skillCd: number;
+  skillMaxCd: number;
   parryStreak: number;
   comboHits: number;
   comboRank: string;
@@ -434,6 +479,7 @@ export interface HudSnapshot {
   showFps: boolean;
   inputMode: string;
   promptText: string;
+  achievementToast?: string;
   boss: {
     name: string;
     hp: number;
@@ -460,6 +506,7 @@ export interface InputState {
   heavy: boolean;
   parry: boolean;
   parryHeld: boolean;
+  skill: boolean;
   heal: boolean;
   interact: boolean;
   pause: boolean;

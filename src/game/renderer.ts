@@ -30,7 +30,7 @@ import {
   getStonePattern,
   getTitleHeroArtwork,
 } from './textures';
-import type { GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
+import type { ArmorSkinKey, GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
 import {
   renderGroundFissuresVfx,
   renderScreenVfx,
@@ -50,6 +50,7 @@ export interface RenderContextState {
   player: Player | null;
   run: RunState | null;
   weapon: WeaponKey;
+  armorSkin?: ArmorSkinKey;
   particles: ParticlePool;
   blood?: BloodSystem;
   vfx?: VfxSystem;
@@ -182,6 +183,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   const bloodIntensity = st.settings?.bloodIntensity ?? 'high';
   const vfxQuality = st.settings?.vfxQuality ?? 'high';
   const highContrast = !!st.settings?.highContrastTelegraphs;
+  const showEnemyBars = st.settings?.showEnemyBars !== false;
   const shakeMult = st.settings?.screenShakeScale ?? 1;
 
   // Plan 1: Distant Gothic Horizon Silhouettes (0.14x) + Plan 2: Animated Volumetric God-Rays & Deep/Mid Fog
@@ -474,7 +476,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   // 10. Enemies & Bosses
   for (const e of room.enemies) {
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
-    drawDetailedEnemy(ctx, e, player, time, highContrast);
+    drawDetailedEnemy(ctx, e, player, time, highContrast, showEnemyBars);
   }
 
   // 11. Luminous Projectiles
@@ -523,7 +525,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     player,
     st.weapon,
     !!(st.run && st.run.blessings.includes('orbital_wisp')),
-    time
+    time,
+    st.armorSkin || 'eclipse'
   );
 
   // 13. Shockwave Rings, Velocity-Aligned Sparks & Floating Texts
@@ -582,7 +585,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 14b. Screen-space Directional Chromatic Combat Flash
-  if (st.vfx) {
+  if (st.vfx && !st.settings?.reduceFlashes) {
     renderScreenVfx(ctx, st.vfx, W, H, vfxQuality);
   }
 

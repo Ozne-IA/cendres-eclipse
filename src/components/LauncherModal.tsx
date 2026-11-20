@@ -262,7 +262,7 @@ npm run build
 npm run start:pc -- --port=${cfg.port}`}
             </pre>
             <p className="text-[11px] text-[#8f8578] m-0">
-              Astuce : les scripts prêts à l’emploi sont également inclus directement dans le dossier <code className="text-[#d4a853]">launcher/</code> du projet exporté.
+              Astuce : les scripts prêts à l’emploi sont également inclus directement dans le dossier <code className="text-[#d4a853]">launcher/</code> du projet exporté, avec sauvegarde automatique sur disque dans <code className="text-[#d4a853]">cendres-eclipse-save.json</code>.
             </p>
           </div>
         </div>

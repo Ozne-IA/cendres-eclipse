@@ -18,6 +18,7 @@ export function sanitizePort(port: number): number {
 export function buildLaunchUrl(cfg: PcLauncherConfig): string {
   const port = sanitizePort(cfg.port);
   const params = new URLSearchParams();
+  params.set('pc_launcher', '1');
   if (cfg.autostart) params.set('autostart', '1');
   if (cfg.fullscreen) params.set('fullscreen', '1');
   if (cfg.fogQuality !== 'high') params.set('fog', cfg.fogQuality);
@@ -191,7 +192,8 @@ export function generatePcLauncherReadme(cfg: PcLauncherConfig): string {
 ## Execution directe depuis votre PC
 1. Assurez-vous d'avoir Node.js 18+ installe (https://nodejs.org).
 2. Double-cliquez sur \`Lancer_Cendres_Eclipse.bat\` (Windows) ou executez \`./Lancer_Cendres_Eclipse.sh\` (macOS / Linux), ou lancez \`npm run start:pc\`.
-3. Le serveur local servira automatiquement la version compilee \`dist/\` sur \`http://127.0.0.1:${port}\`${cfg.appMode ? ' dans une fenetre dediee sans barre d’adresse (--app).' : '.'}
+3. Le serveur local servira automatiquement la version compilee \`dist/\` sur \`http://127.0.0.1:${port}/?pc_launcher=1\`${cfg.appMode ? ' dans une fenetre dediee sans barre d’adresse (--app).' : '.'}
+4. Votre progression est automatiquement synchronisee sur disque dans \`cendres-eclipse-save.json\` a la racine du dossier du jeu.
 
 ## Options configurees
 - Port local : ${port}

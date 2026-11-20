@@ -2,21 +2,24 @@ import { AudioFX } from './audio';
 import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
 import { DEFAULT_KEY_BINDINGS, DEFAULT_SETTINGS, LORE_TABLETS, NPCS_DEF, RELICS_POOL, WEAPONS_DEF } from './data';
 import { InputHub } from './input';
-import { generateRoom } from './levelGen';
+import { generateRoom, generateTrainingRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { renderGameFrame } from './renderer';
 import { VfxSystem } from './vfx';
 import {
   bankRunIntoSave,
+  computeActiveSynergies,
   computeComboRank,
   createRunState,
   defaultSave,
+  evaluateAchievements,
   exportSaveJson,
   getLootMultiplier,
   getParryWindowSec,
   getPlayerDamageStats,
   importSaveJson,
   loadSave,
+  mergeSave,
   persistSave,
   pickBlessingChoices,
 } from './rules';
@@ -68,12 +71,16 @@ export class CendresEngine {
 
   private camera = { x: 0, y: 0 };
   private hitStop = 0;
+  private slowMoT = 0;
   private trauma = 0;
   private simTime = 0;
   private freeDashTimer = 0;
+  private footstepTimer = 0;
   private hudSyncTimer = 0;
   private banner = { title: '', sub: '', color: '#d4a853', timer: 0 };
   private promptText = '';
+  private achievementToast = '';
+  private achievementToastT = 0;
   private deathDelayTimer = 0;
   private smoothedFps = 60;
 
@@ -94,6 +101,42 @@ export class CendresEngine {
     this.input.setKeyBindings(s.keyBindings || DEFAULT_KEY_BINDINGS);
   }
 
+  private isPcDiskSaveActive(): boolean {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pc_launcher') === '1') return true;
+    return window.location.hostname === '127.0.0.1' && window.location.port !== '3000';
+  }
+
+  private async hydratePcDiskSave(): Promise<void> {
+    if (!this.isPcDiskSaveActive()) return;
+    try {
+      const res = await fetch('/api/save');
+      if (!res.ok) return;
+      const payload = (await res.json()) as { exists?: boolean; save?: Partial<SaveData> };
+      if (payload?.exists && payload.save && !this.destroyed) {
+        const merged = mergeSave(payload.save);
+        this.save = merged;
+        this.applySettingsSideEffects();
+        persistSave(this.save);
+        this.cb.onSaveChange({ ...this.save });
+      } else if (!payload?.exists) {
+        this.syncPcDiskSave(this.save);
+      }
+    } catch {
+      // ignore offline or browser restriction
+    }
+  }
+
+  private syncPcDiskSave(save: SaveData): void {
+    if (!this.isPcDiskSaveActive()) return;
+    fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(save),
+    }).catch(() => {});
+  }
+
   init(autostart = false): void {
     this.input.mount();
     this.handleResize();
@@ -104,6 +147,7 @@ export class CendresEngine {
     }
 
     this.cb.onSaveChange({ ...this.save });
+    void this.hydratePcDiskSave();
     if (autostart) {
       this.startNewRun();
     } else {
@@ -134,8 +178,37 @@ export class CendresEngine {
         const instFps = Math.min(240, 1 / rawDt);
         this.smoothedFps = this.smoothedFps * 0.9 + instFps * 0.1;
       }
-      const dt = Math.min(0.05, Math.max(0.0001, rawDt));
+      const clampedDt = Math.min(0.05, Math.max(0.0001, rawDt));
+      if (this.slowMoT > 0) {
+        this.slowMoT = Math.max(0, this.slowMoT - clampedDt);
+      }
+      const dt = this.slowMoT > 0 ? clampedDt * 0.42 : clampedDt;
       this.simTime += dt;
+
+      // Update adaptive procedural music & toast timers
+      const biomeIdx = this.room
+        ? ['catacombes', 'viaduc', 'fleche', 'sanctuaire'].indexOf(this.room.biome.id)
+        : 0;
+      const bossActive = this.room?.enemies.find((e) => e.isBoss && e.hp > 0);
+      const combatActive =
+        this.phase === 'playing' &&
+        !!this.room?.enemies.some((e) => e.hp > 0 && e.state !== 'dead' && e.state !== 'idle');
+      AudioFX.setMusicContext(
+        this.phase === 'playing'
+          ? bossActive
+            ? 'boss'
+            : combatActive
+            ? 'combat'
+            : 'explore'
+          : 'title',
+        Math.max(0, biomeIdx),
+        bossActive?.phase === 2
+      );
+      AudioFX.updateMusic(clampedDt);
+      if (this.achievementToastT > 0) {
+        this.achievementToastT = Math.max(0, this.achievementToastT - clampedDt);
+        if (this.achievementToastT <= 0) this.achievementToast = '';
+      }
 
       const inp = this.input.poll();
       const prevPhase = this.phase;
@@ -200,9 +273,17 @@ export class CendresEngine {
   }
 
   updateSave(updater: (prev: SaveData) => SaveData): void {
-    this.save = updater(this.save);
+    const updated = updater(this.save);
+    const { save: evaluated, unlocked } = evaluateAchievements(updated);
+    this.save = evaluated;
+    if (unlocked.length > 0) {
+      this.achievementToast = `Haut Fait : ${unlocked[0]}`;
+      this.achievementToastT = 4.2;
+      AudioFX.achievement();
+    }
     this.applySettingsSideEffects();
     persistSave(this.save);
+    this.syncPcDiskSave(this.save);
     this.cb.onSaveChange({ ...this.save });
   }
 
@@ -242,6 +323,7 @@ export class CendresEngine {
     this.save = imported;
     this.applySettingsSideEffects();
     persistSave(this.save);
+    this.syncPcDiskSave(this.save);
     this.cb.onSaveChange({ ...this.save });
     return true;
   }
@@ -250,6 +332,7 @@ export class CendresEngine {
     this.save = defaultSave();
     this.applySettingsSideEffects();
     persistSave(this.save);
+    this.syncPcDiskSave(this.save);
     this.cb.onSaveChange({ ...this.save });
   }
 
@@ -274,10 +357,29 @@ export class CendresEngine {
       ...s,
       records: { ...s.records, runs: s.records.runs + 1 },
     }));
-    this.run = createRunState(this.save);
+    this.run = createRunState(this.save, Math.random, false);
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
+    this.slowMoT = 0;
     this.loadRoom(1);
+    this.setPhase('playing');
+    this.pushHud(true);
+  }
+
+  startTrainingMode(): void {
+    AudioFX.ui();
+    this.run = createRunState(this.save, Math.random, true);
+    this.deathDelayTimer = 0;
+    this.freeDashTimer = 0;
+    this.slowMoT = 0;
+    this.room = generateTrainingRoom();
+    this.player = this.createPlayer(110, this.room.groundY - 48);
+    this.particles.clear();
+    this.blood.clear();
+    this.vfx.clear();
+    this.camera.x = 0;
+    this.camera.y = 0;
+    this.showBanner("Cour d'Entraînement", 'Testez vos armes, Arts d’Éclipse [C] & parades', '#ffd470', 2.4);
     this.setPhase('playing');
     this.pushHud(true);
   }
@@ -324,6 +426,7 @@ export class CendresEngine {
   selectBlessing(blessingId: string): void {
     if (!this.run) return;
     this.run.blessings.push(blessingId);
+    this.run.activeSynergies = computeActiveSynergies(this.run);
     if (blessingId === 'vital_vessel') {
       this.run.maxHp += 45;
       this.run.hp = Math.min(this.run.maxHp, this.run.hp + 45);
@@ -356,6 +459,7 @@ export class CendresEngine {
       if (relic && this.run.loot.cendres >= relic.costCendres && !this.run.relics.includes(relic.id)) {
         this.run.loot.cendres -= relic.costCendres;
         this.run.relics.push(relic.id);
+        this.run.activeSynergies = computeActiveSynergies(this.run);
         this.run.merchantStock = this.run.merchantStock.filter((id) => id !== relic.id);
         AudioFX.pickup();
       }
@@ -409,6 +513,8 @@ export class CendresEngine {
       wispAngle: 0,
       wispCd: 0,
       riposteBuffT: 0,
+      skillCd: 0,
+      skillMaxCd: (WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade).artCooldown,
     };
   }
 
@@ -578,6 +684,7 @@ export class CendresEngine {
     player.parryCd = Math.max(0, player.parryCd - dt);
     player.healT = Math.max(0, player.healT - dt);
     player.riposteBuffT = Math.max(0, player.riposteBuffT - dt);
+    player.skillCd = Math.max(0, player.skillCd - dt);
     player.comboResetT = Math.max(0, player.comboResetT - dt);
     if (player.comboResetT <= 0) player.comboStep = 0;
 
@@ -654,9 +761,14 @@ export class CendresEngine {
       player.guardT = 0.08;
     }
 
-    // Attacks (3-hit combo, heavy, plunge, launcher, dash strike)
-    const atkSpdMult = weapon.speedMult * (run.relics.includes('wind_spur') ? 1.1 : 1);
-    if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
+    // Weapon Art Signature Skill ([C] / LT)
+    const atkSpdMult =
+      weapon.speedMult *
+      (run.relics.includes('wind_spur') ? 1.1 : 1) *
+      (room.affix?.id === 'tempered_ash' ? 1.12 : 1);
+    if (inp.skill && player.skillCd <= 0 && player.attackT <= 0 && run.stam >= weapon.artStamCost) {
+      this.executeWeaponArt();
+    } else if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
       run.stam -= 26;
       player.stamRegenDelay = 0.65;
       this.startAttack('heavy', 0.34 / atkSpdMult);
@@ -667,7 +779,7 @@ export class CendresEngine {
       player.stamRegenDelay = 0.45;
       if (player.dashT > 0) {
         this.startAttack('dash_strike', 0.22 / atkSpdMult);
-        AudioFX.slash(2);
+        AudioFX.slash(2, weapon.key);
       } else if (!player.onGround && inp.down) {
         player.vy = Math.max(player.vy, 540);
         this.startAttack('plunge', 0.28 / atkSpdMult);
@@ -675,12 +787,26 @@ export class CendresEngine {
       } else if (inp.upHeld) {
         if (player.onGround) player.vy = -220;
         this.startAttack('launcher', 0.24 / atkSpdMult);
-        AudioFX.slash(1);
+        AudioFX.slash(1, weapon.key);
       } else {
         const move: AttackMove =
           player.comboStep === 0 ? 'light1' : player.comboStep === 1 ? 'light2' : 'light3';
         this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
-        AudioFX.slash(player.comboStep);
+        AudioFX.slash(player.comboStep, weapon.key);
+        if (move === 'light3' && run.activeSynergies.includes('eternal_pyre')) {
+          room.projectiles.push({
+            x: player.x + player.w / 2 + player.facing * 18,
+            y: player.y + 22,
+            vx: player.facing * 430,
+            vy: 0,
+            r: 12,
+            dmg: 28,
+            friendly: true,
+            color: '#ff7b29',
+            kind: 'crescent',
+            life: 0.75,
+          });
+        }
         player.comboStep = ((player.comboStep + 1) % 3) as 0 | 1 | 2;
         player.comboResetT = 0.72;
       }
@@ -855,6 +981,14 @@ export class CendresEngine {
 
     if (player.onGround && Math.abs(player.vx) > 40) {
       player.walkCycle += Math.abs(player.vx) * dt * 0.04;
+      this.footstepTimer -= dt;
+      if (this.footstepTimer <= 0) {
+        this.footstepTimer = 0.27;
+        const surf = room.isBoss ? 'stone' : room.platforms.some((p) => p.type === 'crumble' && Math.abs(player.y + player.h - p.y) < 6 && player.x > p.x && player.x < p.x + p.w) ? 'wood' : 'ash';
+        AudioFX.footstep(surf);
+      }
+    } else {
+      this.footstepTimer = 0.05;
     }
 
     // Hazards
@@ -1005,10 +1139,32 @@ export class CendresEngine {
             e.chillT = 3.0;
           }
 
+          // Active Synergies on Melee Hit
+          if (e.burnT > 0 && e.chillT > 0 && run.activeSynergies.includes('thermal_shock')) {
+            finalDmg += 28;
+            e.chillT = 0;
+            this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h / 2, 74, '#ff9d42', 'gold', 0.24);
+            this.particles.addText(e.x + e.w / 2, e.y - 36, 'CHOC THERMIQUE +28!', '#ff9d42', 1.1);
+          }
+          if (stats.isCrit && run.activeSynergies.includes('blood_feast')) {
+            run.hp = Math.min(run.maxHp, run.hp + 4);
+          }
+
           // Riposte execution siphon
           if (isRiposte) {
             e.state = 'recover';
             e.stagger = 0;
+            if (run.activeSynergies.includes('storm_anvil')) {
+              finalDmg = Math.round(finalDmg * 1.35);
+            }
+            if (run.activeSynergies.includes('shatter_bells')) {
+              for (const other of room.enemies) {
+                if (other.id !== e.id && other.hp > 0 && Math.abs(other.x - e.x) < 180) {
+                  other.stagger += 45;
+                }
+              }
+              this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#d4a853', 160, 0.3);
+            }
             const siphon = (this.save.talents.execution_siphon || 0) * 6;
             if (siphon > 0) {
               run.hp = Math.min(run.maxHp, run.hp + siphon);
@@ -1026,6 +1182,9 @@ export class CendresEngine {
             this.hitStop = isRiposte || player.attackMove === 'heavy' ? 0.06 : 0.025;
           }
           this.trauma = Math.min(1, this.trauma + (isRiposte ? 0.55 : isHeavy ? 0.38 : 0.2));
+          if (isRiposte || isHeavy || stats.isCrit) {
+            this.input.rumble(0.28, isRiposte ? 0.72 : 0.45, 95, this.save.settings?.gamepadRumble !== false);
+          }
           this.particles.spawnBurst(
             e.x + e.w / 2,
             e.y + e.h / 2,
@@ -1100,6 +1259,15 @@ export class CendresEngine {
     for (const e of room.enemies) {
       if (e.state === 'dead') {
         e.deadT -= dt;
+        if (run.isTraining && e.deadT <= 0) {
+          e.state = 'idle';
+          e.hp = e.maxHp;
+          e.stagger = 0;
+          e.burnT = 0;
+          e.chillT = 0;
+          e.sunderT = 0;
+          this.vfx.spawnAshDissolve(e.x + e.w / 2, e.y + e.h * 0.5, 10, '#ffd470', e.w, e.h);
+        }
         continue;
       }
       if (e.hp <= 0) continue;
@@ -1408,6 +1576,114 @@ export class CendresEngine {
     }
   }
 
+  private executeWeaponArt(): void {
+    if (!this.player || !this.run || !this.room) return;
+    const player = this.player;
+    const run = this.run;
+    const room = this.room;
+    const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
+    const cdMult = run.activeSynergies.includes('phantom_gale') ? 0.7 : 1;
+
+    run.stam = Math.max(0, run.stam - wDef.artStamCost);
+    player.stamRegenDelay = 0.65;
+    player.skillMaxCd = wDef.artCooldown * cdMult;
+    player.skillCd = player.skillMaxCd;
+    AudioFX.skillArt();
+    this.input.rumble(0.45, 0.72, 140, this.save.settings?.gamepadRumble !== false);
+
+    const cx = player.x + player.w / 2;
+    const cy = player.y + 22;
+    this.particles.addText(cx, player.y - 24, `${wDef.artName.toUpperCase()} !`, '#ffd470', 1.1);
+
+    if (wDef.key === 'clay_blade') {
+      this.startAttack('heavy', 0.28);
+      room.projectiles.push({
+        x: cx + player.facing * 20,
+        y: cy,
+        vx: player.facing * 520,
+        vy: 0,
+        r: 18,
+        dmg: 48,
+        friendly: true,
+        color: '#ffd470',
+        kind: 'crescent',
+        life: 1.0,
+      });
+      this.vfx.spawnImpactFlare(cx + player.facing * 24, cy, 78, '#ffd470', 'gold', 0.25);
+    } else if (wDef.key === 'belfry_greatsword') {
+      this.startAttack('heavy', 0.34);
+      this.trauma = 0.62;
+      this.vfx.spawnGroundFissure(cx + player.facing * 60, player.y + player.h, 150, '#ff7b29', 1.7);
+      this.vfx.spawnImpactFlare(cx + player.facing * 50, player.y + player.h - 10, 96, '#ff9842', 'amber', 0.3);
+      for (const e of room.enemies) {
+        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 175) {
+          e.hp -= 54;
+          e.stagger += 75;
+          e.hitFlashT = 0.08;
+          this.particles.addText(e.x + e.w / 2, e.y - 16, '-54 SISMIQUE!', '#ff9d42', 1.1);
+          if (e.hp <= 0) this.onEnemyKilled(e);
+        }
+      }
+    } else if (wDef.key === 'eclipse_daggers') {
+      const target = room.enemies.find((e) => e.hp > 0 && e.state !== 'dead' && Math.abs(e.x - cx) < 320);
+      if (target) {
+        player.x = Math.max(24, Math.min(room.width - 52, target.x - player.facing * 32));
+        player.facing = target.x >= player.x ? 1 : -1;
+        this.vfx.spawnLightning(cx, cy, player.x + 14, cy, '#9fd0ff', 2.8, 0.22);
+      } else {
+        player.vx = player.facing * 680;
+      }
+      player.invulnT = 0.35;
+      run.critNextAttack = true;
+      this.startAttack('dash_strike', 0.2);
+    } else if (wDef.key === 'ash_halberd') {
+      this.startAttack('launcher', 0.28);
+      this.vfx.spawnSlashArc(cx, cy, 118, -1.5, 1.5, player.facing, '#ffd470', '#ffffff', 24, 0.25);
+      for (const e of room.enemies) {
+        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 145) {
+          e.hp -= 44;
+          e.sunderT = 5.0;
+          if (!e.isBoss) e.vy = -260;
+          this.particles.addText(e.x + e.w / 2, e.y - 16, '-44 FISSURÉ!', '#ffd470', 1.05);
+          if (e.hp <= 0) this.onEnemyKilled(e);
+        }
+      }
+    } else if (wDef.key === 'scythe_eclipse') {
+      this.startAttack('heavy', 0.28);
+      this.vfx.spawnSlashArc(cx, cy, 108, -Math.PI, Math.PI, player.facing, '#ff4d63', '#ffe0eb', 22, 0.26);
+      let drained = 0;
+      for (const e of room.enemies) {
+        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 135) {
+          e.hp -= 46;
+          e.chillT = 4.0;
+          drained += 8;
+          if (e.hp <= 0) this.onEnemyKilled(e);
+        }
+      }
+      if (drained > 0) {
+        run.hp = Math.min(run.maxHp, run.hp + drained);
+        this.particles.addText(cx, player.y - 38, `+${drained} PV MOISSON`, '#ff4d63', 1);
+      }
+    } else {
+      // twin_hammers: double tectonic slam
+      this.startAttack('heavy', 0.32);
+      this.trauma = 0.68;
+      this.vfx.spawnGroundFissure(cx - 48, player.y + player.h, 85, '#ff7b29', 1.5);
+      this.vfx.spawnGroundFissure(cx + 48, player.y + player.h, 85, '#ff7b29', 1.5);
+      for (const e of room.enemies) {
+        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 150) {
+          e.hp -= 42;
+          e.stagger = e.maxStagger;
+          e.state = 'staggered';
+          e.stateT = 2.4;
+          this.particles.addText(e.x + e.w / 2, e.y - 18, 'GARDE PULVÉRISÉE !', '#ffd470', 1.15);
+          if (e.hp <= 0) this.onEnemyKilled(e);
+        }
+      }
+    }
+    this.pushHud(true);
+  }
+
   private executeEnemyAttack(e: Enemy, dx: number, dy: number, dist: number): void {
     if (!this.room || !this.player) return;
     e.state = 'attack';
@@ -1505,17 +1781,36 @@ export class CendresEngine {
   }
 
   private hurtPlayer(rawDmg: number, sourceX: number): void {
-    if (!this.player || !this.run || !this.room || this.player.invulnT > 0 || this.deathDelayTimer > 0) {
+    if (!this.player || !this.run || !this.room || this.deathDelayTimer > 0) {
       return;
     }
     const player = this.player;
     const run = this.run;
 
+    // 0. Check Perfect Dodge during active Dash evading a strike!
+    if (player.dashT > 0) {
+      if (player.invulnT > 0.14) {
+        player.invulnT = 0.14;
+        run.perfectDodges += 1;
+        run.stam = Math.min(run.maxStam, run.stam + 14);
+        run.critNextAttack = true;
+        this.slowMoT = 0.22;
+        AudioFX.perfectDodge();
+        this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 62, '#8ab8e6', 'astral', 0.24);
+        this.particles.addText(player.x + 14, player.y - 18, 'ESQUIVE PARFAITE !', '#8ab8e6', 1.1);
+      }
+      return;
+    }
+
+    if (player.invulnT > 0) return;
+
     // 1. Check Perfect Sekiro Deflect!
     if (player.parryT > 0) {
       AudioFX.parry();
       if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.08;
+      this.slowMoT = 0.18;
       this.trauma = 0.48;
+      this.input.rumble(0.42, 0.85, 130, this.save.settings?.gamepadRumble !== false);
       player.invulnT = 0.26;
       player.riposteBuffT = 4.0;
       run.stam = Math.min(run.maxStam, run.stam + 24);
@@ -1599,6 +1894,7 @@ export class CendresEngine {
     player.vy = -190;
     if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.055;
     this.trauma = 0.62;
+    this.input.rumble(0.55, 0.85, 160, this.save.settings?.gamepadRumble !== false);
     this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
     this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 48, '#ff4d5e', 'crimson', 0.18);
     this.vfx.triggerScreenFlash('#c4303e', 0.24);
@@ -1665,6 +1961,7 @@ export class CendresEngine {
       e.h
     );
     if (e.isBoss) {
+      this.slowMoT = 0.45;
       this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 130, '#ffd470', 'gold', 0.42);
       this.vfx.triggerScreenFlash('#ffd470', 0.32);
     }
@@ -1736,6 +2033,7 @@ export class CendresEngine {
             if (unowned.length > 0) {
               const relic = unowned[Math.floor(Math.random() * unowned.length)];
               run.relics.push(relic.id);
+              run.activeSynergies = computeActiveSynergies(run);
               this.particles.addText(pr.x, pr.y - 34, `Relique : ${relic.name}`, '#ffd470', 1.1);
             }
           }
@@ -1809,6 +2107,12 @@ export class CendresEngine {
       } else if (pr.type === 'exit') {
         if (pr.locked) {
           prompt = 'Terrassez le Gardien pour ouvrir le Passage';
+        } else if (run.isTraining) {
+          prompt = '[E] Quitter la Cour et revenir au Bastion';
+          if (inp.interact) {
+            this.openBastion();
+            return;
+          }
         } else {
           prompt = `[E] Descendre vers la Strate ${run.depth + 1}`;
           if (inp.interact) {
@@ -1849,7 +2153,10 @@ export class CendresEngine {
     const fpsVal = Math.round(this.smoothedFps);
     const showFps = !!this.save.settings?.showFps;
 
-    const hudKey = `${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.save.weapon}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
+    const skillCd = Math.max(0, Number((this.player?.skillCd || 0).toFixed(1)));
+    const skillMaxCd = this.player?.skillMaxCd || weapon.artCooldown;
+
+    const hudKey = `${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.save.weapon}|${skillCd}|${this.run.activeSynergies.length}|${this.achievementToast}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
     if (!force && hudKey === this.lastHudKey) return;
     this.lastHudKey = hudKey;
 
@@ -1862,6 +2169,8 @@ export class CendresEngine {
       flasks: this.run.flasks,
       maxFlasks: this.run.maxFlasks,
       depth: this.run.depth,
+      isTraining: this.run.isTraining,
+      ascensionLevel: this.run.ascensionLevel,
       biomeName: this.room.biome.name,
       cendresTotal,
       ferTotal,
@@ -1869,7 +2178,11 @@ export class CendresEngine {
       runCendres: this.run.loot.cendres,
       blessings: [...this.run.blessings],
       relics: [...this.run.relics],
+      activeSynergies: [...this.run.activeSynergies],
       weaponName: weapon.name,
+      weaponArtName: weapon.artName,
+      skillCd,
+      skillMaxCd,
       parryStreak: this.run.parryStreak,
       comboHits: this.run.comboHits,
       comboRank: comboInfo.rank,
@@ -1879,6 +2192,7 @@ export class CendresEngine {
       showFps,
       inputMode: this.input.lastInputMode,
       promptText: this.promptText,
+      achievementToast: this.achievementToast || undefined,
       boss: boss
         ? {
             name: boss.name,
@@ -1911,6 +2225,7 @@ export class CendresEngine {
       player: this.player,
       run: this.run,
       weapon: this.save.weapon,
+      armorSkin: this.save.armorSkin || 'eclipse',
       particles: this.particles,
       blood: this.blood,
       vfx: this.vfx,

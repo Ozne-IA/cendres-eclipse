@@ -1,5 +1,6 @@
+import { ARMOR_SKINS_DEF } from './data';
 import { getColoredGlow } from './textures';
-import type { Enemy, Player, RoomProp, WeaponKey } from './types';
+import type { ArmorSkinKey, Enemy, Player, RoomProp, WeaponKey } from './types';
 
 export function getTorchGlow(): HTMLCanvasElement | null {
   return getColoredGlow('amber');
@@ -340,8 +341,10 @@ export function drawDetailedPlayer(
   player: Player,
   weapon: WeaponKey,
   hasWisp: boolean,
-  time: number
+  time: number,
+  armorSkin: ArmorSkinKey = 'eclipse'
 ): void {
+  const skin = ARMOR_SKINS_DEF[armorSkin] || ARMOR_SKINS_DEF.eclipse;
   // Dash ghost afterimages with trailing cloak silhouette
   for (const af of player.afterimages) {
     ctx.globalAlpha = af.alpha * 0.34;
@@ -398,8 +401,8 @@ export function drawDetailedPlayer(
   const wave1 = Math.sin(player.capeWave) * 5.5;
   const wave2 = Math.cos(player.capeWave * 0.82) * 4.5;
 
-  // 1. Tattered Asymmetric War Cloak (jagged frayed edges + crimson inner lining)
-  ctx.fillStyle = flash ? '#fff5e4' : '#42141b';
+  // 1. Tattered Asymmetric War Cloak (jagged frayed edges + inner lining)
+  ctx.fillStyle = flash ? '#fff5e4' : skin.capeLining;
   ctx.beginPath();
   ctx.moveTo(capeDir * 2, -player.h + 15 - bob);
   ctx.quadraticCurveTo(
@@ -414,7 +417,7 @@ export function drawDetailedPlayer(
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = flash ? '#fff5e4' : '#1b161c';
+  ctx.fillStyle = flash ? '#fff5e4' : skin.capeOuter;
   ctx.beginPath();
   ctx.moveTo(capeDir * 1, -player.h + 14 - bob);
   ctx.quadraticCurveTo(
@@ -432,8 +435,8 @@ export function drawDetailedPlayer(
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // Flowing crimson tattered mantle scarf over shoulder
-  ctx.fillStyle = flash ? '#ffffff' : '#781d29';
+  // Flowing tattered shoulder mantle scarf
+  ctx.fillStyle = flash ? '#ffffff' : skin.capeLining;
   ctx.beginPath();
   ctx.moveTo(-3, -player.h + 13 - bob);
   ctx.quadraticCurveTo(
@@ -480,8 +483,8 @@ export function drawDetailedPlayer(
   // Chainmail hem
   ctx.fillStyle = '#3c404a';
   ctx.fillRect(-7.5, -18 - bob * 0.3, 15, 10);
-  // Tattered crimson split front tabard
-  ctx.fillStyle = flash ? '#ffffff' : '#631b26';
+  // Tattered split front tabard
+  ctx.fillStyle = flash ? '#ffffff' : skin.capeLining;
   ctx.beginPath();
   ctx.moveTo(-4, -18 - bob * 0.3);
   ctx.lineTo(4, -18 - bob * 0.3);
@@ -493,7 +496,7 @@ export function drawDetailedPlayer(
   ctx.fill();
 
   // Weathered Steel Cuirass body
-  ctx.fillStyle = flash ? '#fff5e4' : '#2a2d36';
+  ctx.fillStyle = flash ? '#fff5e4' : skin.plate;
   ctx.beginPath();
   ctx.moveTo(-10, -14 - bob * 0.3);
   ctx.lineTo(-8.8, -player.h + 14 - bob);
@@ -517,7 +520,7 @@ export function drawDetailedPlayer(
   }
 
   // Engraved Solar Eclipse Chest Medallion & Cross-Chest Leather Strap
-  ctx.strokeStyle = '#b58c44';
+  ctx.strokeStyle = skin.trim;
   ctx.lineWidth = 1.1;
   ctx.beginPath();
   ctx.arc(0, -player.h + 22 - bob * 0.7, 4.2, 0, Math.PI * 2);
@@ -528,7 +531,7 @@ export function drawDetailedPlayer(
   ctx.moveTo(-7, -player.h + 15 - bob);
   ctx.lineTo(7, -21 - bob * 0.4);
   ctx.stroke();
-  ctx.fillStyle = '#d4a853';
+  ctx.fillStyle = skin.trim;
   ctx.beginPath();
   ctx.arc(-4.5, -player.h + 17 - bob, 1.8, 0, Math.PI * 2);
   ctx.fill();
@@ -536,7 +539,7 @@ export function drawDetailedPlayer(
   // Buckled Leather Belt & Hip Satchel
   ctx.fillStyle = '#38251a';
   ctx.fillRect(-9.5, -19.5 - bob * 0.4, 19, 3.2);
-  ctx.fillStyle = '#c89b4b';
+  ctx.fillStyle = skin.trim;
   ctx.fillRect(-2, -20 - bob * 0.4, 4, 4.2);
   ctx.fillStyle = '#4b3324';
   ctx.fillRect(-player.facing * 8 - 2.5, -17.5 - bob * 0.4, 5.5, 6);
@@ -548,7 +551,7 @@ export function drawDetailedPlayer(
   for (const side of [-1, 1] as const) {
     const pxP = side * 6.8;
     const pyP = -player.h + 16.5 - bob;
-    ctx.fillStyle = flash ? '#ffffff' : side === player.facing ? '#5a6270' : '#3a3f4a';
+    ctx.fillStyle = flash ? '#ffffff' : side === player.facing ? '#5a6270' : skin.plate;
     ctx.beginPath();
     ctx.ellipse(pxP, pyP, 7.2, 5.2, side * -0.22, 0, Math.PI * 2);
     ctx.fill();
@@ -556,14 +559,14 @@ export function drawDetailedPlayer(
     ctx.beginPath();
     ctx.ellipse(pxP, pyP - 1.5, 4.8, 2, side * -0.22, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = side === player.facing ? '#d4a853' : '#120f16';
+    ctx.strokeStyle = side === player.facing ? skin.trim : '#120f16';
     ctx.lineWidth = 1.1;
     ctx.stroke();
   }
 
   // 4. Jagged Crowned Gothic Fluted Visor Helm & Molten Eye Slits
   // Helm dome & pointed visor bevel
-  ctx.fillStyle = flash ? '#ffffff' : '#363b46';
+  ctx.fillStyle = flash ? '#ffffff' : skin.plate;
   ctx.beginPath();
   ctx.moveTo(-7.2, -player.h + 2 - bob);
   ctx.lineTo(7.2, -player.h + 2 - bob);
@@ -589,7 +592,7 @@ export function drawDetailedPlayer(
   }
 
   // Iron Jagged Crown Spikes atop the Helm
-  ctx.fillStyle = flash ? '#ffffff' : '#8b6f47';
+  ctx.fillStyle = flash ? '#ffffff' : skin.trim;
   ctx.beginPath();
   ctx.moveTo(-7, -player.h + 3 - bob);
   ctx.lineTo(-8, -player.h - 4 - bob);
@@ -618,7 +621,7 @@ export function drawDetailedPlayer(
   const eyeX = player.facing === 1 ? 1.5 : -6.2;
   ctx.fillStyle = '#0d090e';
   ctx.fillRect(eyeX - 0.6, -player.h + 5.8 - bob, 5.6, 2.8);
-  ctx.fillStyle = '#ff6a1f';
+  ctx.fillStyle = skin.eye;
   ctx.fillRect(eyeX, -player.h + 6.2 - bob, 4.4, 2);
   ctx.fillStyle = '#fff0a8';
   ctx.fillRect(eyeX + (player.facing === 1 ? 1.6 : 0.6), -player.h + 6.5 - bob, 2, 1.3);
@@ -819,7 +822,8 @@ export function drawDetailedEnemy(
   e: Enemy,
   player: Player,
   time: number,
-  highContrastTelegraphs = false
+  highContrastTelegraphs = false,
+  showEnemyBars = true
 ): void {
   if (e.state === 'dead') {
     ctx.globalAlpha = Math.max(0, e.deadT / 0.35);
@@ -1289,15 +1293,31 @@ export function drawDetailedEnemy(
 
   ctx.restore();
 
-  // Crisp Enemy HP & Stagger bars
-  if (!e.isBoss && e.state !== 'dead' && (e.hp < e.maxHp || e.stagger > 0)) {
-    ctx.fillStyle = 'rgba(12, 9, 14, 0.88)';
-    ctx.fillRect(e.x - 1, e.y - 14, e.w + 2, 6);
+  // Crisp Enemy HP, Stagger & Status Badges
+  if (!e.isBoss && e.state !== 'dead' && showEnemyBars && (e.hp < e.maxHp || e.stagger > 0 || e.elite !== 'none')) {
+    const barW = Math.max(e.w + 8, 38);
+    const bx = e.x + e.w / 2 - barW / 2;
+    ctx.fillStyle = 'rgba(10, 8, 13, 0.9)';
+    ctx.fillRect(bx - 1, e.y - 16, barW + 2, 8);
     ctx.fillStyle = '#c4303e';
-    ctx.fillRect(e.x, e.y - 13, e.w * Math.max(0, e.hp / e.maxHp), 4);
-    if (e.stagger > 0) {
+    ctx.fillRect(bx, e.y - 15, barW * Math.max(0, e.hp / e.maxHp), 4);
+    ctx.fillStyle = '#ffd470';
+    ctx.fillRect(bx, e.y - 10, barW * Math.min(1, e.stagger / e.maxStagger), 2);
+
+    let badgeX = bx;
+    if (e.burnT > 0) {
+      ctx.fillStyle = '#ff7b29';
+      ctx.fillRect(badgeX, e.y - 22, 5, 4);
+      badgeX += 7;
+    }
+    if (e.chillT > 0) {
+      ctx.fillStyle = '#7ab8ff';
+      ctx.fillRect(badgeX, e.y - 22, 5, 4);
+      badgeX += 7;
+    }
+    if (e.sunderT > 0) {
       ctx.fillStyle = '#ffd470';
-      ctx.fillRect(e.x, e.y - 7, e.w * Math.min(1, e.stagger / e.maxStagger), 2);
+      ctx.fillRect(badgeX, e.y - 22, 5, 4);
     }
   }
   ctx.globalAlpha = 1;

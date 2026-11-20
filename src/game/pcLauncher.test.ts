@@ -27,7 +27,7 @@ test('buildLaunchUrl appends optional launch query flags cleanly', () => {
     fogQuality: 'high',
     showFps: false,
   };
-  assert.equal(buildLaunchUrl(baseCfg), 'http://127.0.0.1:4173/');
+  assert.equal(buildLaunchUrl(baseCfg), 'http://127.0.0.1:4173/?pc_launcher=1');
 
   const customCfg: PcLauncherConfig = {
     port: 5123,
@@ -39,6 +39,7 @@ test('buildLaunchUrl appends optional launch query flags cleanly', () => {
   };
   const url = buildLaunchUrl(customCfg);
   assert.ok(url.startsWith('http://127.0.0.1:5123/?'));
+  assert.ok(url.includes('pc_launcher=1'));
   assert.ok(url.includes('autostart=1'));
   assert.ok(url.includes('fullscreen=1'));
   assert.ok(url.includes('fog=medium'));

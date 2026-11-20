@@ -77,6 +77,12 @@ export function TitleScreen({
 
         <div className="text-xs text-[#9d9284] tracking-wide font-mono-num">
           <span className="text-[#d4a853]">{diff.name}</span>
+          {(save.ascensionLevel || 0) > 0 && (
+            <>
+              <span className="mx-2 text-[#4a3b2c]" aria-hidden="true">·</span>
+              <span className="text-[#8ab8e6]">Ascension {save.ascensionLevel}</span>
+            </>
+          )}
           <span className="mx-2 text-[#4a3b2c]" aria-hidden="true">·</span>
           <span>Meilleure strate : {save.records.bestDepth}</span>
           <span className="mx-2 text-[#4a3b2c]" aria-hidden="true">·</span>
@@ -116,8 +122,8 @@ export function TitleScreen({
         {kb ? `${formatKeyLabel(kb.left)}/${formatKeyLabel(kb.right)}` : 'Q/D'} Déplacer ·{' '}
         {kb ? formatKeyLabel(kb.jump) : 'Espace'} Sauter ·{' '}
         {kb ? formatKeyLabel(kb.dash) : 'Shift'} Roulade · Clic G Attaque · Clic D Déviation ·{' '}
-        {kb ? formatKeyLabel(kb.heavy) : 'F'} Lourde · {kb ? formatKeyLabel(kb.heal) : 'R'} Fiole ·{' '}
-        {kb ? formatKeyLabel(kb.interact) : 'E'} Interagir · Échap Pause
+        {kb ? formatKeyLabel(kb.heavy) : 'F'} Lourde · {kb ? formatKeyLabel(kb.skill) : 'C'} Art d&apos;arme ·{' '}
+        {kb ? formatKeyLabel(kb.heal) : 'R'} Fiole · {kb ? formatKeyLabel(kb.interact) : 'E'} Interagir · Échap Pause
       </div>
     </div>
   );
