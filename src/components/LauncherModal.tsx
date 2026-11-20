@@ -259,10 +259,10 @@ export function LauncherModal({
           {/* CLI Instructions */}
           <div className="bg-[#0d0a10] border border-[#332920] p-4 space-y-2 text-xs text-[#b8afa2]">
             <div className="font-display text-[#d4a853] uppercase tracking-wider">
-              Lancement rapide depuis un terminal PC (Node.js 18+)
+              Lancement rapide depuis un terminal PC (Node.js 22.12+)
             </div>
             <pre className="bg-[#070609] border border-[#2a2119] p-3 font-mono-num text-[11px] text-[#f2ece1] overflow-x-auto m-0">
-{`npm install
+{`npm ci
 npm run build
 npm run start:pc -- --port=${cfg.port}`}
             </pre>

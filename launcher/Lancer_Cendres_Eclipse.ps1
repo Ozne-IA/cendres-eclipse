@@ -8,14 +8,14 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
 Set-Location $Root
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-  Write-Host "[ERREUR] Node.js 18+ introuvable. Installez-le depuis https://nodejs.org" -ForegroundColor Red
+  Write-Host "[ERREUR] Node.js 22.12+ introuvable. Installez-le depuis https://nodejs.org" -ForegroundColor Red
   Read-Host "Appuyez sur Entree pour quitter"
   exit 1
 }
 
 if (-not (Test-Path "node_modules")) {
   Write-Host "[INFO] Installation des dependances npm..." -ForegroundColor Yellow
-  npm install --legacy-peer-deps
+  npm ci
 }
 
 if (-not (Test-Path "dist\index.html")) {

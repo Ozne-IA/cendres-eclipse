@@ -4,12 +4,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "[ERREUR] Node.js 18+ requis : https://nodejs.org"
+  echo "[ERREUR] Node.js 22.12+ requis : https://nodejs.org"
   exit 1
 fi
 
 if [ ! -d "node_modules" ]; then
-  npm install
+  npm ci
 fi
 
 if [ ! -f "dist/index.html" ]; then

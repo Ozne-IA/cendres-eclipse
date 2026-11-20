@@ -10,7 +10,7 @@ echo.
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [ERREUR] Node.js 18+ est requis pour executer le jeu en local.
+  echo [ERREUR] Node.js 22.12+ est requis pour executer le jeu en local.
   echo Telechargez-le sur https://nodejs.org puis relancez ce script.
   pause
   exit /b 1
@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 if not exist "node_modules" (
   echo [INFO] Installation des dependances...
-  call npm install --legacy-peer-deps
+  call npm ci
   if errorlevel 1 (
     echo.
     echo [ERREUR] L'installation des dependances a echoue.

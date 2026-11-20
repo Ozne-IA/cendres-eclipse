@@ -122,13 +122,14 @@ export class CendresEngine {
       const res = await fetch('/api/save');
       if (!res.ok) return;
       const payload = (await res.json()) as { exists?: boolean; save?: Partial<SaveData> };
-      if (payload?.exists && payload.save && !this.destroyed) {
+      if (this.destroyed) return;
+      if (payload?.exists && payload.save) {
         const merged = mergeSave(payload.save);
         this.save = merged;
         this.applySettingsSideEffects();
         persistSave(this.save);
         this.cb.onSaveChange({ ...this.save });
-      } else if (!payload?.exists) {
+      } else if (payload?.exists === false) {
         this.syncPcDiskSave(this.save);
       }
     } catch {

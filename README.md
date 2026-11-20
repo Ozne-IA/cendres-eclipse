@@ -79,12 +79,12 @@ Explorez les strates de l'Abîme, affrontez des cohortes d'ennemis corrompus et 
 ## 🚀 Installation & Lancement
 
 ### Prérequis
-- [Node.js](https://nodejs.org) version 18 ou supérieure.
+- [Node.js](https://nodejs.org) 22 (au minimum 22.12) ou une version LTS plus récente.
 
 ### 1. Mode Développement Web (Vite)
 ```bash
 # Installation des dépendances
-npm install
+npm ci
 
 # Démarrage du serveur de développement Vite
 npm run dev
@@ -99,7 +99,7 @@ npm run build
 # Démarrage du serveur PC autonome
 npm run start:pc
 ```
-Le jeu s'ouvre automatiquement dans une fenêtre applicative dédiée et sauvegarde votre progression directement dans `cendres-eclipse-save.json`.
+Le jeu s'ouvre automatiquement dans une fenêtre applicative dédiée et sauvegarde votre progression directement dans `cendres-eclipse-save.json`. Si ce fichier est absent ou corrompu, le lanceur utilise la dernière copie valide disponible dans `cendres-eclipse-save.json.bak`.
 
 ---
 

@@ -45,7 +45,7 @@ echo.
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [ERREUR] Node.js 18+ est requis pour executer le jeu en local.
+  echo [ERREUR] Node.js 22.12+ est requis pour executer le jeu en local.
   echo Telechargez-le sur https://nodejs.org puis relancez ce script.
   pause
   exit /b 1
@@ -53,7 +53,7 @@ if errorlevel 1 (
 
 if not exist "node_modules" (
   echo [INFO] Installation des dependances...
-  call npm install --legacy-peer-deps
+  call npm ci
   if errorlevel 1 (
     echo.
     echo [ERREUR] L'installation des dependances a echoue.
@@ -116,14 +116,14 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
 Set-Location $Root
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-  Write-Host "[ERREUR] Node.js 18+ introuvable. Installez-le depuis https://nodejs.org" -ForegroundColor Red
+  Write-Host "[ERREUR] Node.js 22.12+ introuvable. Installez-le depuis https://nodejs.org" -ForegroundColor Red
   Read-Host "Appuyez sur Entree pour quitter"
   exit 1
 }
 
 if (-not (Test-Path "node_modules")) {
   Write-Host "[INFO] Installation des dependances npm..." -ForegroundColor Yellow
-  npm install --legacy-peer-deps
+  npm ci
 }
 
 if (-not (Test-Path "dist\\index.html")) {
@@ -171,12 +171,12 @@ ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "[ERREUR] Node.js 18+ requis : https://nodejs.org"
+  echo "[ERREUR] Node.js 22.12+ requis : https://nodejs.org"
   exit 1
 fi
 
 if [ ! -d "node_modules" ]; then
-  npm install
+  npm ci
 fi
 
 if [ ! -f "dist/index.html" ]; then
@@ -212,7 +212,7 @@ export function generatePcLauncherReadme(cfg: PcLauncherConfig): string {
   return `# Cendres de l'Eclipse - Guide du Lanceur PC
 
 ## Execution directe depuis votre PC
-1. Assurez-vous d'avoir Node.js 18+ installe (https://nodejs.org).
+1. Assurez-vous d'avoir Node.js 22.12+ installe (https://nodejs.org).
 2. Double-cliquez sur \`Lancer_Cendres_Eclipse.bat\` (Windows) ou executez \`./Lancer_Cendres_Eclipse.sh\` (macOS / Linux), ou lancez \`npm run start:pc\`.
 3. Le serveur local servira automatiquement la version compilee \`dist/\` sur \`http://127.0.0.1:${port}/?pc_launcher=1\`${cfg.appMode ? ' dans une fenetre dediee sans barre d’adresse (--app).' : '.'}
 4. Votre progression est automatiquement synchronisee sur disque dans \`cendres-eclipse-save.json\` a la racine du dossier du jeu.
