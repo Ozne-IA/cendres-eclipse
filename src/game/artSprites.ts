@@ -617,14 +617,25 @@ export function drawDetailedPlayer(
     ctx.stroke();
   }
 
-  // Fierce Glowing Ember Eye Slit
+  // Fierce Glowing Ember Eye Sllit (cinematic polish)
   const eyeX = player.facing === 1 ? 1.5 : -6.2;
+  // Soft outer amber glow for stronger presence at distance
+  const eyeGlow = getColoredGlow('amber');
+  if (eyeGlow && !flash) {
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(eyeGlow, eyeX - 13, -player.h - 1 - bob, 30, 30);
+    ctx.globalAlpha = blinkAlpha;
+  }
   ctx.fillStyle = '#0d090e';
   ctx.fillRect(eyeX - 0.6, -player.h + 5.8 - bob, 5.6, 2.8);
   ctx.fillStyle = skin.eye;
   ctx.fillRect(eyeX, -player.h + 6.2 - bob, 4.4, 2);
+  // Hot core highlight
   ctx.fillStyle = '#fff0a8';
   ctx.fillRect(eyeX + (player.facing === 1 ? 1.6 : 0.6), -player.h + 6.5 - bob, 2, 1.3);
+  // Extra intense inner ember
+  ctx.fillStyle = 'rgba(255, 190, 70, 0.95)';
+  ctx.fillRect(eyeX + (player.facing === 1 ? 2.0 : 1.0), -player.h + 6.7 - bob, 1.2, 0.8);
 
   // 5. Weapon (Idle, Guard, or Off-hand Dagger)
   if (player.attackT <= 0) {
