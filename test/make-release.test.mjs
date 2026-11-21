@@ -39,6 +39,18 @@ test('createRelease publishes one asset per distinct file, named by its hash, an
   assert.equal(JSON.parse(await readFile(join(distDir, MANIFEST_NAME), 'utf8')).version, '1.2.0');
 });
 
+test('createRelease does not publish empty files (GitHub refuses 0-byte assets) but keeps them in the manifest', async (t) => {
+  const { distDir, outDir } = await fakeDist(t);
+  await mkdir(join(distDir, 'img'), { recursive: true });
+  await writeFile(join(distDir, 'img', '.gitkeep'), '');
+  const { manifest } = await createRelease({ distDir, outDir, version: '1.2.0' });
+
+  const empty = manifest.files.find((file) => file.path === 'img/.gitkeep');
+  assert.equal(empty.size, 0);
+  assert.equal(existsSync(join(outDir, empty.sha256)), false);
+  for (const file of manifest.files.filter((f) => f.size > 0)) assert.ok(existsSync(join(outDir, file.sha256)), file.path);
+});
+
 test('createRelease refuses a bad version number or a missing build', async (t) => {
   const { distDir, outDir, root } = await fakeDist(t);
   await assert.rejects(createRelease({ distDir, outDir, version: '1.2' }), /invalide/);

@@ -85,6 +85,18 @@ test('applyUpdate downloads only changed files and swaps dist atomically', async
   assert.deepEqual((await readdir(root)).sort(), ['dist']);
 });
 
+test('empty files are recreated locally, never requested from the server', async (t) => {
+  const { distDir } = await install(t, V1);
+  const withEmpty = { ...V2, 'img/.gitkeep': '' };
+  const { remote, source, requested } = release(withEmpty, '1.1.0');
+
+  const stats = await applyUpdate({ distDir, remote, source });
+
+  assert.deepEqual(requested.sort(), ['assets/app-bbb.js', 'index.html']);
+  assert.deepEqual(await snapshot(distDir), withEmpty);
+  assert.equal(stats.downloadedFiles, 2);
+});
+
 test('a corrupted download aborts the update and leaves the installed version untouched', async (t) => {
   const { distDir } = await install(t, V1);
   const { remote, source } = release(V2, '1.1.0', { corrupt: 'assets/app-bbb.js' });
