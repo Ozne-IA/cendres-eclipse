@@ -67,6 +67,16 @@ Avec Chromium installé, lancer `npm run build` puis `npm run test:e2e -- render
 
 Le test rend une image Canvas à 2,5 s, en 960 × 540, DPR 1, avec le GPU désactivé et le profil sRGB. La comparaison admet 100 pixels différents au seuil de 0,1. Les quatre images ont correspondu aux références sous Linux sur deux exécutions avant et deux après le découpage. Six traces complémentaires ont retrouvé le même ordre d’appels Canvas, notamment avec le titre de secours, le contraste élevé, la pause et le parallaxe désactivé. Pour un changement visuel voulu, examiner les écarts avant d’actualiser les PNG avec `npm run test:e2e -- renderer.visual --update-snapshots`.
 
+## Allocations en combat (C10)
+
+Depuis la racine, lancer `node --import tsx scripts/profile-combat.ts` avec Node 22. Le scénario utilise quatre graines et 12 strates par graine. Il avance les salles directement et renforce les PV du joueur pour prolonger les combats. Il exécute 57 262 pas de simulation et atteint 16 transitions de Gardien en phase 2.
+
+Le script échantillonne les allocations JavaScript à 4 Kio avec l’inspecteur V8, y compris les objets déjà collectés. Il rejoue ensuite les mêmes entrées pour produire une empreinte des états de jeu, des effets et des notifications HUD. Comparer les médianes de plusieurs processus avec le même moteur JavaScript et vérifier que l’empreinte reste identique. L’échantillonnage estime les allocations cumulées pendant l’essai. Le scénario Node exclut le DOM, le Canvas et la lecture audio.
+
+Sous Node 22.12.0, neuf exécutions par version donnent une médiane de 294,1 Mo alloués sur les piles du jeu avant les changements et 218,7 Mo après (−25,6 %). Les estimations vont de 278,7 à 334,5 Mo avant et de 209,5 à 236,8 Mo après. Les empreintes des 18 exécutions concordent.
+
+Un essai Chromium distinct isole le changement dans `actorRender.ts`. Il rejoue 2 880 images dans 16 chargements de salle, en 960 × 540, DPR 1, avec rendu logiciel et un coefficient d’interpolation de 0,45. Sur trois exécutions par version, les allocations JavaScript attribuées au rendu passent de 91,1 à 82,6 Mo en médiane (−9,3 %), dont 17,0 à 8,7 Mo pour l’interpolation (−49,1 %). Vingt images de combat comparées pixel par pixel sont identiques. L’inspecteur Chromium échantillonne le tas JavaScript à 2 Kio. Les allocations natives du Canvas et le coût GPU sont hors de cette mesure.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

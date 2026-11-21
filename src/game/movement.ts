@@ -134,7 +134,8 @@ export class PlayerMovement {
     player.onWall = 0;
     if (nextX === 0 && !player.onGround) player.onWall = -1;
     if (nextX === room.width - player.w && !player.onGround) player.onWall = 1;
-    for (const p of room.platforms) {
+    for (let i = 0; i < room.platforms.length; i++) {
+      const p = room.platforms[i];
       if (p.broken || p.type !== 'solid') continue;
       if (player.y + player.h <= p.y + 6 || player.y >= p.y + p.h - 4) continue;
       if (player.x + player.w <= p.x + 8 && nextX + player.w > p.x) {
@@ -155,7 +156,8 @@ export class PlayerMovement {
     player.y += player.vy * dt;
     player.onGround = false;
 
-    for (const p of room.platforms) {
+    for (let i = 0; i < room.platforms.length; i++) {
+      const p = room.platforms[i];
       if (p.broken) continue;
       if (p.type === 'crumble' && p.crumbleT && p.crumbleT > 0) {
         p.crumbleT -= dt;

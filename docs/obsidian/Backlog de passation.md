@@ -39,7 +39,7 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 - [x] C07 — Corriger les discontinuités de rendu, dont la traversée visuelle entre les deux positions de téléportation du Spectre.
 - [x] C08 — Extraire l’IA, la résolution des dégâts, les projectiles et les interactions de salle de engine.ts, par étapes avec scénarios à graine fixe avant et après.
 - [x] C09 — Découper renderer.ts par couches et garder des captures de référence du titre, d’une salle, d’un télégraphe et d’un Gardien.
-- [ ] C10 — Mesurer les allocations sur une longue expédition et optimiser les vrais postes de coût en combat.
+- [x] C10 — Mesurer les allocations sur une longue expédition et optimiser les vrais postes de coût en combat.
 - [ ] C11 — Fixer un budget JavaScript et ressources. Charger les gros écrans ou ressources lorsqu’ils sont nécessaires.
 - [ ] C12 — Introduire TypeScript strict et ESLint progressivement, à partir des modules isolés.
 
