@@ -42,6 +42,59 @@ test('menu commands use a direction or a button once per press, without gameplay
   assert.equal(confirm.interact, false);
 });
 
+test('touch controls: movement is held, actions fire once per press and clearAll releases everything', () => {
+  const input = new InputHub();
+
+  input.setVirtual('right', true);
+  assert.equal(input.poll().moveX, 1);
+  assert.equal(input.poll().moveX, 1);
+  input.setVirtual('left', true);
+  assert.equal(input.poll().moveX, 0);
+  input.setVirtual('right', false);
+  assert.equal(input.poll().moveX, -1);
+  input.setVirtual('left', false);
+  assert.equal(input.poll().moveX, 0);
+
+  input.setVirtual('jump', true);
+  const jump = input.poll();
+  assert.equal(jump.jump, true);
+  assert.equal(jump.jumpHeld, true);
+  const stillHeld = input.poll();
+  assert.equal(stillHeld.jump, false);
+  assert.equal(stillHeld.jumpHeld, true);
+  input.setVirtual('jump', false);
+  const released = input.poll();
+  assert.equal(released.jumpHeld, false);
+  assert.equal(released.jumpReleased, true);
+
+  input.setVirtual('attack', true);
+  assert.equal(input.poll().attack, true);
+  assert.equal(input.poll().attack, false);
+  input.setVirtual('attack', true); // doigt posé deux fois de suite sans relâcher : pas de double coup
+  assert.equal(input.poll().attack, false);
+  input.setVirtual('attack', false);
+  input.setVirtual('attack', true);
+  assert.equal(input.poll().attack, true);
+
+  input.setVirtual('parry', true);
+  const parry = input.poll();
+  assert.equal(parry.parry, true);
+  assert.equal(parry.parryHeld, true);
+  for (const control of ['dash', 'heavy', 'skill', 'heal', 'interact'] as const) {
+    input.setVirtual(control, true);
+    const state = input.poll();
+    assert.equal(state[control], true, control);
+    assert.equal(input.poll()[control], false, control);
+  }
+
+  input.setVirtual('left', true);
+  input.clearAll();
+  const cleared = input.poll();
+  assert.equal(cleared.moveX, 0);
+  assert.equal(cleared.parryHeld, false);
+  assert.equal(input.lastInputMode, 'Tactile');
+});
+
 test('menu controls held during a transition cannot move or jump until released', (t) => {
   const pad = controller(t);
   const input = new InputHub();

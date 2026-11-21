@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BastionModal } from './components/BastionModal';
 import { BlessingModal } from './components/BlessingModal';
 import { GameHud } from './components/GameHud';
 import { GameMenuModal } from './components/GameMenuModal';
 import { GameOverModal } from './components/GameOverModal';
+import { TouchControls, useTouchScreen } from './components/TouchControls';
 import { LauncherModal, type BeforeInstallPromptEvent } from './components/LauncherModal';
 import { MerchantModal } from './components/MerchantModal';
 import { PauseModal } from './components/PauseModal';
@@ -37,6 +38,12 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const touchScreen = useTouchScreen();
+  const sendTouchControl = useCallback(
+    (control: Parameters<CendresEngine['setVirtualControl']>[0], down: boolean) =>
+      engineRef.current?.setVirtualControl(control, down),
+    []
   );
 
   useEffect(() => {
@@ -145,6 +152,8 @@ export default function App() {
           onOpenPause={() => engineRef.current?.openPause()}
         />
       )}
+
+      {phase === 'playing' && hud && touchScreen && !menuOpen && <TouchControls onControl={sendTouchControl} />}
 
       {phase === 'bastion' && (
         <BastionModal
