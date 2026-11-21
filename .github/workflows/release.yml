@@ -44,13 +44,13 @@ jobs:
           node scripts/build-package.mjs --out "package/${NAME}"
           (cd package && zip -qr "../${NAME}.zip" "${NAME}")
       - name: Keep the update files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-files
           path: release/
           if-no-files-found: error
       - name: Keep the full package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: game-zip
           path: Cendres-Eclipse-*.zip
