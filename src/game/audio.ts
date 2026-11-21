@@ -1,15 +1,75 @@
-import type { GameSettings, WeaponKey } from './types';
+import type { EnemyKind, GameSettings, WeaponKey } from './types';
 
 export type MusicMood = 'title' | 'explore' | 'combat' | 'boss';
 
-const BIOME_SCALES: number[][] = [
-  [146.83, 155.56, 174.61, 196.0, 220.0, 233.08, 261.63, 293.66], // D Phrygian (Catacombes)
-  [130.81, 146.83, 155.56, 174.61, 196.0, 207.65, 246.94, 261.63], // C Harmonic Minor (Viaduc)
-  [110.0, 116.54, 138.59, 146.83, 164.81, 174.61, 196.0, 220.0], // A Phrygian Dominant (Flèche)
-  [146.83, 164.81, 174.61, 207.65, 220.0, 233.08, 277.18, 293.66], // D Double Harmonic (Sanctuaire)
-];
+interface MusicTheme {
+  root: number;
+  wave: OscillatorType;
+  pulse: number;
+  motif: readonly (number | null)[];
+  alternate: readonly (number | null)[];
+}
 
-class DarkAudioEngine {
+// Motifs are written as semitone offsets. A rest leaves space for the ambience.
+const TITLE_THEME: MusicTheme = {
+  root: 146.83, wave: 'sine', pulse: 0.78,
+  motif: [0, null, 7, 3, 12, null, 8, 1], alternate: [],
+};
+
+const BIOME_THEMES: Readonly<Record<string, MusicTheme>> = {
+  catacombes: {
+    root: 146.83, wave: 'triangle', pulse: 0.64,
+    motif: [0, null, 1, 7, 3, null, 1, -2], alternate: [0, 1, 3, 7, 0, -2, 1, 0],
+  },
+  viaduc: {
+    root: 130.81, wave: 'sine', pulse: 0.75,
+    motif: [12, 7, null, 3, 2, null, 11, 7], alternate: [0, 7, 8, null, 11, 7, 3, 2],
+  },
+  fleche: {
+    root: 110, wave: 'sawtooth', pulse: 0.56,
+    motif: [0, 4, 1, null, 7, 4, 6, null], alternate: [0, 1, 4, 6, 7, 6, 4, 1],
+  },
+  sanctuaire: {
+    root: 146.83, wave: 'triangle', pulse: 0.7,
+    motif: [12, 11, 6, 2, null, 10, 7, 0], alternate: [0, 6, 7, 11, 12, 11, 10, 6],
+  },
+};
+
+const GUARDIAN_THEMES: Readonly<Partial<Record<EnemyKind, MusicTheme>>> = {
+  archon: {
+    root: 98, wave: 'triangle', pulse: 0.33,
+    motif: [0, 0, 7, null, 6, 7, 3, 1], alternate: [0, 7, 6, 7, 12, 7, 1, 3],
+  },
+  mother: {
+    root: 138.59, wave: 'sine', pulse: 0.37,
+    motif: [12, null, 10, 6, 5, null, 1, 0], alternate: [12, 10, 6, 13, 12, 6, 5, 1],
+  },
+  sovereign: {
+    root: 82.41, wave: 'sawtooth', pulse: 0.3,
+    motif: [0, -2, 1, 7, 12, 7, 6, null], alternate: [0, 12, 7, 13, 6, 12, 11, 1],
+  },
+};
+
+const MUSIC_LEVEL: Record<MusicMood, number> = { title: 0.85, explore: 1, combat: 0.64, boss: 0.55 };
+
+const WEAPON_VOICES = {
+  clay_blade: { wave: 'sawtooth', pitch: 390, end: 135, duration: 0.09, noise: 1550, overtone: 880 },
+  belfry_greatsword: { wave: 'triangle', pitch: 214, end: 60, duration: 0.18, noise: 760, overtone: 330 },
+  eclipse_daggers: { wave: 'square', pitch: 755, end: 320, duration: 0.055, noise: 2600, overtone: 1425 },
+  ash_halberd: { wave: 'sawtooth', pitch: 305, end: 108, duration: 0.145, noise: 1040, overtone: 610 },
+  scythe_eclipse: { wave: 'sine', pitch: 280, end: 680, duration: 0.16, noise: 2150, overtone: 1150 },
+  twin_hammers: { wave: 'triangle', pitch: 112, end: 40, duration: 0.13, noise: 480, overtone: 175 },
+} as const satisfies Record<WeaponKey, { wave: OscillatorType; pitch: number; end: number; duration: number; noise: number; overtone: number }>;
+
+const COMBO_CHIMES: Readonly<Record<string, readonly number[]>> = {
+  C: [440, 587.33],
+  B: [493.88, 659.25],
+  A: [523.25, 698.46],
+  S: [587.33, 783.99, 987.77],
+  ÉCLIPSE: [392, 587.33, 783.99, 1174.66],
+};
+
+export class DarkAudioEngine {
   private ctx: AudioContext | null = null;
   private muted = false;
   private masterVolume = 0.85;
@@ -19,10 +79,19 @@ class DarkAudioEngine {
   private musicEnabled = true;
   private musicVolume = 0.65;
   private musicMood: MusicMood = 'title';
-  private musicBiomeIdx = 0;
-  private musicBossPhase2 = false;
+  private requestedMood: MusicMood = 'title';
+  private biomeTheme = BIOME_THEMES.catacombes;
+  private guardianTheme: MusicTheme | undefined;
+  private theme = TITLE_THEME;
+  private bossPhase2 = false;
+  private playingPhase2 = false;
+  private combatHold = 0;
+  private musicDuck = 0;
   private musicTimer = 0;
   private musicStep = 0;
+  private musicBus!: GainNode;
+  private sfxBus!: GainNode;
+  private musicTarget = -1;
   private droneNodes: {
     o1: OscillatorNode;
     o2: OscillatorNode;
@@ -32,6 +101,8 @@ class DarkAudioEngine {
 
   setMuted(m: boolean): void {
     this.muted = m;
+    if (m) this.musicDuck = 0;
+    this.syncMix();
     this.syncDrone();
   }
 
@@ -39,10 +110,11 @@ class DarkAudioEngine {
     return this.muted;
   }
 
-  setMusicContext(mood: MusicMood, biomeIdx = 0, bossPhase2 = false): void {
-    this.musicMood = mood;
-    this.musicBiomeIdx = Math.abs(biomeIdx) % BIOME_SCALES.length;
-    this.musicBossPhase2 = bossPhase2;
+  setMusicContext(mood: MusicMood, biome = 'catacombes', guardian?: EnemyKind, bossPhase2 = false): void {
+    this.requestedMood = mood;
+    this.biomeTheme = BIOME_THEMES[biome] ?? BIOME_THEMES.catacombes;
+    this.guardianTheme = guardian ? GUARDIAN_THEMES[guardian] : undefined;
+    this.bossPhase2 = bossPhase2;
   }
 
   updateSettings(
@@ -57,6 +129,8 @@ class DarkAudioEngine {
     this.ambientDrone = !!s.ambientDrone;
     this.musicEnabled = s.musicEnabled !== false;
     this.musicVolume = Math.max(0, Math.min(1, s.musicVolume ?? 0.65));
+    if (this.sfxVolume === 0) this.musicDuck = 0;
+    this.syncMix();
     this.syncDrone();
   }
 
@@ -68,61 +142,67 @@ class DarkAudioEngine {
     return this.muted || !this.musicEnabled ? 0 : this.masterVolume * this.musicVolume;
   }
 
-  updateMusic(dt: number): void {
-    const scale = this.getMusicScale();
-    if (scale <= 0.005 || !this.ctx || this.ctx.state !== 'running') return;
+  private syncMix(): void {
+    if (!this.ctx) return;
+    this.sfxBus.gain.setTargetAtTime(this.getSfxScale(), this.ctx.currentTime, 0.025);
+    this.syncMusicGain();
+  }
 
-    const tempoSec =
-      this.musicMood === 'boss'
-        ? this.musicBossPhase2
-          ? 0.24
-          : 0.31
-        : this.musicMood === 'combat'
-        ? 0.38
-        : this.musicMood === 'explore'
-        ? 0.62
-        : 0.78;
+  private syncMusicGain(): void {
+    if (!this.ctx) return;
+    const target = this.getMusicScale() * MUSIC_LEVEL[this.musicMood] * (this.musicDuck > 0 ? 0.42 : 1);
+    if (target === this.musicTarget) return;
+    this.musicBus.gain.setTargetAtTime(target, this.ctx.currentTime, target < this.musicTarget ? 0.035 : 0.24);
+    this.musicTarget = target;
+  }
+
+  private duckMusic(seconds: number): void {
+    if (this.getSfxScale() <= 0.001) return;
+    this.musicDuck = Math.max(this.musicDuck, seconds);
+    this.syncMusicGain();
+  }
+
+  updateMusic(dt: number): void {
+    this.musicDuck = Math.max(0, this.musicDuck - dt);
+    // Keep a combat phrase through brief pauses between enemy attacks.
+    this.combatHold = this.requestedMood === 'combat' ? 1.3 : Math.max(0, this.combatHold - dt);
+    const mood = this.requestedMood === 'explore' && this.combatHold > 0 ? 'combat' : this.requestedMood;
+    const phase2 = mood === 'boss' && this.bossPhase2;
+    const theme = mood === 'title' ? TITLE_THEME : (mood === 'boss' ? this.guardianTheme : undefined) ?? this.biomeTheme;
+    if (theme !== this.theme || mood !== this.musicMood || phase2 !== this.playingPhase2) {
+      this.theme = theme;
+      this.musicMood = mood;
+      this.playingPhase2 = phase2;
+      this.musicTimer = 0;
+      this.musicStep = 0;
+    }
+    this.syncMusicGain();
+
+    const scale = this.getMusicScale();
+    if (!this.ctx && (scale > 0.005 || (!this.muted && this.ambientDrone && this.masterVolume * this.ambientVolume > 0))) {
+      this.ensure();
+    }
+    if (scale <= 0.005 || this.ctx?.state !== 'running') return;
+
+    const tempoSec = theme.pulse * (phase2 ? 0.76 : mood === 'combat' ? 0.68 : 1);
 
     this.musicTimer += dt;
     if (this.musicTimer < tempoSec) return;
     this.musicTimer -= tempoSec;
 
-    const notes = BIOME_SCALES[this.musicBiomeIdx];
     const step = this.musicStep++;
-    const pattern =
-      this.musicMood === 'boss'
-        ? [0, 4, 5, 4, 2, 7, 5, 1]
-        : this.musicMood === 'combat'
-        ? [0, 2, 4, 5, 4, 1, 2, 0]
-        : [0, 4, 2, 7, 5, 4, 1, 2];
-
-    const root = notes[pattern[step % pattern.length]];
-    const musicVol = 0.036 * scale;
-    const isStrongBeat = step % 4 === 0;
-
-    // Plucked liturgical gothic motif
-    this.toneDirect(
-      root,
-      this.musicMood === 'boss' ? 'sawtooth' : 'triangle',
-      tempoSec * 1.45,
-      musicVol * (isStrongBeat ? 1.25 : 0.85),
-      root * 0.996
-    );
-
-    // Sub-bass drone pulse on downbeats during combat & bosses
-    if (isStrongBeat) {
-      this.toneDirect(
-        notes[0] * 0.5,
-        'sine',
-        tempoSec * 2.8,
-        musicVol * (this.musicMood === 'boss' ? 1.85 : 1.25),
-        notes[0] * 0.49
-      );
+    const pattern = phase2 || mood === 'combat' ? theme.alternate : theme.motif;
+    const interval = pattern[step % pattern.length];
+    const downbeat = step % 4 === 0;
+    if (interval !== null) {
+      const note = theme.root * 2 ** (interval / 12);
+      this.toneDirect(note, theme.wave, tempoSec * 1.45, downbeat ? 0.044 : 0.03, note * 0.996, 0, this.musicBus);
+      if ((phase2 && step % 2 === 1) || ((mood === 'title' || theme === BIOME_THEMES.sanctuaire) && step % 8 === 4)) {
+        this.toneDirect(note * 2, 'sine', tempoSec * 1.9, 0.018, note * 2.01, 0, this.musicBus);
+      }
     }
-
-    // High bell overtone in phase II or title contemplation
-    if (step % 8 === 4 && (this.musicMood === 'title' || this.musicBossPhase2)) {
-      this.toneDirect(root * 2, 'sine', tempoSec * 1.9, musicVol * 0.55, root * 2.01);
+    if (downbeat) {
+      this.toneDirect(theme.root * 0.5, 'sine', tempoSec * 2.8, mood === 'boss' ? 0.066 : 0.045, theme.root * 0.49, 0, this.musicBus);
     }
   }
 
@@ -140,12 +220,21 @@ class DarkAudioEngine {
       const AC =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (AC) this.ctx = new AC();
+      if (AC) {
+        this.ctx = new AC();
+        this.musicBus = this.ctx.createGain();
+        this.sfxBus = this.ctx.createGain();
+        this.musicBus.gain.value = 0;
+        this.sfxBus.gain.value = this.getSfxScale();
+        this.musicBus.connect(this.ctx.destination);
+        this.sfxBus.connect(this.ctx.destination);
+        this.syncMix();
+        this.syncDrone();
+      }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       void this.ctx.resume().catch(() => {});
     }
-    if (this.ctx) this.syncDrone();
     return this.ctx;
   }
 
@@ -224,7 +313,8 @@ class DarkAudioEngine {
     dur: number,
     finalVol: number,
     slide: number | null = null,
-    delaySec = 0
+    delaySec = 0,
+    bus = this.sfxBus
   ): void {
     const c = this.ctx;
     if (!c || finalVol <= 0.0005) return;
@@ -240,7 +330,7 @@ class DarkAudioEngine {
     g.gain.linearRampToValueAtTime(finalVol, t0 + 0.014);
     g.gain.exponentialRampToValueAtTime(0.0006, t0 + dur);
     o.connect(g);
-    g.connect(c.destination);
+    g.connect(bus);
     o.start(t0);
     o.stop(t0 + dur + 0.02);
   }
@@ -257,7 +347,7 @@ class DarkAudioEngine {
     if (scale <= 0.001) return;
     const c = this.ensure();
     if (!c) return;
-    this.toneDirect(freq, type, dur, Math.max(0.001, vol * scale), slide, delaySec);
+    this.toneDirect(freq, type, dur, vol, slide, delaySec);
   }
 
   private noiseBurst(dur: number, vol = 0.05, filterFreq = 900): void {
@@ -277,11 +367,11 @@ class DarkAudioEngine {
     filter.type = 'bandpass';
     filter.frequency.value = filterFreq;
     const g = c.createGain();
-    g.gain.setValueAtTime(Math.max(0.001, vol * scale), c.currentTime);
+    g.gain.setValueAtTime(vol, c.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
     src.connect(filter);
     filter.connect(g);
-    g.connect(c.destination);
+    g.connect(this.sfxBus);
     src.start();
   }
 
@@ -316,23 +406,19 @@ class DarkAudioEngine {
   }
 
   slash(comboStep = 0, weapon: WeaponKey = 'clay_blade'): void {
-    const pitchMult =
-      weapon === 'eclipse_daggers'
-        ? 1.38
-        : weapon === 'belfry_greatsword' || weapon === 'twin_hammers'
-        ? 0.72
-        : weapon === 'scythe_eclipse'
-        ? 1.1
-        : 1;
-    const base = (comboStep === 2 ? 520 : comboStep === 1 ? 460 : 410) * pitchMult;
-    this.noiseBurst(0.08, 0.045, 1550 * pitchMult);
-    this.tone(this.jitter(base), 'sawtooth', 0.09, 0.075, 115 * pitchMult);
+    const voice = WEAPON_VOICES[weapon];
+    const accent = 1 + comboStep * 0.12;
+    this.noiseBurst(voice.duration, 0.048, voice.noise);
+    this.tone(this.jitter(voice.pitch * accent), voice.wave, voice.duration, 0.078, voice.end);
+    this.tone(voice.overtone * accent, 'sine', voice.duration * 0.9, 0.035, voice.overtone * 0.71, voice.duration * 0.4);
   }
 
-  skillArt(): void {
-    this.noiseBurst(0.22, 0.085, 1100);
-    this.tone(240, 'sawtooth', 0.26, 0.12, 620);
-    this.tone(480, 'triangle', 0.28, 0.09, 880, 0.05);
+  skillArt(weapon: WeaponKey = 'clay_blade'): void {
+    const voice = WEAPON_VOICES[weapon];
+    this.duckMusic(0.24);
+    this.noiseBurst(0.22, 0.075, voice.noise);
+    this.tone(voice.pitch * 0.65, voice.wave, 0.26, 0.11, voice.overtone * 0.7);
+    this.tone(voice.overtone, 'triangle', 0.28, 0.067, voice.overtone * 1.35, 0.05);
   }
 
   achievement(): void {
@@ -341,16 +427,24 @@ class DarkAudioEngine {
     this.tone(659.25, 'sine', 0.35, 0.09, 880, 0.16);
   }
 
-  heavy(): void {
-    this.noiseBurst(0.18, 0.07, 620);
-    this.tone(this.jitter(175), 'sawtooth', 0.24, 0.12, 58);
-    this.tone(this.jitter(90), 'triangle', 0.26, 0.09, 42);
+  heavy(weapon: WeaponKey = 'clay_blade'): void {
+    const voice = WEAPON_VOICES[weapon];
+    this.noiseBurst(0.16 + voice.duration * 0.4, 0.075, voice.noise * 0.55);
+    this.tone(this.jitter(voice.pitch * 0.48), voice.wave, 0.25, 0.1, voice.end * 0.6);
+    this.tone(voice.overtone * 0.48, 'triangle', 0.22, 0.056, voice.overtone * 0.28, 0.055);
   }
 
   parry(): void {
-    this.tone(this.jitter(990), 'square', 0.16, 0.12, 1480);
-    this.tone(this.jitter(1520), 'triangle', 0.26, 0.11, 920);
-    this.tone(this.jitter(2100), 'sine', 0.22, 0.06, 1780, 0.02);
+    this.duckMusic(0.33);
+    this.noiseBurst(0.042, 0.09, 3350);
+    this.tone(1210, 'triangle', 0.075, 0.12, 735);
+    this.tone(1760, 'sine', 0.25, 0.08, 1750, 0.012);
+    this.tone(1174.66, 'sine', 0.31, 0.085, 1168, 0.055);
+  }
+
+  sacrifice(): void {
+    this.noiseBurst(0.12, 0.05, 930);
+    this.tone(185, 'sine', 0.34, 0.09, 78);
   }
 
   guard(): void {
@@ -367,9 +461,14 @@ class DarkAudioEngine {
     this.tone(680, 'triangle', 0.18, 0.09, 1020);
   }
 
-  rankUp(): void {
-    this.tone(587.33, 'triangle', 0.14, 0.07, 783.99);
-    this.tone(880, 'sine', 0.22, 0.06, 1046.5, 0.05);
+  rankUp(rank = 'C'): void {
+    const chime = COMBO_CHIMES[rank] ?? COMBO_CHIMES.C;
+    const eclipse = rank === 'ÉCLIPSE';
+    if (eclipse) this.duckMusic(0.55);
+    for (let i = 0; i < chime.length; i++) {
+      const lead = i === chime.length - 1;
+      this.tone(chime[i], lead ? 'sine' : 'triangle', lead ? eclipse ? 0.44 : 0.22 : 0.16, lead ? 0.08 : 0.057, null, i * (eclipse ? 0.085 : 0.052));
+    }
   }
 
   hurt(): void {
@@ -404,9 +503,11 @@ class DarkAudioEngine {
     this.tone(540, 'triangle', 0.065, 0.055, 430);
   }
 
-  boss(): void {
-    this.tone(78, 'sawtooth', 0.72, 0.14, 40);
-    this.tone(116, 'triangle', 0.65, 0.1, 58, 0.08);
+  boss(guardian?: EnemyKind, phase2 = false): void {
+    const theme = (guardian ? GUARDIAN_THEMES[guardian] : undefined) ?? GUARDIAN_THEMES.archon!;
+    this.duckMusic(0.55);
+    this.tone(theme.root, theme.wave, 0.65, 0.125, theme.root * (phase2 ? 1.5 : 0.55));
+    this.tone(theme.root * (phase2 ? 2 : 1.5), 'triangle', 0.55, 0.085, theme.root * 0.75, 0.09);
   }
 }
 

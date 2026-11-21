@@ -202,13 +202,10 @@ export class CendresEngine {
       this.simTime += dt;
 
       // Update adaptive procedural music & toast timers
-      const biomeIdx = this.room
-        ? ['catacombes', 'viaduc', 'fleche', 'sanctuaire'].indexOf(this.room.biome.id)
-        : 0;
-      const bossActive = this.room?.enemies.find((e) => e.isBoss && e.hp > 0);
+      const enemies = this.phase === 'playing' ? this.room?.enemies : undefined;
+      const bossActive = enemies?.find((e) => e.isBoss && e.hp > 0);
       const combatActive =
-        this.phase === 'playing' &&
-        !!this.room?.enemies.some((e) => e.hp > 0 && e.state !== 'dead' && e.state !== 'idle');
+        !bossActive && enemies?.some((e) => e.hp > 0 && e.state !== 'dead' && e.state !== 'idle');
       AudioFX.setMusicContext(
         this.phase === 'playing'
           ? bossActive
@@ -217,7 +214,8 @@ export class CendresEngine {
             ? 'combat'
             : 'explore'
           : 'title',
-        Math.max(0, biomeIdx),
+        this.room?.biome.id,
+        bossActive?.kind,
         bossActive?.phase === 2
       );
       AudioFX.updateMusic(clampedDt);
@@ -570,7 +568,7 @@ export class CendresEngine {
     this.run.comboTimer = 4.2;
     const nextRankInfo = computeComboRank(this.run.comboHits);
     if (nextRankInfo.rank !== prevRank && this.run.comboHits >= 2) {
-      AudioFX.rankUp();
+      AudioFX.rankUp(nextRankInfo.rank);
       this.particles.addText(
         this.player.x + this.player.w / 2,
         this.player.y - 34,
@@ -609,7 +607,7 @@ export class CendresEngine {
     const boss = this.room.enemies.find((e) => e.isBoss);
     const affixLabel = this.room.affix ? ` · ${this.room.affix.name}` : '';
     if (boss) {
-      AudioFX.boss();
+      AudioFX.boss(boss.kind);
       this.showBanner(boss.name, `Strate ${depth} · Gardien de l'Abîme${affixLabel}`, '#d4a853', 2.8);
     } else {
       this.showBanner(`Strate ${depth}`, `${this.room.biome.name}${affixLabel}`, '#d4a853', 1.9);
@@ -811,7 +809,7 @@ export class CendresEngine {
       run.stam -= 26;
       player.stamRegenDelay = 0.65;
       this.startAttack('heavy', 0.34 / atkSpdMult);
-      AudioFX.heavy();
+      AudioFX.heavy(weapon.key);
     } else if (player.attackBuf && player.attackT <= 0 && run.stam >= 12) {
       player.attackBuf = false;
       run.stam -= 12;
@@ -822,7 +820,7 @@ export class CendresEngine {
       } else if (!player.onGround && inp.down) {
         player.vy = Math.max(player.vy, 540);
         this.startAttack('plunge', 0.28 / atkSpdMult);
-        AudioFX.heavy();
+        AudioFX.heavy(weapon.key);
       } else if (inp.upHeld) {
         if (player.onGround) player.vy = -220;
         this.startAttack('launcher', 0.24 / atkSpdMult);
@@ -1368,7 +1366,7 @@ export class CendresEngine {
         e.cd = 0.6;
         this.hitStop = 0.07;
         this.trauma = 0.7;
-        AudioFX.boss();
+        AudioFX.boss(e.kind, true);
         this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#ff4d63', 180, 0.45);
         this.vfx.triggerScreenFlash('#ff4d63', 0.3);
         this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 112, '#ff4d63', 'crimson', 0.38);
@@ -1669,7 +1667,7 @@ export class CendresEngine {
     player.stamRegenDelay = 0.65;
     player.skillMaxCd = wDef.artCooldown * cdMult;
     player.skillCd = player.skillMaxCd;
-    AudioFX.skillArt();
+    AudioFX.skillArt(wDef.key);
     this.input.rumble(0.45, 0.72, 140, this.save.settings?.gamepadRumble !== false);
 
     const cx = player.x + player.w / 2;
@@ -2175,7 +2173,7 @@ export class CendresEngine {
           run.hp = Math.max(1, run.hp - sac);
           run.loot.cendres += 55;
           run.loot.larmes += 1;
-          AudioFX.parry();
+          AudioFX.sacrifice();
           this.particles.spawnBurst(pr.x + pr.w / 2, pr.y, '#c4303e', 18, 180);
           this.blood.spawnImpact(
             pr.x + pr.w / 2,
