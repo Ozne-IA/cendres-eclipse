@@ -33,13 +33,6 @@
     color: var(--text-bone);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
-    /* Écran tactile : pas de zoom au double-tap ni de rebond de page pendant qu'on joue */
-    touch-action: manipulation;
-    overscroll-behavior: none;
-  }
-
-  canvas {
-    touch-action: none;
   }
 }
 

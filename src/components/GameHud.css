@@ -37,16 +37,6 @@
   .hud-zone { width: 100%; overflow-wrap: anywhere; }
   .hud-zone > .flex { flex-wrap: wrap; gap: .25rem .45rem; }
 }
-/* Téléphone en paysage (ex. 667 × 375) : le HUD rétrécit pour laisser voir le jeu. */
-@media (orientation: landscape) and (max-height: 460px) {
-  .game-hud { padding: .4rem; }
-  .game-hud .hud-vitals { width: 218px; padding: .35rem .5rem; }
-  .game-hud .hud-vitals > div { margin-bottom: .2rem; }
-  .game-hud .hud-vitals > div:last-child { margin-bottom: 0; }
-  .game-hud .hud-vitals .text-\[11px\] { font-size: 9.5px; }
-  .game-hud .hud-zone { padding: .3rem .5rem; font-size: .8em; max-width: 220px; }
-  .game-hud .hud-utilities button { transform: scale(.82); transform-origin: top right; }
-}
 @media (orientation: landscape) and (max-height: 520px) {
   .hud-top { position: relative; }
   .hud-banner {

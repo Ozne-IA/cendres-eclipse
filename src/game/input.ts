@@ -18,23 +18,7 @@ export function formatKeyLabel(code: string): string {
   return code;
 }
 
-/** Boutons de l'écran tactile : ils alimentent les mêmes actions que le clavier. */
-export type VirtualControl =
-  | 'left'
-  | 'right'
-  | 'down'
-  | 'jump'
-  | 'dash'
-  | 'attack'
-  | 'heavy'
-  | 'parry'
-  | 'skill'
-  | 'heal'
-  | 'interact';
-
 export class InputHub {
-  private virtualHeld = new Set<VirtualControl>();
-  private virtualJust = new Set<VirtualControl>();
   private keys = new Set<string>();
   private keysJust = new Set<string>();
   private mouseHeld = new Set<number>();
@@ -121,20 +105,7 @@ export class InputHub {
     document.removeEventListener('visibilitychange', this.onVisibility);
   }
 
-  /** Appui (down = true) ou relâchement d'un bouton tactile. Une action ne part qu'une fois par appui. */
-  setVirtual(control: VirtualControl, down: boolean): void {
-    if (down) {
-      if (!this.virtualHeld.has(control)) this.virtualJust.add(control);
-      this.virtualHeld.add(control);
-      this.lastInputMode = 'Tactile';
-    } else {
-      this.virtualHeld.delete(control);
-    }
-  }
-
   clearAll(): void {
-    this.virtualHeld.clear();
-    this.virtualJust.clear();
     this.keys.clear();
     this.keysJust.clear();
     this.mouseHeld.clear();
@@ -213,8 +184,6 @@ export class InputHub {
     if (this.keysJust.has('Escape') || this.keysJust.has('KeyP')) inp.pause = true;
     if (this.keysJust.has('KeyM')) inp.mute = true;
 
-    this.applyVirtual(inp);
-
     if (pad) {
       this.pollGamepad(pad, inp, inMenu);
     } else {
@@ -230,28 +199,8 @@ export class InputHub {
 
     this.keysJust.clear();
     this.mouseJust.clear();
-    this.virtualJust.clear();
     return inp;
   }
-
-  private applyVirtual(inp: InputState): void {
-    const held = (c: VirtualControl) => this.virtualHeld.has(c);
-    const just = (c: VirtualControl) => this.virtualJust.has(c);
-    if (held('left')) inp.moveX -= 1;
-    if (held('right')) inp.moveX += 1;
-    if (held('down')) inp.down = true;
-    if (held('jump')) inp.jumpHeld = true;
-    if (just('jump')) inp.jump = true;
-    if (just('dash')) inp.dash = true;
-    if (just('attack')) inp.attack = true;
-    if (just('heavy')) inp.heavy = true;
-    if (just('parry')) inp.parry = true;
-    if (held('parry')) inp.parryHeld = true;
-    if (just('skill')) inp.skill = true;
-    if (just('heal')) inp.heal = true;
-    if (just('interact')) inp.interact = true;
-  }
-
   private pollGamepad(pad: Gamepad, inp: InputState, inMenu: boolean): void {
     const buttons = pad.buttons.map((button) => button.pressed);
     const rawX = pad.axes[0] ?? 0;

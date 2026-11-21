@@ -23,17 +23,17 @@ Avant de commencer : `git switch main`, `git pull`, vérifier `git log` (la PR #
 ## Ce que Luc a fait (branche `luc/securite-serveur-et-sauvegarde`)
 
 1. **Serveur PC sécurisé** (`launcher/server-pc.mjs`, test `test/pc-security.test.mjs`) : `Host` et `Origin` doivent désigner le serveur (127.0.0.1, localhost ou [::1] avec le bon port), sinon réponse 403 sur toutes les pages et sur `/api/save` ; en-têtes `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Content-Security-Policy: frame-ancestors 'none'`, `Cross-Origin-Resource-Policy` ; chemins résolus avec `path.resolve` et gardés dans `dist/`. Raison : une page web tierce pouvait écraser la sauvegarde (audit, point 72).
-2. **Commandes tactiles** (`src/components/TouchControls.tsx` et `.css`, `src/game/input.ts`, `src/game/engine.ts`, `src/App.tsx`) : pavé de déplacement à glisser + 8 boutons, affichés seulement sur écran tactile (`pointer: coarse`) ; `?touch=1` les force sur ordinateur. `InputHub.setVirtual(control, down)` alimente les mêmes actions que le clavier (mode d'entrée « Tactile »), `CendresEngine.setVirtualControl()` relie l'interface au moteur. Test : `src/game/input.test.ts`.
-3. **HUD compact** en paysage court (≤ 460 px de haut, `GameHud.css`), vérifié à 667 × 375.
-4. **`viewport-fit=cover`, `touch-action`, `overscroll-behavior`** (pas de zoom au double-tap ni de rebond) et **`prefers-reduced-motion`** (`src/index.css`).
+2. **`prefers-reduced-motion`** (`src/index.css`) : animations et transitions réduites si le système le demande.
 
-Vérifications faites : `npm run lint` propre, `npm test` 47 tests réussis, `npm run build` réussi. Rendu vérifié dans le navigateur intégré (qui ne tient que 2 à 5 images par seconde : fluidité non jugée).
+**Décision de l'utilisateur (21/11/2026) : le téléphone et la tablette ne sont PAS une cible pour ce jeu** (ils étaient réservés au bot Discord). Luc avait écrit des commandes tactiles et un HUD compact ; ils ont été retirés de cette branche et gardés, intacts et optionnels, sur la branche `luc/commandes-tactiles-optionnel` (aucune fusion prévue). Ne pas travailler sur le mobile sans nouvelle demande.
+
+Vérifications faites : `npm run lint` propre, `npm test` 46 tests réussis, `npm run build` réussi.
 
 ## Ce que Luc n'a PAS fait (à reprendre, dans l'ordre conseillé)
 
 Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 
-- **À tester à la main sur un vrai téléphone** : positions des boutons tactiles, confort du pouce, HUD en portrait (375 px) et en tablette portrait (moitié basse vide).
+- **Téléphone et tablette : hors cible** (voir plus haut). Le travail tactile reste sur `luc/commandes-tactiles-optionnel` si l'utilisateur change d'avis.
 - **Pas de temps fixe à 60 Hz** avec interpolation (#1) et **tests de combat déterministes** avec graine (#58) : à faire ensemble, avant tout découpage.
 - **Découper `src/game/engine.ts`** (2194 lignes) (#57), puis `artSprites.ts`, `renderer.ts`.
 - **`devicePixelRatio`** : le canvas est flou sur écrans HiDPI (#51).
@@ -53,4 +53,4 @@ Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 
 ## Journal de passation
 
-- 21/11/2026, Luc : sécurité du serveur, commandes tactiles, HUD compact, réduction des animations. Voir ci-dessus.
+- 21/11/2026, Luc : sécurité du serveur, réduction des animations. Commandes tactiles écrites puis retirées (le mobile n'est pas une cible), gardées sur une branche à part.

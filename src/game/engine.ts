@@ -9,7 +9,7 @@ import {
   RELICS_POOL,
   WEAPONS_DEF,
 } from './data';
-import { formatKeyLabel, InputHub, type VirtualControl } from './input';
+import { formatKeyLabel, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { ProjectilePool } from './projectiles';
@@ -287,11 +287,6 @@ export class CendresEngine {
 
   isUsingGamepad(): boolean {
     return this.input.lastInputMode === 'Manette';
-  }
-
-  /** Appui ou relâchement d'un bouton des commandes tactiles. */
-  setVirtualControl(control: VirtualControl, down: boolean): void {
-    this.input.setVirtual(control, down);
   }
 
   getSave(): SaveData {
