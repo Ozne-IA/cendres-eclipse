@@ -58,8 +58,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Launcher, save and update tests on this system
-        run: node --import tsx --test test/*.test.mjs
       - name: Production build
         run: npm run build
       - name: Prepare the update files (test version)
@@ -68,3 +66,6 @@ jobs:
         run: node scripts/build-package.mjs --out "${RUNNER_TEMP}/Cendres éclipse paquet/Cendres-Eclipse-test"
       - name: Verify the package like a player would
         run: node scripts/verify-package.mjs "${RUNNER_TEMP}/Cendres éclipse paquet/Cendres-Eclipse-test" --version 0.0.0
+      - name: Launcher, save and update tests on this system
+        if: always()
+        run: node --import tsx --test test/*.test.mjs
