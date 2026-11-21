@@ -13,7 +13,7 @@ Ce backlog prend pour référence `origin/main` du dépôt `Ozne-IA/cendres-ecli
 
 ## Premier lot
 
-- **Codex** — C01 à C05.
+- **Codex** — C01 à C05 terminées. Résultats dans [[Validation#Premier lot Codex (C01 à C05)]].
 - **Luc (Claude Code)** — L01 à L05 et L14 à L16, puis L24 et L25 en pilote.
 
 ### Défaut de génération observé pour C01
@@ -30,11 +30,11 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 
 ### Moteur, génération et validation
 
-- [ ] **C01** — Corriger les fins de strate. Réserver assez de terrain pour l’approche, la sortie et l’événement qui la précède.
-- [ ] **C02** — Tester des milliers de graines. Vérifier dimensions, limites, apparitions et sortie accessible avec les capacités de base.
-- [ ] **C03** — Automatiser titre → Cour → pause → Bastion → expédition → bilan, au clavier et à la manette simulée.
-- [ ] **C04** — Après stabilisation des tests, retirer le traitement spécial de navigator.webdriver et tester la boucle utilisée par les joueurs.
-- [ ] **C05** — Corriger la netteté HiDPI du Canvas en conservant les coordonnées du jeu. Vérifier à 100 %, 125 %, 150 % et 200 %.
+- [x] **C01** — Corriger les fins de strate. Réserver assez de terrain pour l’approche, la sortie et l’événement qui la précède.
+- [x] **C02** — Tester des milliers de graines. Vérifier dimensions, limites, apparitions et sortie accessible avec les capacités de base.
+- [x] **C03** — Automatiser titre → Cour → pause → Bastion → expédition → bilan, au clavier et à la manette simulée.
+- [x] **C04** — Après stabilisation des tests, retirer le traitement spécial de navigator.webdriver et tester la boucle utilisée par les joueurs.
+- [x] **C05** — Corriger la netteté HiDPI du Canvas en conservant les coordonnées du jeu. Vérifier à 100 %, 125 %, 150 % et 200 %.
 - [ ] C06 — Mesurer séparément le temps de simulation, le rendu, les images sautées et le coût des couches du décor.
 - [ ] C07 — Corriger les discontinuités de rendu, dont la traversée visuelle entre les deux positions de téléportation du Spectre.
 - [ ] C08 — Extraire l’IA, la résolution des dégâts, les projectiles et les interactions de salle de engine.ts, par étapes avec scénarios à graine fixe avant et après.
