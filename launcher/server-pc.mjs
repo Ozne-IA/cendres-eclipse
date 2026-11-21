@@ -89,16 +89,55 @@ function writeSaveAtomically(filePath, save) {
   }
 }
 
+// En-têtes de sécurité envoyés sur toutes les réponses (le jeu n'a pas besoin d'être affiché dans un cadre
+// ni de partager ses ressources avec un autre site).
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Cross-Origin-Resource-Policy': 'same-origin',
+};
+
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...SECURITY_HEADERS,
   });
   res.end(JSON.stringify(payload));
 }
 
+/**
+ * Le serveur n'écoute que sur 127.0.0.1, mais un site web ouvert dans le même navigateur pourrait quand même
+ * lui parler (DNS rebinding, ou simple POST venu d'une autre page). On n'accepte donc que les requêtes dont
+ * le Host et l'Origin désignent ce serveur.
+ */
+function trustedAuthorities() {
+  const port = server.address()?.port;
+  return [`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`];
+}
+
+function isTrustedHost(req) {
+  return trustedAuthorities().includes(String(req.headers.host || '').toLowerCase());
+}
+
+function isTrustedOrigin(req) {
+  const origin = req.headers.origin;
+  if (origin !== undefined && !trustedAuthorities().some((a) => origin.toLowerCase() === `http://${a}`)) {
+    return false;
+  }
+  // Les navigateurs récents annoncent d'où vient la requête : une autre origine est refusée.
+  const site = req.headers['sec-fetch-site'];
+  return site === undefined || site === 'same-origin' || site === 'none';
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
+
+  if (!isTrustedHost(req) || (urlPath === '/api/save' && !isTrustedOrigin(req))) {
+    return sendJson(res, 403, { ok: false, error: 'Requête refusée' });
+  }
 
   if (urlPath === '/api/save') {
     if (req.method === 'GET') {
@@ -160,11 +199,13 @@ const server = http.createServer((req, res) => {
   } catch {
     return sendJson(res, 400, { ok: false, error: 'URL invalide' });
   }
-  let safeRel = path.normalize(decodedPath).replace(/^(\.\.[/\\])+/, '');
-  if (safeRel === '/' || safeRel === '\\') safeRel = 'index.html';
-
-  let filePath = path.join(distDir, safeRel);
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+  if (decodedPath.includes('\0')) {
+    return sendJson(res, 400, { ok: false, error: 'URL invalide' });
+  }
+  // On résout le chemin puis on vérifie qu'il reste dans dist/ : plus fiable qu'un nettoyage par expression régulière.
+  let filePath = path.resolve(distDir, `.${path.sep}${decodedPath}`);
+  const insideDist = filePath === distDir || filePath.startsWith(distDir + path.sep);
+  if (!insideDist || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(distDir, 'index.html');
   }
 
@@ -172,6 +213,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {
     'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
     'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+    ...SECURITY_HEADERS,
   });
   fs.createReadStream(filePath).pipe(res);
 });
