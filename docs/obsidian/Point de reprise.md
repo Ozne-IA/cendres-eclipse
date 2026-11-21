@@ -33,7 +33,8 @@ Pour publier la suivante : `git tag v1.1.0`, `git push origin v1.1.0`. Ne pas to
 
 ## Suite connue
 
-- Autres idées de l’audit du 21/11/2026 pas encore listées : tests de bout en bout avec captures, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget. Les classer avant de les lancer.
+- Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
+- L’audit du 21/11/2026 proposait aussi tests de bout en bout avec captures, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
 - Poursuivre le découpage de `src/game/engine.ts` et `src/game/renderer.ts` en conservant les scénarios de référence de [[Validation]].
 - Corriger la netteté du canvas sur les écrans HiDPI. Prévoir une migration versionnée des sauvegardes, une somme de contrôle et trois copies tournantes.
 - Décider de l’hébergement local des polices. Revoir le traitement de `navigator.webdriver` lorsque des tests de bout en bout pourront le remplacer.
