@@ -21,4 +21,10 @@ Pour un changement de commandes, vérifier le trajet écran titre → Cour → p
 
 Pour un changement de sauvegarde, faire les essais avec des fichiers de test. Les tests du dépôt couvrent la récupération depuis `.bak` et le rafraîchissement de la page servie par le service worker. [Sauvegarde PC](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/pc-save.test.mjs) · [Cache web](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/service-worker.test.mjs)
 
+Les tests audio simulent l’API Web Audio. Ils vérifient que les biomes et les deux phases de chaque gardien produisent des séquences distinctes, que la musique baisse en combat et lors d’une parade, et que le mixage suit les réglages de volume. L’écoute manuelle en jeu reste à faire.
+
+Les tests de la chronique couvrent la compatibilité des anciennes sauvegardes, la validation des données importées, la limite de l’historique et la conservation des records. Ils vérifient aussi le calcul des dégâts réellement infligés et l’enregistrement d’une seule entrée par expédition.
+
+La reprise de l’audio et des statistiques a passé le contrôle TypeScript, les 53 tests, la compilation de production et la vérification de syntaxe du serveur PC.
+
 Revenir à [[Accueil]] ou consulter [[Architecture]].

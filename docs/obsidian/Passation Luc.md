@@ -40,7 +40,7 @@ Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 - **Chaîne de migration des sauvegardes** testée, somme de contrôle, 3 copies tournantes (#66, #67).
 - **Polices Google Fonts en local** (#75) : demande de télécharger les fichiers, à valider avec l'utilisateur.
 - **Rustine `navigator.webdriver`** dans `engine.ts` (boucle à 120 ms pour les navigateurs automatisés) : conservée, car les outils d'automatisation s'en servent ; à retirer quand des tests E2E existeront (#55).
-- **Contenu** : doubler le bestiaire (#11), thèmes musicaux par biome et par boss (#26), vrais boss à phases.
+- **Contenu** : doubler le bestiaire (#11) et développer les phases des boss. Les thèmes musicaux par biome et par boss (#26), avec une variation en phase 2, sont en place.
 - **Publication** : démo itch.io, licence et crédits (#83, #84).
 - **Coffre Obsidian et Graphify** : l'utilisateur a installé les deux ; il reste à régénérer le graphe (voir [[Accueil]]) et à garder [[Decisions]] à jour.
 
@@ -54,3 +54,4 @@ Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 ## Journal de passation
 
 - 21/11/2026, Luc : sécurité du serveur, réduction des animations. Commandes tactiles écrites puis retirées (le mobile n'est pas une cible), gardées sur une branche à part.
+- 21/11/2026, Codex : audio adaptatif et effets de combat enrichis (`39125be`), statistiques et chronique des expéditions au Bastion (`1c9ba3e`). Les vérifications audio sont simulées. L’écoute manuelle reste à faire. Voir [[Validation]].

@@ -33,6 +33,7 @@ import type {
 import { AudioFX } from '../game/audio';
 import { CinderIcon, IronIcon, TearIcon } from './GameIcons';
 import { ExpeditionRewards } from './ExpeditionRewards';
+import { ExpeditionChronicle } from './ExpeditionChronicle';
 
 interface BastionModalProps {
   save: SaveData;
@@ -615,6 +616,8 @@ export function BastionModal({
                   <div className="text-lg text-[#e8e1d5] mt-0.5">{save.records.maxParryStreak}x</div>
                 </div>
               </div>
+
+              <ExpeditionChronicle history={save.runHistory} bests={save.runBests} />
 
               <div>
                 <h3 className="font-display text-sm uppercase tracking-widest text-[#d4a853] mb-3">

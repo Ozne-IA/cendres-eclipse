@@ -141,6 +141,8 @@ export interface SaveData {
   muted: boolean;
   settings: GameSettings;
   records: SaveRecords;
+  runHistory: RunRecord[];
+  runBests: RunBests;
 }
 
 export interface BuildingDef {
@@ -428,24 +430,38 @@ export interface RunState {
   bestParryStreak: number;
   perfectDodges: number;
   comboHits: number;
+  peakComboHits: number;
   comboTimer: number;
   damageTaken: number;
+  damageDealt: number;
   elapsedSec: number;
   secondWindUsed: boolean;
   critNextAttack: boolean;
   merchantStock: string[];
 }
 
-export interface RunSummary {
-  victory: boolean;
+export type RunOutcome = 'victory' | 'defeat' | 'return';
+
+export interface RunRecord {
+  outcome: RunOutcome;
   depthReached: number;
   kills: number;
   parries: number;
   perfectDodges: number;
   bestParryStreak: number;
   damageTaken: number;
+  damageDealt: number;
+  peakComboHits: number;
   elapsedSec: number;
   ascensionLevel: number;
+}
+
+export type RunBests = Pick<RunRecord, 'depthReached' | 'kills' | 'parries' | 'damageDealt' | 'peakComboHits'>;
+
+export interface RunSummary extends RunRecord {
+  victory: boolean;
+  previousRun?: RunRecord;
+  bests: RunBests;
   weaponName: string;
   activeSynergies: string[];
   rewards: ResourceBag;
