@@ -33,6 +33,9 @@ tags:
 - **Profiler à la demande.** Le profilage CPU s’active avec `?profile=1`. Il compte séparément les rendus sautés par temporisation et les images statiques sans nouveau rendu.
 - **Repartir de la nouvelle position après une discontinuité.** Les téléportations et le premier pas des éléments mobiles d’une salle affichent directement leur nouvel état. Les pas suivants reprennent l’interpolation ordinaire.
 
+- **Garder un seul ordre de simulation.** Le moteur enchaîne le déplacement, les dangers, les coups du joueur, les actions ennemies, les projectiles et les interactions. Les modules de jeu utilisent le même tirage d’expédition et le moteur publie les transitions et le HUD. [[Validation#Simulation à graine fixe (C08)]]
+- **Conserver des références visuelles par scène.** Le rendu assemble des couches dans un ordre explicite, avec les signaux d’attaque après le décor de premier plan et la correction colorimétrique. Chromium compare quatre images produites avec une scène et un temps fixes. [[Validation#Références Canvas (C09)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)
