@@ -76,7 +76,7 @@ jobs:
         with:
           node-version: '22'
       - name: Download the full package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: game-zip
           path: zip
@@ -102,12 +102,12 @@ jobs:
       contents: write
     steps:
       - name: Download the update files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-files
           path: release
       - name: Download the full package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: game-zip
           path: zip
