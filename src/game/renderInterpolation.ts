@@ -4,6 +4,8 @@ interface Position {
   angle?: number;
 }
 
+export type PositionInterpolator = <T extends Pick<Position, 'x' | 'y'>>(position: T) => T;
+
 export class RenderInterpolation {
   private previous = new WeakMap<Position, Position>();
 

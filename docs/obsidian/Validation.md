@@ -57,6 +57,16 @@ Les deux séquences en jeu n’ont sauté aucun rendu. Un essai en pause a compt
 
 Dans `src/game/simulationClock.test.ts`, six scénarios du moteur vérifient la téléportation du Spectre et l’Art des Dagues, le premier pas des plateformes et des pendules, la réapparition du joueur et la réutilisation des projectiles. Ils couvrent le retour à l’interpolation normale après la discontinuité.
 
+## Simulation à graine fixe (C08)
+
+Lancer `npm test`. Dans `src/game/engineSystems.test.ts`, quatre scénarios vérifiés avant et après le découpage couvrent la limite des attaques ennemies et le passage du Gardien en phase 2, le renvoi des tirs et ses effets, le délai des éruptions et la garde, puis les tirages de butin et l’ordre des notifications pendant une interaction.
+
+## Références Canvas (C09)
+
+Avec Chromium installé, lancer `npm run build` puis `npm run test:e2e -- renderer.visual`. Les quatre PNG dans `test/e2e/renderer.visual.spec.ts-snapshots/` ont été capturés avant le découpage. Ils montrent le fond du titre, une salle de la strate 1, le signal d’attaque d’un Flagellant et le premier Gardien. Les scènes de jeu utilisent la graine 5.
+
+Le test rend une image Canvas à 2,5 s, en 960 × 540, DPR 1, avec le GPU désactivé et le profil sRGB. La comparaison admet 100 pixels différents au seuil de 0,1. Les quatre images ont correspondu aux références sous Linux sur deux exécutions avant et deux après le découpage. Six traces complémentaires ont retrouvé le même ordre d’appels Canvas, notamment avec le titre de secours, le contraste élevé, la pause et le parallaxe désactivé. Pour un changement visuel voulu, examiner les écarts avant d’actualiser les PNG avec `npm run test:e2e -- renderer.visual --update-snapshots`.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

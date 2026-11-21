@@ -1,30 +1,30 @@
 import { AudioFX } from './audio';
-import { BloodSystem, getBloodToneForEnemy } from './bloodDecals';
+import { BloodSystem } from './bloodDecals';
 import { RoomCamera } from './camera';
 import { startAttack } from './combat';
+import { executeWeaponArt, hurtPlayer, resolveEnemyDeath, resolveMeleeAttack, type DamageEffects } from './damage';
+import { updateEnemies, type EnemyEffects } from './enemyAI';
 import {
   DEFAULT_KEY_BINDINGS,
   DEFAULT_SETTINGS,
-  LORE_TABLETS,
-  NPCS_DEF,
   OATHS_DEF,
   RELICS_POOL,
   WEAPONS_DEF,
 } from './data';
-import { formatKeyLabel, GameplayInputBuffer, InputHub } from './input';
+import { GameplayInputBuffer, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
 import { createPlayer, PlayerMovement } from './movement';
 import { ParticlePool } from './particles';
-import { ProjectilePool } from './projectiles';
+import { ProjectilePool, updateOrbitalWisp, type ProjectileEffects } from './projectiles';
 import { createSeededRandom } from './random';
 import { RenderInterpolation } from './renderInterpolation';
 import { renderGameFrame } from './renderer';
+import { interactWithProps, updateRoomHazards, type RoomHazardEffects, type RoomInteractionEffects } from './room';
 import { FrameProfile } from './frameProfile';
 import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
 import { VfxSystem } from './vfx';
 import {
-  applyEnemyDamage,
   bankRunIntoSave,
   computeActiveSynergies,
   computeComboRank,
@@ -32,14 +32,11 @@ import {
   defaultSave,
   evaluateAchievements,
   exportSaveJson,
-  getLootMultiplier,
   getParryWindowSec,
-  getPlayerDamageStats,
   importSaveJson,
   loadSave,
   mergeSave,
   persistSave,
-  pickBlessingChoices,
 } from './rules';
 import type {
   AttackMove,
@@ -120,6 +117,9 @@ export class CendresEngine {
   private deathDelayTimer = 0;
   private smoothedFps = 60;
 
+  private readonly combatEffects: EnemyEffects & ProjectileEffects & DamageEffects;
+  private readonly roomEffects: RoomHazardEffects & RoomInteractionEffects;
+
   constructor(
     canvas: HTMLCanvasElement,
     callbacks: EngineCallbacks,
@@ -130,6 +130,55 @@ export class CendresEngine {
     if (!context) throw new Error('Canvas 2D context unavailable');
     this.ctx = context;
     this.cb = callbacks;
+    const engine = this;
+    // Save and phase callbacks are synchronous and may replace the engine's current state.
+    this.combatEffects = {
+      get room() { return engine.room; },
+      get player() { return engine.player; },
+      get simTime() { return engine.simTime; },
+      get save() { return engine.save; },
+      get run() { return engine.run; },
+      get deathDelayTimer() { return engine.deathDelayTimer; },
+      get trauma() { return engine.trauma; },
+      blood: this.blood,
+      particles: this.particles,
+      vfx: this.vfx,
+      gameplayRandom: this.gameplayRandom,
+      acquireProjectile: (active) => this.acquireProjectile(active),
+      snapPosition: (entity: Player | Enemy) => this.interpolation.forget(entity),
+      hurtPlayer: (damage, sourceX) => hurtPlayer(this.combatEffects, damage, sourceX),
+      registerComboHit: (hits) => this.registerComboHit(hits),
+      onEnemyKilled: (enemy) => this.onEnemyKilled(enemy),
+      rumble: (weak, strong, duration, enabled) => this.input.rumble(weak, strong, duration, enabled),
+      stopFor: (seconds) => { this.hitStop = seconds; },
+      slowFor: (seconds) => this.clock.slowFor(seconds),
+      shake: (trauma) => { this.trauma = trauma; },
+      delayDefeat: (seconds) => { this.deathDelayTimer = seconds; },
+      updateSave: (updater) => this.updateSave(updater),
+      pushHud: (force) => this.pushHud(force),
+      showBanner: (title, sub, color, duration) => this.showBanner(title, sub, color, duration),
+    };
+    this.roomEffects = {
+      get room() { return engine.room; },
+      get save() { return engine.save; },
+      get simTime() { return engine.simTime; },
+      blood: this.blood,
+      particles: this.particles,
+      gameplayRandom: this.gameplayRandom,
+      hurtPlayer: this.combatEffects.hurtPlayer,
+      snapPosition: this.combatEffects.snapPosition,
+      updateSave: this.combatEffects.updateSave,
+      showBanner: this.combatEffects.showBanner,
+      openMerchant: (run) => {
+        this.cb.onMerchantOpen(run);
+        this.setPhase('merchant');
+      },
+      openBlessingChoices: (choices) => {
+        this.cb.onBlessingChoices(choices);
+        this.setPhase('blessing');
+      },
+      openBastion: () => this.openBastion(),
+    };
     this.save = loadSave();
     this.applySettingsSideEffects();
   }
@@ -839,7 +888,7 @@ export class CendresEngine {
       (run.relics.includes('wind_spur') ? 1.1 : 1) *
       (room.affix?.id === 'tempered_ash' ? 1.12 : 1);
     if (inp.skill && player.skillCd <= 0 && player.attackT <= 0 && run.stam >= weapon.artStamCost) {
-      this.executeWeaponArt();
+      executeWeaponArt(this.combatEffects);
     } else if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
       run.stam -= 26;
       player.stamRegenDelay = 0.65;
@@ -887,573 +936,15 @@ export class CendresEngine {
 
     this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
 
-    // Hazards
-    for (const h of room.hazards) {
-      if (h.kind === 'flamejet') {
-        h.timer = (h.timer + dt) % 3.6;
-        h.active = h.timer >= 2.6;
-        if (
-          h.active &&
-          player.x + player.w > h.x + 4 &&
-          player.x < h.x + h.w - 4 &&
-          player.y + player.h > h.y - 76 &&
-          player.y < h.y + h.h
-        ) {
-          this.hurtPlayer(18, h.x + h.w / 2);
-        }
-      } else if (h.kind === 'pendulum' && h.pivotX !== undefined && h.pivotY !== undefined && h.length) {
-        const ang = Math.sin(this.simTime * 2.15 + h.timer) * 0.88;
-        h.angle = ang;
-        const bx = h.pivotX + Math.sin(ang) * h.length;
-        const by = h.pivotY + Math.cos(ang) * h.length;
-        h.x = bx - 22;
-        h.y = by - 14;
-        if (
-          player.x + player.w > bx - 20 &&
-          player.x < bx + 20 &&
-          player.y + player.h > by - 14 &&
-          player.y < by + 18
-        ) {
-          this.hurtPlayer(26, bx);
-        }
-      } else if (
-        player.x + player.w > h.x &&
-        player.x < h.x + h.w &&
-        player.y + player.h > h.y
-      ) {
-        this.hurtPlayer(22, h.x + h.w / 2);
-        this.interpolation.forget(player);
-        player.y = room.groundY - 120;
-        player.vy = -300;
-      }
-    }
+    updateRoomHazards(room, player, dt, this.roomEffects);
 
-    if (player.y > room.height + 90) {
-      this.hurtPlayer(24, player.x);
-      this.interpolation.forget(player);
-      player.x = 120;
-      player.y = room.groundY - 120;
-      player.vy = 0;
-    }
+    updateOrbitalWisp(room, player, run, dt, this.combatEffects.acquireProjectile);
 
-    // Orbital Flame Wisp Blessing
-    if (run.blessings.includes('orbital_wisp')) {
-      player.wispAngle += dt * 3.2;
-      player.wispCd -= dt;
-      if (player.wispCd <= 0) {
-        const target = room.enemies.find(
-          (e) =>
-            e.hp > 0 &&
-            e.state !== 'dead' &&
-            Math.hypot(e.x - player.x, e.y - player.y) < 340
-        );
-        if (target) {
-          player.wispCd = 1.15;
-          const ang = Math.atan2(target.y + target.h / 2 - (player.y + 20), target.x + target.w / 2 - (player.x + 14));
-          const shot = this.acquireProjectile(room.projectiles);
-          shot.x = player.x + 14;
-          shot.y = player.y + 20;
-          shot.vx = Math.cos(ang) * 440;
-          shot.vy = Math.sin(ang) * 440;
-          shot.r = 5;
-          shot.dmg = 18;
-          shot.friendly = true;
-          shot.color = '#ff9842';
-          shot.kind = 'orb';
-          shot.life = 1.5;
-        }
-      }
-    }
+    resolveMeleeAttack(room, player, run, weapon, dt, this.combatEffects);
 
-    // Player Attack Hitbox
-    if (player.attackT > 0) {
-      player.attackT -= dt;
-      const isHeavy = player.attackMove === 'heavy' || player.attackMove === 'light3';
-      const reach = weapon.reachPx + (isHeavy ? 14 : 0);
-      const ax = player.facing === 1 ? player.x + player.w - 6 : player.x - reach + 6;
-      const ay = player.attackMove === 'launcher' ? player.y - 24 : player.y - 4;
-      const ah = player.attackMove === 'plunge' ? player.h + 26 : player.h + 12;
+    updateEnemies(room, player, run, dt, this.combatEffects);
 
-      // Smash destructible urns
-      for (const pr of room.props) {
-        if (pr.type === 'urn' && !pr.broken && ax < pr.x + pr.w && ax + reach > pr.x && ay < pr.y + pr.h && ay + ah > pr.y) {
-          pr.broken = true;
-          const c = Math.round((4 + this.gameplayRandom() * 5) * getLootMultiplier(this.save, run));
-          run.loot.cendres += c;
-          AudioFX.hit(false);
-          this.particles.spawnBurst(pr.x + pr.w / 2, pr.y + pr.h / 2, '#9c785c', 10, 170);
-          this.particles.addText(pr.x, pr.y - 10, `+${c}🔥`, '#d4a853', 0.9);
-        }
-      }
-
-      // Hit Enemies
-      for (const e of room.enemies) {
-        if (e.hp <= 0 || e.state === 'dead' || player.attackHitIds.has(e.id)) continue;
-        if (ax < e.x + e.w && ax + reach > e.x && ay < e.y + e.h && ay + ah > e.y) {
-          player.attackHitIds.add(e.id);
-          const isRiposte = e.state === 'staggered';
-          const blockedByShield =
-            e.shielded &&
-            e.state !== 'staggered' &&
-            player.attackMove !== 'heavy' &&
-            player.facing !== e.facing;
-
-          const stats = getPlayerDamageStats(
-            this.save,
-            run,
-            player.attackMove,
-            isRiposte,
-            e.sunderT > 0,
-            this.gameplayRandom,
-            room.affix?.id
-          );
-          if (run.critNextAttack) run.critNextAttack = false;
-
-          let finalDmg = stats.damage;
-          if (player.riposteBuffT > 0) {
-            finalDmg = Math.round(finalDmg * 1.2);
-            player.riposteBuffT = 0;
-          }
-          let finalStag = stats.stagger;
-          const armoredPlating =
-            e.elite === 'armored' &&
-            !isRiposte &&
-            e.sunderT <= 0 &&
-            player.attackMove !== 'heavy' &&
-            player.attackMove !== 'plunge';
-          if (blockedByShield) {
-            finalDmg = Math.max(2, Math.round(finalDmg * 0.28));
-            finalStag = Math.round(finalStag * 0.45);
-            AudioFX.guard();
-            this.particles.addText(e.x + e.w / 2, e.y - 14, `BLOQUÉ (${finalDmg})`, '#968b7c', 0.9);
-          } else {
-            if (armoredPlating) {
-              finalDmg = Math.max(2, Math.round(finalDmg * 0.75));
-              this.particles.addText(e.x + e.w / 2, e.y - 26, 'BLINDÉ', '#8ab8e6', 0.8);
-            }
-            this.registerComboHit(1);
-            if (stats.isCrit) {
-              AudioFX.crit();
-              if (run.relics.includes('blood_medal')) {
-                run.hp = Math.min(run.maxHp, run.hp + 4);
-              }
-            } else {
-              AudioFX.hit(isHeavy || isRiposte);
-            }
-          }
-
-          applyEnemyDamage(run, e, finalDmg);
-          e.stagger += finalStag;
-          e.hitFlashT = 0.06;
-          e.vx = player.facing * (isHeavy ? 230 : 120);
-          if (player.attackMove === 'launcher' && !e.isBoss) {
-            e.vy = -290;
-          }
-
-          // Status blessings
-          if (run.blessings.includes('cinder_burn') && isHeavy) {
-            e.burnT = 3.0;
-          }
-          if (run.blessings.includes('sunder_steel')) {
-            e.sunderT = 4.0;
-          }
-          if (run.blessings.includes('lunar_frost')) {
-            e.chillT = 3.0;
-          }
-
-          // Active Synergies on Melee Hit
-          if (e.burnT > 0 && e.chillT > 0 && run.activeSynergies.includes('thermal_shock')) {
-            finalDmg += 28;
-            e.chillT = 0;
-            this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h / 2, 74, '#ff9d42', 'gold', 0.24);
-            this.particles.addText(e.x + e.w / 2, e.y - 36, 'CHOC THERMIQUE +28!', '#ff9d42', 1.1);
-          }
-          if (stats.isCrit && run.activeSynergies.includes('blood_feast')) {
-            run.hp = Math.min(run.maxHp, run.hp + 4);
-          }
-
-          // Riposte execution siphon
-          if (isRiposte) {
-            e.state = 'recover';
-            e.stagger = 0;
-            if (run.activeSynergies.includes('storm_anvil')) {
-              finalDmg = Math.round(finalDmg * 1.35);
-            }
-            if (run.activeSynergies.includes('shatter_bells')) {
-              for (const other of room.enemies) {
-                if (other.id !== e.id && other.hp > 0 && Math.abs(other.x - e.x) < 180) {
-                  other.stagger += 45;
-                }
-              }
-              this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#d4a853', 160, 0.3);
-            }
-            const siphon = (this.save.talents.execution_siphon || 0) * 6;
-            if (siphon > 0) {
-              run.hp = Math.min(run.maxHp, run.hp + siphon);
-              this.particles.addText(player.x, player.y - 18, `+${siphon} PV`, '#5db87a', 0.95);
-            }
-          } else if (e.stagger >= e.maxStagger && e.state !== 'staggered') {
-            e.stagger = 0;
-            e.state = 'staggered';
-            e.stateT = 2.1;
-            this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#ffd470', 80, 0.28);
-            this.particles.addText(e.x + e.w / 2, e.y - 34, 'POSTURE BRISÉE !', '#ff9d42', 1.15);
-          }
-
-          if (this.save.settings?.hitstopEnabled !== false) {
-            this.hitStop = isRiposte || player.attackMove === 'heavy' ? 0.06 : 0.025;
-          }
-          this.trauma = Math.min(1, this.trauma + (isRiposte ? 0.55 : isHeavy ? 0.38 : 0.2));
-          if (isRiposte || isHeavy || stats.isCrit) {
-            this.input.rumble(0.28, isRiposte ? 0.72 : 0.45, 95, this.save.settings?.gamepadRumble !== false);
-          }
-          this.particles.spawnBurst(
-            e.x + e.w / 2,
-            e.y + e.h / 2,
-            isRiposte || stats.isCrit ? '#ffd470' : '#d44242',
-            isRiposte ? 18 : 11,
-            240
-          );
-          this.blood.spawnImpact(
-            e.x + e.w / 2,
-            e.y + e.h * 0.45,
-            player.facing,
-            blockedByShield ? 0.45 : isRiposte ? 1.75 : isHeavy || stats.isCrit ? 1.35 : 0.95,
-            room.platforms,
-            getBloodToneForEnemy(e.kind)
-          );
-
-          const hx = e.x + e.w / 2;
-          const hy = e.y + e.h * 0.45;
-          if (!blockedByShield) {
-            const flareSize = isRiposte ? 76 : isHeavy || stats.isCrit ? 58 : 34;
-            const flareCol = isRiposte || stats.isCrit ? '#ffd470' : '#ff8c3b';
-            this.vfx.spawnImpactFlare(
-              hx,
-              hy,
-              flareSize,
-              flareCol,
-              isRiposte || stats.isCrit ? 'gold' : 'amber',
-              isRiposte ? 0.26 : 0.18
-            );
-            if (isRiposte || stats.isCrit) {
-              this.vfx.spawnLightning(
-                hx - 32,
-                hy - 28,
-                hx + 34,
-                hy + 26,
-                '#ffd470',
-                2.5,
-                0.16
-              );
-              this.vfx.triggerScreenFlash('#ffd470', isRiposte ? 0.2 : 0.11);
-            }
-            if (player.attackMove === 'heavy' || player.attackMove === 'plunge') {
-              this.vfx.spawnGroundFissure(hx, e.y + e.h + 1, 76, '#ff7b29', 1.4);
-            }
-          }
-
-          if (!blockedByShield && this.save.settings?.showDamageNumbers !== false) {
-            const label = isRiposte
-              ? `RIPOSTE -${finalDmg}!`
-              : stats.isCrit
-              ? `CRIT -${finalDmg}!`
-              : `-${finalDmg}`;
-            this.particles.addText(
-              e.x + e.w / 2,
-              e.y - 12,
-              label,
-              isRiposte || stats.isCrit ? '#ffd470' : '#f2d8b3',
-              isRiposte || stats.isCrit ? 1.15 : 1
-            );
-          }
-
-          if (e.hp <= 0) this.onEnemyKilled(e);
-        }
-      }
-    }
-
-    // Update Enemies (with attack token pool of max 3 concurrent windups)
-    let activeAttackers = 0;
-    for (const e of room.enemies) {
-      if (e.state === 'windup' || e.state === 'attack') activeAttackers++;
-    }
-
-    for (const e of room.enemies) {
-      if (e.state === 'dead') {
-        e.deadT -= dt;
-        if (run.isTraining && e.deadT <= 0) {
-          e.state = 'idle';
-          e.hp = e.maxHp;
-          e.stagger = 0;
-          e.burnT = 0;
-          e.chillT = 0;
-          e.sunderT = 0;
-          this.vfx.spawnAshDissolve(e.x + e.w / 2, e.y + e.h * 0.5, 10, '#ffd470', e.w, e.h);
-        }
-        continue;
-      }
-      if (e.hp <= 0) continue;
-
-      e.hitFlashT = Math.max(0, e.hitFlashT - dt);
-      e.sunderT = Math.max(0, e.sunderT - dt);
-      e.chillT = Math.max(0, e.chillT - dt);
-
-      if (e.elite === 'blazing' && Math.random() < dt * 7) {
-        this.vfx.spawnAshDissolve(e.x + e.w / 2, e.y + e.h * 0.45, 1, '#ff7b29', e.w * 0.6, e.h * 0.5);
-      }
-
-      if (e.burnT > 0) {
-        e.burnT -= dt;
-        e.burnTickT -= dt;
-        if (e.burnTickT <= 0) {
-          e.burnTickT = 0.75;
-          applyEnemyDamage(run, e, 10);
-          this.particles.spawnBurst(e.x + e.w / 2, e.y + 18, '#e06b2b', 4, 90);
-          this.particles.addText(e.x + e.w / 2, e.y - 8, '-10 🔥', '#e06b2b', 0.85);
-          if (e.hp <= 0) {
-            this.onEnemyKilled(e);
-            continue;
-          }
-        }
-      }
-
-      // Boss Phase 2 transition at 50% HP
-      if (e.isBoss && e.phase === 1 && e.hp <= e.maxHp * 0.5) {
-        e.phase = 2;
-        e.state = 'idle';
-        e.cd = 0.6;
-        this.hitStop = 0.07;
-        this.trauma = 0.7;
-        AudioFX.boss(e.kind, true);
-        this.particles.spawnRing(e.x + e.w / 2, e.y + e.h / 2, '#ff4d63', 180, 0.45);
-        this.vfx.triggerScreenFlash('#ff4d63', 0.3);
-        this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 112, '#ff4d63', 'crimson', 0.38);
-        this.vfx.spawnGroundFissure(e.x + e.w / 2, e.y + e.h, 130, '#ff4d63', 1.8);
-        for (let b = 0; b < 4; b++) {
-          const ang = (b * Math.PI) / 2 + 0.35;
-          this.vfx.spawnLightning(
-            e.x + e.w / 2,
-            e.y + e.h * 0.45,
-            e.x + e.w / 2 + Math.cos(ang) * 110,
-            e.y + e.h * 0.45 + Math.sin(ang) * 90,
-            '#ff7b7b',
-            2.8,
-            0.22
-          );
-        }
-        this.showBanner(e.name, 'Phase II — Fureur de l’Éclipse', '#ff4d63', 2.0);
-      }
-
-      const chillMult = e.chillT > 0 ? 0.75 : 1;
-      const swiftMult = e.elite === 'swift' ? 1.25 : 1;
-      const simEnemyDt = dt * chillMult * swiftMult;
-
-      const dx = player.x + player.w / 2 - (e.x + e.w / 2);
-      const dy = player.y + player.h / 2 - (e.y + e.h / 2);
-      const dist = Math.hypot(dx, dy);
-
-      // Slow posture decay when enemy is idle
-      if (e.state === 'idle' && e.stagger > 0) {
-        e.stagger = Math.max(0, e.stagger - dt * 6);
-      }
-
-      if (e.state === 'staggered') {
-        e.stateT -= dt;
-        e.vx *= 0.84;
-        if (e.stateT <= 0) e.state = 'idle';
-      } else if (e.state === 'windup') {
-        e.stateT -= simEnemyDt;
-        e.vx *= 0.84;
-        if (e.stateT <= 0) {
-          this.executeEnemyAttack(e, dx, dy, dist);
-        }
-      } else if (e.state === 'attack') {
-        e.stateT -= simEnemyDt;
-        if (
-          player.x < e.x + e.w + 10 &&
-          player.x + player.w > e.x - 10 &&
-          player.y < e.y + e.h &&
-          player.y + player.h > e.y
-        ) {
-          this.hurtPlayer(e.dmg, e.x + e.w / 2);
-        }
-        if (e.stateT <= 0) {
-          e.state = 'recover';
-          e.stateT = e.isBoss ? (e.phase === 2 ? 0.35 : 0.5) : 0.45;
-          e.cd = e.isBoss ? (e.phase === 2 ? 0.55 : 0.8) : 1.05;
-        }
-      } else if (e.state === 'recover') {
-        e.stateT -= simEnemyDt;
-        e.vx *= 0.85;
-        if (e.stateT <= 0) e.state = 'idle';
-      } else {
-        e.cd = Math.max(0, e.cd - simEnemyDt);
-        const aggroRange = e.isBoss ? 950 : 460;
-        if (dist < aggroRange) {
-          e.facing = dx >= 0 ? 1 : -1;
-          const desiredRange =
-            e.kind === 'watcher'
-              ? 270
-              : e.kind === 'arbalest'
-              ? 360
-              : e.kind === 'pyromancer'
-              ? 310
-              : e.isBoss
-              ? 155
-              : 78;
-
-          if (dist > desiredRange) {
-            const baseSpd = e.isBoss
-              ? e.phase === 2
-                ? 195
-                : 165
-              : e.kind === 'flagellant'
-              ? 105
-              : e.kind === 'specter'
-              ? 175
-              : 140;
-            e.vx += (e.facing * baseSpd * swiftMult * chillMult - e.vx) * Math.min(1, dt * 6);
-          } else {
-            e.vx *= 0.86;
-            if (e.cd <= 0 && (e.isBoss || activeAttackers < 3)) {
-              activeAttackers++;
-              e.state = 'windup';
-              e.stateT =
-                e.kind === 'flagellant'
-                  ? 0.6
-                  : e.kind === 'arbalest'
-                  ? 0.65
-                  : e.isBoss
-                  ? e.phase === 2
-                    ? 0.42
-                    : 0.5
-                  : 0.44;
-              if (e.kind === 'specter') {
-                this.particles.spawnBurst(e.x + e.w / 2, e.y + e.h / 2, '#796794', 10, 140);
-              }
-            }
-          }
-        } else {
-          e.vx *= 0.9;
-        }
-      }
-
-      e.x = Math.max(20, Math.min(room.width - e.w - 20, e.x + e.vx * dt));
-      if (!e.flying) {
-        e.vy += 1400 * dt;
-        e.y += e.vy * dt;
-        for (const p of room.platforms) {
-          if (
-            p.type === 'solid' &&
-            e.x + e.w > p.x &&
-            e.x < p.x + p.w &&
-            e.vy >= 0 &&
-            e.y + e.h >= p.y &&
-            e.y + e.h <= p.y + 34
-          ) {
-            e.y = p.y - e.h;
-            e.vy = 0;
-          }
-        }
-      } else {
-        // Ennemi volant : oscillation organique & flottement vertical adaptatif
-        const hoverTargetY = Math.max(room.groundY - 140, Math.min(room.groundY - 50, player.y - 28));
-        const hoverOffset = Math.sin(this.simTime * 2.8 + e.id) * 16;
-        const targetY = hoverTargetY + hoverOffset;
-        e.y += (targetY - e.y) * Math.min(1, dt * 2.5);
-      }
-    }
-
-    // Remove finished dead enemies
-    for (let i = room.enemies.length - 1; i >= 0; i--) {
-      if (room.enemies[i].state === 'dead' && room.enemies[i].deadT <= 0) {
-        room.enemies.splice(i, 1);
-      }
-    }
-
-    // Update Projectiles
-    for (let i = room.projectiles.length - 1; i >= 0; i--) {
-      const pr = room.projectiles[i];
-      pr.life -= dt;
-      if (pr.life <= 0) {
-        this.projectiles.release(room.projectiles, i);
-        continue;
-      }
-
-      if (pr.kind === 'eruption') {
-        if (pr.telegraphT && pr.telegraphT > 0) {
-          pr.telegraphT -= dt;
-        } else {
-          if (
-            player.x + player.w > pr.x - pr.r * 0.65 &&
-            player.x < pr.x + pr.r * 0.65 &&
-            player.y + player.h > pr.y - 110 &&
-            player.y < pr.y + 10
-          ) {
-            this.hurtPlayer(pr.dmg, pr.x);
-          }
-        }
-        continue;
-      }
-
-      pr.x += pr.vx * dt;
-      pr.y += pr.vy * dt;
-      if (pr.x < -40 || pr.x > room.width + 40 || pr.y < -40 || pr.y > room.height + 40) {
-        this.projectiles.release(room.projectiles, i);
-        continue;
-      }
-
-      if (
-        !pr.friendly &&
-        pr.x + pr.r > player.x &&
-        pr.x - pr.r < player.x + player.w &&
-        pr.y + pr.r > player.y &&
-        pr.y - pr.r < player.y + player.h
-      ) {
-        if (player.parryT > 0) {
-          pr.friendly = true;
-          pr.vx *= -1.5;
-          pr.vy *= -1.5;
-          pr.dmg = Math.round(pr.dmg * (run.relics.includes('ember_ring') ? 2.4 : 2.0));
-          run.parries += 1;
-          run.parryStreak += 1;
-          run.bestParryStreak = Math.max(run.bestParryStreak, run.parryStreak);
-          AudioFX.parry();
-          this.hitStop = 0.05;
-          this.particles.spawnRing(pr.x, pr.y, '#ffd470', 60, 0.22);
-          this.particles.addText(player.x + 14, player.y - 14, 'RENVOI !', '#ffd470', 1.1);
-        } else {
-          this.hurtPlayer(pr.dmg, pr.x);
-          this.projectiles.release(room.projectiles, i);
-        }
-      } else if (pr.friendly) {
-        for (const e of room.enemies) {
-          if (
-            e.hp > 0 &&
-            e.state !== 'dead' &&
-            pr.x + pr.r > e.x &&
-            pr.x - pr.r < e.x + e.w &&
-            pr.y + pr.r > e.y &&
-            pr.y - pr.r < e.y + e.h
-          ) {
-            applyEnemyDamage(run, e, pr.dmg);
-            e.hitFlashT = 0.06;
-            if (run.blessings.includes('cinder_burn')) e.burnT = Math.max(e.burnT, 3.0);
-            if (run.blessings.includes('sunder_steel')) e.sunderT = Math.max(e.sunderT, 4.0);
-            if (run.blessings.includes('lunar_frost')) e.chillT = Math.max(e.chillT, 3.0);
-            this.registerComboHit(1);
-            AudioFX.hit(false);
-            this.particles.spawnBurst(pr.x, pr.y, '#ffd470', 8, 160);
-            this.vfx.spawnImpactFlare(pr.x, pr.y, 44, '#ffd470', 'gold', 0.16);
-            this.particles.addText(e.x + e.w / 2, e.y - 10, `-${pr.dmg}`, '#ffd470');
-            if (e.hp <= 0) this.onEnemyKilled(e);
-            this.projectiles.release(room.projectiles, i);
-            break;
-          }
-        }
-      }
-    }
+    this.projectiles.update(room, player, run, dt, this.combatEffects);
 
     // Interactions (Chests, Braziers, Shrines, Merchants, Lore, NPCs, Exit)
     this.handlePropsInteraction(inp);
@@ -1471,594 +962,14 @@ export class CendresEngine {
     }
   }
 
-  private executeWeaponArt(): void {
-    if (!this.player || !this.run || !this.room) return;
-    const player = this.player;
-    const run = this.run;
-    const room = this.room;
-    const wDef = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
-    const cdMult = run.activeSynergies.includes('phantom_gale') ? 0.7 : 1;
-
-    run.stam = Math.max(0, run.stam - wDef.artStamCost);
-    player.stamRegenDelay = 0.65;
-    player.skillMaxCd = wDef.artCooldown * cdMult;
-    player.skillCd = player.skillMaxCd;
-    AudioFX.skillArt(wDef.key);
-    this.input.rumble(0.45, 0.72, 140, this.save.settings?.gamepadRumble !== false);
-
-    const cx = player.x + player.w / 2;
-    const cy = player.y + 22;
-    this.particles.addText(cx, player.y - 24, `${wDef.artName.toUpperCase()} !`, '#ffd470', 1.1);
-
-    if (wDef.key === 'clay_blade') {
-      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.28);
-      const shot = this.acquireProjectile(room.projectiles);
-      shot.x = cx + player.facing * 20;
-      shot.y = cy;
-      shot.vx = player.facing * 520;
-      shot.vy = 0;
-      shot.r = 18;
-      shot.dmg = 48;
-      shot.friendly = true;
-      shot.color = '#ffd470';
-      shot.kind = 'crescent';
-      shot.life = 1.0;
-      this.vfx.spawnImpactFlare(cx + player.facing * 24, cy, 78, '#ffd470', 'gold', 0.25);
-    } else if (wDef.key === 'belfry_greatsword') {
-      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.34);
-      this.trauma = 0.62;
-      this.vfx.spawnGroundFissure(cx + player.facing * 60, player.y + player.h, 150, '#ff7b29', 1.7);
-      this.vfx.spawnImpactFlare(cx + player.facing * 50, player.y + player.h - 10, 96, '#ff9842', 'amber', 0.3);
-      for (const e of room.enemies) {
-        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 175) {
-          applyEnemyDamage(run, e, 54);
-          e.stagger += 75;
-          e.hitFlashT = 0.08;
-          if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
-          if (run.blessings.includes('sunder_steel')) e.sunderT = 4.0;
-          if (run.blessings.includes('lunar_frost')) e.chillT = 3.0;
-          this.particles.addText(e.x + e.w / 2, e.y - 16, '-54 SISMIQUE!', '#ff9d42', 1.1);
-          if (e.hp <= 0) this.onEnemyKilled(e);
-        }
-      }
-    } else if (wDef.key === 'eclipse_daggers') {
-      const target = room.enemies.find((e) => e.hp > 0 && e.state !== 'dead' && Math.abs(e.x - cx) < 320);
-      if (target) {
-        player.x = Math.max(24, Math.min(room.width - 52, target.x - player.facing * 32));
-        this.interpolation.forget(player);
-        player.facing = target.x >= player.x ? 1 : -1;
-        this.vfx.spawnLightning(cx, cy, player.x + 14, cy, '#9fd0ff', 2.8, 0.22);
-      } else {
-        player.vx = player.facing * 680;
-      }
-      player.invulnT = 0.35;
-      run.critNextAttack = true;
-      startAttack(player, this.vfx, wDef.reachPx, 'dash_strike', 0.2);
-    } else if (wDef.key === 'ash_halberd') {
-      startAttack(player, this.vfx, wDef.reachPx, 'launcher', 0.28);
-      this.vfx.spawnSlashArc(cx, cy, 118, -1.5, 1.5, player.facing, '#ffd470', '#ffffff', 24, 0.25);
-      for (const e of room.enemies) {
-        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 145) {
-          applyEnemyDamage(run, e, 44);
-          e.sunderT = 5.0;
-          if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
-          if (run.blessings.includes('lunar_frost')) e.chillT = 3.0;
-          if (!e.isBoss) e.vy = -260;
-          this.particles.addText(e.x + e.w / 2, e.y - 16, '-44 FISSURÉ!', '#ffd470', 1.05);
-          if (e.hp <= 0) this.onEnemyKilled(e);
-        }
-      }
-    } else if (wDef.key === 'scythe_eclipse') {
-      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.28);
-      this.vfx.spawnSlashArc(cx, cy, 108, -Math.PI, Math.PI, player.facing, '#ff4d63', '#ffe0eb', 22, 0.26);
-      let drained = 0;
-      for (const e of room.enemies) {
-        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 135) {
-          applyEnemyDamage(run, e, 46);
-          e.chillT = 4.0;
-          if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
-          if (run.blessings.includes('sunder_steel')) e.sunderT = 4.0;
-          drained += 8;
-          if (e.hp <= 0) this.onEnemyKilled(e);
-        }
-      }
-      if (drained > 0) {
-        run.hp = Math.min(run.maxHp, run.hp + drained);
-        this.particles.addText(cx, player.y - 38, `+${drained} PV MOISSON`, '#ff4d63', 1);
-      }
-    } else {
-      // twin_hammers: double tectonic slam
-      startAttack(player, this.vfx, wDef.reachPx, 'heavy', 0.32);
-      this.trauma = 0.68;
-      this.vfx.spawnGroundFissure(cx - 48, player.y + player.h, 85, '#ff7b29', 1.5);
-      this.vfx.spawnGroundFissure(cx + 48, player.y + player.h, 85, '#ff7b29', 1.5);
-      for (const e of room.enemies) {
-        if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 150) {
-          applyEnemyDamage(run, e, 42);
-          e.stagger = e.maxStagger;
-          e.state = 'staggered';
-          e.stateT = 2.4;
-          if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
-          if (run.blessings.includes('sunder_steel')) e.sunderT = 4.0;
-          this.particles.addText(e.x + e.w / 2, e.y - 18, 'GARDE PULVÉRISÉE !', '#ffd470', 1.15);
-          if (e.hp <= 0) this.onEnemyKilled(e);
-        }
-      }
-    }
-    this.pushHud(true);
-  }
-
-  private executeEnemyAttack(e: Enemy, dx: number, dy: number, dist: number): void {
-    if (!this.room || !this.player) return;
-    e.state = 'attack';
-    e.stateT = 0.24;
-    e.attackPattern = (e.attackPattern + 1) % 3;
-
-    if (e.kind === 'specter') {
-      // Teleport behind player before slash
-      const targetX = Math.max(
-        30,
-        Math.min(this.room.width - e.w - 30, this.player.x - this.player.facing * 54)
-      );
-      e.x = targetX;
-      this.interpolation.forget(e);
-      e.facing = this.player.x >= e.x ? 1 : -1;
-      e.vx = e.facing * 240;
-      return;
-    }
-
-    if (e.kind === 'pyromancer') {
-      const shot = this.acquireProjectile(this.room.projectiles);
-      shot.x = this.player.x + this.player.w / 2;
-      shot.y = this.room.groundY;
-      shot.vx = 0;
-      shot.vy = 0;
-      shot.r = 28;
-      shot.dmg = e.dmg;
-      shot.friendly = false;
-      shot.color = '#e06b2b';
-      shot.kind = 'eruption';
-      shot.telegraphT = 0.65;
-      shot.life = 1.05;
-      return;
-    }
-
-    if (e.kind === 'watcher' || e.kind === 'arbalest') {
-      const ang = Math.atan2(dy, dx);
-      const speed = e.kind === 'arbalest' ? 520 : 340;
-      const shot = this.acquireProjectile(this.room.projectiles);
-      shot.x = e.x + e.w / 2;
-      shot.y = e.y + e.h * 0.45;
-      shot.vx = Math.cos(ang) * speed;
-      shot.vy = Math.sin(ang) * speed;
-      shot.r = e.kind === 'arbalest' ? 6 : 8;
-      shot.dmg = e.dmg;
-      shot.friendly = false;
-      shot.color = e.kind === 'arbalest' ? '#ff4d63' : '#e06b2b';
-      shot.kind = e.kind === 'arbalest' ? 'bolt' : 'orb';
-      shot.life = 2.2;
-      return;
-    }
-
-    if (e.isBoss) {
-      if (e.attackPattern === 1 || dist > 230) {
-        // Multi-orb / Crescent barrage
-        const ang = Math.atan2(dy, dx);
-        const count = e.phase === 2 ? 5 : 3;
-        for (let i = 0; i < count; i++) {
-          const a = ang + (i - (count - 1) / 2) * 0.2;
-          const shot = this.acquireProjectile(this.room.projectiles);
-          shot.x = e.x + e.w / 2;
-          shot.y = e.y + e.h * 0.45;
-          shot.vx = Math.cos(a) * (e.phase === 2 ? 400 : 340);
-          shot.vy = Math.sin(a) * (e.phase === 2 ? 400 : 340);
-          shot.r = 10;
-          shot.dmg = e.dmg;
-          shot.friendly = false;
-          shot.color = e.kind === 'mother' ? '#ff4d63' : '#ffd470';
-          shot.kind = e.kind === 'sovereign' ? 'crescent' : 'orb';
-          shot.life = 2.6;
-        }
-      } else if (e.phase === 2 && e.attackPattern === 2) {
-        // Ground Eruption Pillar
-        const shot = this.acquireProjectile(this.room.projectiles);
-        shot.x = this.player.x + this.player.w / 2;
-        shot.y = this.room.groundY;
-        shot.vx = 0;
-        shot.vy = 0;
-        shot.r = 36;
-        shot.dmg = e.dmg;
-        shot.friendly = false;
-        shot.color = '#ff4d63';
-        shot.kind = 'eruption';
-        shot.telegraphT = 0.55;
-        shot.life = 0.95;
-      }
-      e.vx = e.facing * (e.phase === 2 ? 480 : 410);
-      return;
-    }
-
-    e.vx = e.facing * (e.kind === 'flagellant' ? 280 : 310);
-  }
-
-  private hurtPlayer(rawDmg: number, sourceX: number): void {
-    if (!this.player || !this.run || !this.room || this.deathDelayTimer > 0) {
-      return;
-    }
-    const player = this.player;
-    const run = this.run;
-
-    // 0. Check Perfect Dodge during active Dash evading a strike!
-    if (player.dashT > 0) {
-      if (player.invulnT > 0.14) {
-        player.invulnT = 0.14;
-        run.perfectDodges += 1;
-        run.stam = Math.min(run.maxStam, run.stam + 14);
-        run.critNextAttack = true;
-        this.clock.slowFor(0.22);
-        AudioFX.perfectDodge();
-        this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 62, '#8ab8e6', 'astral', 0.24);
-        this.particles.addText(player.x + 14, player.y - 18, 'ESQUIVE PARFAITE !', '#8ab8e6', 1.1);
-      }
-      return;
-    }
-
-    if (player.invulnT > 0) return;
-
-    // 1. Check Perfect Sekiro Deflect!
-    if (player.parryT > 0) {
-      AudioFX.parry();
-      if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.08;
-      this.clock.slowFor(0.18);
-      this.trauma = 0.48;
-      this.input.rumble(0.42, 0.85, 130, this.save.settings?.gamepadRumble !== false);
-      player.invulnT = 0.26;
-      player.riposteBuffT = 4.0;
-      run.stam = Math.min(run.maxStam, run.stam + 24);
-      run.parries += 1;
-      run.parryStreak += 1;
-      run.bestParryStreak = Math.max(run.bestParryStreak, run.parryStreak);
-      if (run.parryStreak >= 3 && run.parryStreak % 3 === 0) {
-        run.stam = Math.min(run.maxStam, run.stam + 18);
-        this.particles.addText(player.x + 14, player.y - 36, `ÉLAN ${run.parryStreak}x !`, '#ff9d42', 1.05);
-      }
-      this.registerComboHit(2);
-      if (run.blessings.includes('bronze_counter')) run.critNextAttack = true;
-      const pxP = player.x + player.w / 2 + player.facing * 16;
-      const pyP = player.y + 20;
-      const quietParry = this.save.settings?.reduceFlashes;
-      this.particles.spawnBurst(pxP, pyP, '#ffd470', quietParry ? 6 : 16, quietParry ? 120 : 270);
-      this.particles.spawnRing(player.x + player.w / 2, player.y + 20, '#ffd470', 90, 0.26);
-      if (!quietParry) {
-        this.particles.spawnBurst(pxP, pyP, '#fff3cb', 6, 180, 160, 1);
-        this.vfx.spawnImpactFlare(pxP, pyP, 84, '#ffd470', 'gold', 0.25);
-        this.vfx.triggerScreenFlash('#ffd470', 0.18);
-      }
-      for (let b = 0; !quietParry && b < 3; b++) {
-        const ang = -0.8 + b * 0.8 + (player.facing === -1 ? Math.PI : 0);
-        this.vfx.spawnLightning(
-          pxP,
-          pyP,
-          pxP + Math.cos(ang) * 72,
-          pyP + Math.sin(ang) * 72,
-          '#ffd470',
-          2.6,
-          0.18
-        );
-      }
-      this.particles.addText(player.x + 14, player.y - 16, 'PARADE PARFAITE', '#ffe2a3', 1.15);
-
-      const stagPower =
-        ((this.save.oath === 'airain' ? 78 : 55) +
-          (this.save.talents.parry_mastery || 0) * 10) *
-        (run.relics.includes('eclipse_mirror') ? 1.2 : 1);
-
-      for (const e of this.room.enemies) {
-        if (e.hp <= 0 || e.state === 'dead') continue;
-        if (Math.abs(e.x + e.w / 2 - (player.x + player.w / 2)) < 145) {
-          e.stagger += run.blessings.includes('fortress_guard')
-            ? Math.round(stagPower * 1.45)
-            : stagPower;
-          if (run.blessings.includes('thunder_parry')) {
-            applyEnemyDamage(run, e, 38);
-            e.hitFlashT = 0.06;
-            this.particles.addText(e.x + e.w / 2, e.y - 24, '-38 ⚡', '#ffd470');
-            if (e.hp <= 0) this.onEnemyKilled(e);
-          }
-          if (e.hp > 0 && e.stagger >= e.maxStagger) {
-            e.stagger = 0;
-            e.state = 'staggered';
-            e.stateT = 2.1;
-            this.particles.addText(e.x + e.w / 2, e.y - 40, 'BRISÉ !', '#ff9d42', 1.2);
-          }
-        }
-      }
-      this.pushHud(true);
-      return;
-    }
-
-    // 2. Partial Guard Mitigation
-    let dmg = rawDmg;
-    if (this.save.oath === 'eclipse') dmg = Math.round(dmg * 1.25);
-    if (run.relics.includes('iron_crown')) dmg = Math.round(dmg * 0.82);
-
-    if (player.guardT > 0 && run.stam >= 15) {
-      run.stam -= 15;
-      dmg = Math.max(2, Math.round(dmg * 0.4));
-      AudioFX.guard();
-      this.particles.addText(player.x + 14, player.y - 12, `GARDE -${dmg}`, '#b8b0a6');
-    } else {
-      run.parryStreak = 0;
-      run.comboHits = 0;
-      run.comboTimer = 0;
-      AudioFX.hurt();
-      this.particles.addText(player.x + 14, player.y - 12, `-${dmg}`, '#ff4d5e', 1.1);
-    }
-
-    run.damageTaken += Math.min(run.hp, dmg);
-    run.hp = Math.max(0, run.hp - dmg);
-    player.invulnT = 0.65;
-    player.hitFlashT = 0.08;
-    player.vx = (player.x < sourceX ? -1 : 1) * 240;
-    player.vy = -190;
-    if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.055;
-    this.trauma = 0.62;
-    this.input.rumble(0.55, 0.85, 160, this.save.settings?.gamepadRumble !== false);
-    this.particles.spawnBurst(player.x + player.w / 2, player.y + 24, '#c4303e', 14, 240);
-    this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 48, '#ff4d5e', 'crimson', 0.18);
-    this.vfx.triggerScreenFlash('#c4303e', 0.24);
-    this.blood.spawnImpact(
-      player.x + player.w / 2,
-      player.y + player.h * 0.5,
-      player.x < sourceX ? -1 : 1,
-      1.15,
-      this.room.platforms,
-      'crimson'
-    );
-
-    // Second Wind talent check
-    if (run.hp <= 0 && (this.save.talents.second_wind || 0) > 0 && !run.secondWindUsed) {
-      run.secondWindUsed = true;
-      run.hp = Math.round(run.maxHp * 0.3);
-      player.invulnT = 1.6;
-      AudioFX.heal();
-      this.particles.spawnRing(player.x + player.w / 2, player.y + 24, '#ffd470', 140, 0.4);
-      this.particles.addText(player.x + 14, player.y - 26, 'DERNIER SOUFFLE !', '#ffd470', 1.25);
-      this.pushHud(true);
-      return;
-    }
-
-    if (run.hp <= 0) {
-      if (run.isTraining) {
-        run.hp = run.maxHp;
-        run.flasks = run.maxFlasks;
-        run.stam = run.maxStam;
-        player.invulnT = 1.6;
-        AudioFX.heal();
-        this.particles.spawnRing(player.x + player.w / 2, player.y + 24, '#ffd470', 120, 0.35);
-        this.particles.addText(player.x + 14, player.y - 26, 'RÉGÉNÉRATION LIBRE !', '#ffd470', 1.1);
-        this.pushHud(true);
-        return;
-      }
-      AudioFX.death();
-      this.deathDelayTimer = 0.65;
-      this.showBanner("L'ARGILE SE BRISE", 'Bilan de l’expédition…', '#c4303e', 1.8);
-    }
-    this.pushHud(true);
-  }
-
-  private onEnemyKilled(e: Enemy): void {
-    if (!this.run || !this.room) return;
-    e.state = 'dead';
-    e.deadT = 0.35;
-    this.run.kills += 1;
-
-    if (!this.run.isTraining) {
-      this.updateSave((s) => ({
-        ...s,
-        bestiaryKills: {
-          ...s.bestiaryKills,
-          [e.kind]: (s.bestiaryKills[e.kind] || 0) + 1,
-        },
-        records: {
-          ...s.records,
-          bossesSlain: s.records.bossesSlain + (e.isBoss ? 1 : 0),
-        },
-      }));
-    }
-
-    this.particles.spawnBurst(
-      e.x + e.w / 2,
-      e.y + e.h / 2,
-      '#d4a853',
-      e.isBoss ? 48 : 18,
-      280
-    );
-    this.vfx.spawnAshDissolve(
-      e.x + e.w / 2,
-      e.y + e.h * 0.5,
-      e.isBoss ? 42 : 16,
-      e.isBoss ? '#ffd470' : '#ff8c3b',
-      e.w,
-      e.h
-    );
-    if (e.isBoss) {
-      this.clock.slowFor(0.45);
-      this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 130, '#ffd470', 'gold', 0.42);
-      this.vfx.triggerScreenFlash('#ffd470', 0.32);
-    }
-    this.blood.spawnImpact(
-      e.x + e.w / 2,
-      e.y + e.h * 0.55,
-      this.player ? this.player.facing : -e.facing,
-      e.isBoss ? 2.2 : 1.55,
-      this.room.platforms,
-      getBloodToneForEnemy(e.kind)
-    );
-
-    const mult = getLootMultiplier(this.save, this.run, this.room.affix?.id);
-    const baseC = e.isBoss ? 80 : e.kind === 'flagellant' ? 24 : 13;
-    const cendres = Math.round(baseC * (e.elite !== 'none' ? 1.7 : 1) * mult);
-    this.run.loot.cendres += cendres;
-
-    const ferChance = (e.elite !== 'none' ? 0.85 : 0.25) + (this.run.relics.includes('cinder_magnet') ? 0.15 : 0);
-    if (e.isBoss || this.gameplayRandom() < ferChance) {
-      this.run.loot.fer += e.isBoss ? 2 : 1;
-    }
-    if (e.isBoss || this.gameplayRandom() < 0.08 + (this.save.buildings.vigie || 0) * 0.03) {
-      this.run.loot.larmes += 1;
-    }
-
-    if (this.run.blessings.includes('vampiric')) {
-      this.run.hp = Math.min(this.run.maxHp, this.run.hp + 8);
-    }
-    if (this.run.blessings.includes('ash_echo') && this.player) {
-      this.run.stam = Math.min(this.run.maxStam, this.run.stam + 18);
-      this.player.dashCd = 0;
-    }
-
-    if (e.isBoss) {
-      this.room.props.forEach((p) => {
-        if (p.type === 'exit') p.locked = false;
-      });
-      AudioFX.victory();
-      this.showBanner('GARDIEN TERRASSÉ', 'Le passage vers les profondeurs est ouvert', '#ffd470', 2.6);
-    }
-    this.pushHud(true);
+  private onEnemyKilled(enemy: Enemy): void {
+    resolveEnemyDeath(this.combatEffects, enemy);
   }
 
   private handlePropsInteraction(inp: InputState): void {
     if (!this.room || !this.player || !this.run) return;
-    const player = this.player;
-    const run = this.run;
-    let prompt = '';
-    const interact = this.input.lastInputMode === 'Manette'
-      ? 'A / Croix'
-      : formatKeyLabel(this.save.settings?.keyBindings?.interact ?? DEFAULT_KEY_BINDINGS.interact);
-    const action = `[${interact}]`;
-
-    for (const pr of this.room.props) {
-      if (pr.type === 'urn') continue;
-      const near =
-        Math.abs(player.x + player.w / 2 - (pr.x + pr.w / 2)) < 58 &&
-        Math.abs(player.y + player.h - (pr.y + pr.h)) < 70;
-      if (!near) continue;
-
-      if ((pr.type === 'chest' || pr.type === 'gilded_chest') && !pr.opened) {
-        prompt = pr.type === 'gilded_chest' ? `${action} Ouvrir le Reliquaire Doré` : `${action} Ouvrir le Reliquaire`;
-        if (inp.interact) {
-          pr.opened = true;
-          const mult = getLootMultiplier(this.save, run);
-          const c = Math.round((pr.type === 'gilded_chest' ? 35 : 20 + this.gameplayRandom() * 14) * mult);
-          const f = pr.type === 'gilded_chest' || this.gameplayRandom() < 0.48 + (this.save.buildings.vigie || 0) * 0.08 ? 1 : 0;
-          run.loot.cendres += c;
-          run.loot.fer += f;
-
-          if (pr.type === 'gilded_chest') {
-            const unowned = RELICS_POOL.filter((r) => !run.relics.includes(r.id));
-            if (unowned.length > 0) {
-              const relic = unowned[Math.floor(this.gameplayRandom() * unowned.length)];
-              run.relics.push(relic.id);
-              run.activeSynergies = computeActiveSynergies(run);
-              this.particles.addText(pr.x, pr.y - 34, `Relique : ${relic.name}`, '#ffd470', 1.1);
-            }
-          }
-          AudioFX.pickup();
-          this.particles.spawnBurst(pr.x + pr.w / 2, pr.y, '#ffd470', 18, 200);
-          this.particles.addText(pr.x, pr.y - 16, `+${c}🔥 ${f ? `+${f}⛓️` : ''}`, '#d4a853');
-        }
-      } else if (pr.type === 'brazier' && !pr.used) {
-        prompt = run.isTraining
-          ? `${action} Se régénérer au Brasero (Illimité)`
-          : `${action} Se réchauffer au Brasero (+35% PV & +1 Fiole)`;
-        if (inp.interact) {
-          if (!run.isTraining) pr.used = true;
-          const heal = run.isTraining ? run.maxHp : Math.round(run.maxHp * 0.35);
-          run.hp = Math.min(run.maxHp, run.hp + heal);
-          run.flasks = run.isTraining ? run.maxFlasks : Math.min(run.maxFlasks, run.flasks + 1);
-          AudioFX.heal();
-          this.particles.spawnBurst(pr.x + pr.w / 2, pr.y, '#ff9842', 20, 180);
-          this.particles.addText(
-            pr.x,
-            pr.y - 20,
-            run.isTraining ? 'VITALITÉ & FIOLES RESTAURÉES' : `+${heal} PV · +1 Fiole`,
-            '#ff9842'
-          );
-        }
-      } else if (pr.type === 'shrine' && !pr.used) {
-        prompt = `${action} Autel de Sang (Sacrifier 20% PV -> +55🔥 & +1💧)`;
-        if (inp.interact) {
-          pr.used = true;
-          const sac = Math.max(1, Math.round(run.maxHp * 0.2));
-          run.hp = Math.max(1, run.hp - sac);
-          run.loot.cendres += 55;
-          run.loot.larmes += 1;
-          AudioFX.sacrifice();
-          this.particles.spawnBurst(pr.x + pr.w / 2, pr.y, '#c4303e', 18, 180);
-          this.blood.spawnImpact(
-            pr.x + pr.w / 2,
-            pr.y + pr.h * 0.5,
-            1,
-            0.95,
-            this.room.platforms,
-            'crimson'
-          );
-          this.particles.addText(pr.x, pr.y - 22, `+55🔥 +1💧`, '#7ab8ff');
-        }
-      } else if (pr.type === 'merchant') {
-        prompt = `${action} Parler au Marchand Errant`;
-        if (inp.interact) {
-          AudioFX.ui();
-          this.cb.onMerchantOpen({ ...run });
-          this.setPhase('merchant');
-        }
-      } else if (pr.type === 'lore' && !pr.used && pr.loreId) {
-        prompt = `${action} Déchiffrer la Stèle`;
-        if (inp.interact) {
-          pr.used = true;
-          const lore = LORE_TABLETS.find((l) => l.id === pr.loreId);
-          if (lore && !this.save.loreUnlocked.includes(lore.id)) {
-            this.updateSave((s) => ({ ...s, loreUnlocked: [...s.loreUnlocked, lore.id] }));
-          }
-          run.loot.cendres += 15;
-          AudioFX.pickup();
-          this.showBanner(lore?.title || 'Stèle Ancienne', lore?.text || '', '#8ab8e6', 3.5);
-        }
-      } else if (pr.type === 'npc' && !pr.used && pr.npcId) {
-        const npcName = NPCS_DEF[pr.npcId].name;
-        prompt = `${action} Secourir ${npcName}`;
-        if (inp.interact) {
-          pr.used = true;
-          const id = pr.npcId;
-          this.updateSave((s) => ({
-            ...s,
-            npcsUnlocked: { ...s.npcsUnlocked, [id]: true },
-          }));
-          AudioFX.heal();
-          this.particles.addText(pr.x, pr.y - 22, `${npcName} rejoint le Bastion !`, '#7ab8ff');
-        }
-      } else if (pr.type === 'exit') {
-        if (pr.locked) {
-          prompt = 'Terrassez le Gardien pour ouvrir le Passage';
-        } else if (run.isTraining) {
-          prompt = `${action} Quitter la Cour et revenir au Bastion`;
-          if (inp.interact) {
-            this.openBastion();
-            return;
-          }
-        } else {
-          prompt = `${action} Descendre vers la Strate ${run.depth + 1}`;
-          if (inp.interact) {
-            AudioFX.ui();
-            this.cb.onBlessingChoices(pickBlessingChoices(run, 3, this.gameplayRandom));
-            this.setPhase('blessing');
-            return;
-          }
-        }
-      }
-    }
-
-    if (prompt !== this.promptText) {
+    const prompt = interactWithProps(this.room, this.player, this.run, inp.interact, this.isUsingGamepad(), this.roomEffects);
+    if (prompt !== undefined && prompt !== this.promptText) {
       this.promptText = prompt;
       this.pushHud(true);
     }
