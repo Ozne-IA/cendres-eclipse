@@ -36,6 +36,8 @@ tags:
 - **Garder un seul ordre de simulation.** Le moteur enchaîne le déplacement, les dangers, les coups du joueur, les actions ennemies, les projectiles et les interactions. Les modules de jeu utilisent le même tirage d’expédition et le moteur publie les transitions et le HUD. [[Validation#Simulation à graine fixe (C08)]]
 - **Conserver des références visuelles par scène.** Le rendu assemble des couches dans un ordre explicite, avec les signaux d’attaque après le décor de premier plan et la correction colorimétrique. Chromium compare quatre images produites avec une scène et un temps fixes. [[Validation#Références Canvas (C09)]]
 
+- **Mesurer les allocations avant d’optimiser.** Les scénarios de combat à graine fixe permettent de comparer les versions avec le même nombre de pas et des états de jeu vérifiables. Les mesures Node et Chromium couvrent respectivement la simulation et le rendu JavaScript. [[Validation#Allocations en combat (C10)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)
