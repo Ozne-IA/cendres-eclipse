@@ -2,7 +2,7 @@ import { drawAttackWarning, drawDetailedEnemy } from './enemyRender';
 import { drawDetailedPlayer } from './playerRender';
 import type { PositionInterpolator } from './renderInterpolation';
 import { getColoredGlow } from './textures';
-import type { ArmorSkinKey, Player, RoomData, RunState, WeaponKey } from './types';
+import type { ArmorSkinKey, Enemy, Player, RoomData, RunState, WeaponKey } from './types';
 
 export function renderEnemiesAndShadows(
   ctx: CanvasRenderingContext2D,
@@ -14,18 +14,20 @@ export function renderEnemiesAndShadows(
   showEnemyBars: boolean,
   interpolate: PositionInterpolator,
 ): void {
+  const visibleEnemies: Enemy[] = [];
   // 9b. Dynamic Ground Contact Shadows (Anchor characters and bosses to the gothic architecture)
   for (const entity of room.enemies) {
     const e = interpolate(entity);
-    if (e.x + e.w < camX - 120 || e.x > camX + W + 120 || e.state === 'dead') continue;
-    drawCharacterGroundShadow(ctx, e.x, e.y, e.w, e.h, room, !!e.flying);
+    if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
+    visibleEnemies.push(e);
+    if (e.state !== 'dead') {
+      drawCharacterGroundShadow(ctx, e.x, e.y, e.w, e.h, room, !!e.flying);
+    }
   }
   drawCharacterGroundShadow(ctx, player.x, player.y, player.w, player.h, room, false);
 
   // 10. Enemies & Bosses
-  for (const entity of room.enemies) {
-    const e = interpolate(entity);
-    if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
+  for (const e of visibleEnemies) {
     drawDetailedEnemy(ctx, e, time, showEnemyBars);
   }
 }
@@ -124,8 +126,9 @@ export function renderAttackWarnings(
   interpolate: PositionInterpolator,
 ): void {
   for (const entity of enemies) {
+    if (entity.state !== 'windup') continue;
     const enemy = interpolate(entity);
-    if (enemy.state !== 'windup' || enemy.x + enemy.w < camX - 120 || enemy.x > camX + W + 120) continue;
+    if (enemy.x + enemy.w < camX - 120 || enemy.x > camX + W + 120) continue;
     drawAttackWarning(ctx, enemy, player, highContrast);
   }
 }
