@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MANIFEST_NAME } from '../launcher/update-lib.mjs';
+import { copyTree } from './copy-tree.mjs';
 
 const WINDOWS_TEXT_FILES = new Set(['Lancer_Cendres_Eclipse.bat', 'LISEZMOI.txt']);
 
@@ -18,7 +19,7 @@ export async function buildPackage({ rootDir, outDir }) {
   }
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'launcher'), { recursive: true });
-  fs.cpSync(distDir, path.join(outDir, 'dist'), { recursive: true });
+  copyTree(distDir, path.join(outDir, 'dist'));
 
   for (const name of fs.readdirSync(path.join(rootDir, 'launcher'))) {
     if (name.endsWith('.mjs')) fs.copyFileSync(path.join(rootDir, 'launcher', name), path.join(outDir, 'launcher', name));

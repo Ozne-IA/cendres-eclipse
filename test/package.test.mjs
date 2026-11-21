@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { buildPackage } from '../scripts/build-package.mjs';
+import { copyTree } from '../scripts/copy-tree.mjs';
 import { createRelease } from '../scripts/make-release.mjs';
 import { verifyPackage } from '../scripts/verify-package.mjs';
 
@@ -16,8 +18,8 @@ async function fakeRepo(t) {
   await writeFile(join(root, 'dist', 'assets', 'app-abc.js'), 'console.log("jeu")');
   await writeFile(join(root, 'dist', 'vide.txt'), '');
   await writeFile(join(root, 'dist', 'sw.js'), 'const BUILD_VERSION = "123abc456def";\n');
-  await cp(new URL('../launcher/', import.meta.url), join(root, 'launcher'), { recursive: true });
-  await cp(new URL('../scripts/release/', import.meta.url), join(root, 'scripts', 'release'), { recursive: true });
+  copyTree(fileURLToPath(new URL('../launcher/', import.meta.url)), join(root, 'launcher'));
+  copyTree(fileURLToPath(new URL('../scripts/release/', import.meta.url)), join(root, 'scripts', 'release'));
   await createRelease({ distDir: join(root, 'dist'), outDir: join(root, 'release'), version: '2.3.4' });
   return root;
 }
