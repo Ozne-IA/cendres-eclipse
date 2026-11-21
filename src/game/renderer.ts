@@ -1,3 +1,4 @@
+import type { FrameProfile } from './frameProfile';
 import {
   renderDeepAtmosphericDecor,
   renderMidAtmosphereAndDust,
@@ -93,7 +94,11 @@ function getVignetteSprite(lowHp: boolean): HTMLCanvasElement | null {
   return c;
 }
 
-export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContextState): void {
+export function renderGameFrame(
+  ctx: CanvasRenderingContext2D,
+  st: RenderContextState,
+  profile?: FrameProfile,
+): void {
   const { width: W, height: H, time } = st;
   const isTitle = st.phase === 'title';
   const b = st.room ? st.room.biome : BIOMES[0];
@@ -103,7 +108,9 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   if (isTitle) {
     const titleArt = getTitleHeroArtwork();
     if (titleArt) {
+      const titleStart = profile?.now() ?? 0;
       renderTitleArtworkBackdrop(ctx, titleArt, b, W, H, time, fogQuality);
+      profile?.finishTiming('titleArtwork', titleStart);
       return;
     }
   }
@@ -111,6 +118,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   const camX = isTitle ? Math.sin(time * 0.14) * 90 + 160 : st.cameraX;
   const camY = isTitle ? 120 : st.cameraY;
 
+  let sceneryStart = profile?.now() ?? 0;
   // Plan 0: Pre-baked Seamless Matte-Painted Biome Backdrop + Scrim + Mist (0.05x)
   const bakedBg = getSeamlessBakedBackdrop(b, W, H, isTitle);
   if (bakedBg) {
@@ -184,12 +192,18 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   const showEnemyBars = st.settings?.showEnemyBars !== false;
   const shakeMult = st.settings?.screenShakeScale ?? 1;
 
+  profile?.finishTiming('backdropAndEclipse', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
   // Plan 1: Distant Gothic Horizon Silhouettes (0.14x) + Plan 2: Animated Volumetric God-Rays & Deep/Mid Fog
   if (parallaxOn) {
     renderDeepParallaxLayers(ctx, b, W, H, camX, isTitle ? 0 : camY, time, st.trauma * shakeMult);
   }
   renderDeepAtmosphericDecor(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
 
+  profile?.finishTiming('distantScenery', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
   // Plan 3: Midground Gothic Colonnade (0.42x H & 0.18x V for clear 2.5D separation)
   const midTileW = 540;
   const midOff = computeParallaxOffset(
@@ -256,12 +270,19 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
+  profile?.finishTiming('midgroundArchitecture', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
   // Abyssal Volumetric Fog & Multi-Plane Floating Dust Motes, Ash Flakes & Luminous Embers
   renderMidAtmosphereAndDust(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
 
+  profile?.finishTiming('midgroundAtmosphere', sceneryStart);
+
   // Title Screen Vignette Showcase
   if (isTitle) {
+    sceneryStart = profile?.now() ?? 0;
     renderTitleShowcase(ctx, W, H, time);
+    profile?.finishTiming('titleShowcase', sceneryStart);
     return;
   }
 
@@ -276,6 +297,7 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   const sy = (Math.random() - 0.5) * shakePower;
   ctx.translate(-Math.round(camX - sx), -Math.round(camY - sy));
 
+  sceneryStart = profile?.now() ?? 0;
   // 6. Torches & Wrought-Iron Wall Sconces
   const glowSprite = getTorchGlow();
   for (const t of room.torches) {
@@ -470,6 +492,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     }
   }
 
+  profile?.finishTiming('terrainAndTorches', sceneryStart);
+
   // 8. Hazards
   for (const entity of room.hazards) {
     const h = interpolate(entity);
@@ -545,11 +569,14 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
     renderGroundFissuresVfx(ctx, st.vfx, camX, W, vfxQuality);
   }
 
+  sceneryStart = profile?.now() ?? 0;
   // 9. Props
   for (const pr of room.props) {
     if (pr.x + pr.w < camX - 100 || pr.x > camX + W + 100) continue;
     drawDetailedProp(ctx, pr, time);
   }
+
+  profile?.finishTiming('props', sceneryStart);
 
   // 9b. Dynamic Ground Contact Shadows (Anchor characters and bosses to the gothic architecture)
   for (const entity of room.enemies) {
@@ -688,9 +715,11 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
 
   // Plan 5: Foreground 1.32x Parallax Depth Silhouettes, Chains, Bokeh Embers & Combat Focus
   if (parallaxOn) {
+    sceneryStart = profile?.now() ?? 0;
     const hpRatio = st.run ? st.run.hp / Math.max(1, st.run.maxHp) : 1;
     const depthFocus = computeCombatDepthFocus(st.trauma * shakeMult, room.isBoss, hpRatio);
     renderForegroundParallax(ctx, b, W, H, camX, camY, time, st.trauma * shakeMult, depthFocus);
+    profile?.finishTiming('foregroundParallax', sceneryStart);
   }
 
   // 14b. Screen-space Directional Chromatic Combat Flash
@@ -710,7 +739,9 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 15b. Cinematic Biome Atmospheric Color Grading & Ambient Vignette
+  sceneryStart = profile?.now() ?? 0;
   renderAtmosphericColorGrading(ctx, b, W, H);
+  profile?.finishTiming('colorGrading', sceneryStart);
 
   // Attack cues stay legible over particles, foreground fog, and color grading.
   ctx.save();
