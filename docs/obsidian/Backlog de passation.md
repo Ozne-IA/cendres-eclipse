@@ -99,14 +99,14 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 - [x] **L03** — Tester la prochaine mise à jour réelle depuis v1.0.1 avec interruption, relance et conservation de la sauvegarde. *Fait en automatique (	est/pc-update-interrupt.test.mjs : arrêt en plein téléchargement, arrêt entre les deux renommages, relance, sauvegarde intacte). La vraie mise à jour depuis v1.0.1 reste à passer à la prochaine release.*
 - [x] **L04** — Unifier les migrations navigateur et PC, tester les anciens formats et préserver les sauvegardes de versions plus récentes. *Fait : src/game/saveFormat.ts (versions, chaîne de migration), copie gardée de côté d'une sauvegarde plus récente ou abîmée (navigateur et PC), version commune vérifiée par test.*
 - [x] **L05** — Ajouter somme de contrôle et trois copies tournantes, tester fichier tronqué, écriture interrompue et compatibilité avec le .bak. *Fait : launcher/save-store.mjs (champ _checksum, copies .bak, .bak2, .bak3, fichier illisible mis de côté).*
-- [ ] L06 — Vérifier deux lanceurs ouverts dans la même installation et sérialiser les mises à jour si nécessaire.
+- [x] L06 — Vérifier deux lanceurs ouverts dans la même installation et sérialiser les mises à jour si nécessaire.
 - [ ] L07 — Enrichir le bandeau de mise à jour avec taille, notes de version, progression, reprise après erreur et validation à la manette.
 - [ ] L08 — Étudier la signature des manifestes, la rotation des clés et les lanceurs déjà distribués.
 - [ ] L09 — Tester retour arrière, fichiers inchangés ou vides, coupures réseau, manque d’espace et lecture seule.
 - [ ] L10 — Préparer des profils de sauvegarde avec nom, date, export, import et confirmations. Après L04–L05.
-- [ ] L11 — Harmoniser version du jeu, affichage, tag et version du lanceur.
+- [x] L11 — Harmoniser version du jeu, affichage, tag et version du lanceur.
 - [ ] L12 — Documenter publication, reprise et dépannage du premier démarrage. Clarifier l’emplacement des sauvegardes.
-- [ ] L13 — Vérifier les dépendances réellement utilisées, puis organiser leur suivi et leur mise à jour automatisée en CI.
+- [x] L13 — Vérifier les dépendances réellement utilisées, puis organiser leur suivi et leur mise à jour automatisée en CI.
 
 ### Essais en jeu et équilibrage
 
