@@ -34,3 +34,8 @@ tags:
 - **Repartir de la nouvelle position après une discontinuité.** Les téléportations et le premier pas des éléments mobiles d’une salle affichent directement leur nouvel état. Les pas suivants reprennent l’interpolation ordinaire.
 
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
+
+## Deux lanceurs, version et dépendances (L06, L11, L13)
+- **Deux lanceurs sur la même installation** : le second prend le port suivant (4174) et partage `dist/` et la sauvegarde. Le risque réel était que son démarrage supprime le dossier `dist.update/` que le premier remplissait. Un verrou `dist.lock` (processus et heure, périmé après 30 minutes ou si le processus a disparu) empêche désormais deux mises à jour simultanées (l'une répond « déjà en cours ») et la remise en ordre au démarrage ne touche à rien tant que le verrou est tenu (`launcher/update-lock.mjs`, `test/update-lock.test.mjs` avec un vrai second processus). Reste à essayer à la main : deux fenêtres ouvertes en même temps sur le vrai zip.
+- **Version** : `package.json` est la source ; `release.yml` refuse de publier si l'étiquette ne correspond pas (`scripts/check-version.mjs`). Procédure : changer `version` dans `package.json`, fusionner, puis étiqueter `vX.Y.Z`. `package.json` passe à 1.0.1 (la version publiée).
+- **Dépendances** : sept paquets n'étaient importés nulle part (`@google/genai`, `express`, `dotenv`, `motion`, `lucide-react`, `autoprefixer`, `@types/express`) et ont été retirés ; build, types et 134 tests passent, `npm audit --omit=dev` ne trouve rien. `.github/dependabot.yml` propose chaque semaine les mises à jour mineures groupées (npm) et chaque mois celles des actions GitHub. Ne pas ajouter de dépendance sans l'utiliser.

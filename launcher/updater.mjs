@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { acquireLock, isLockHeld } from './update-lock.mjs';
 import { MANIFEST_NAME, planUpdate, sha256Buffer, sha256File, validateManifest } from './update-lib.mjs';
 
 export function readInstalledManifest(distDir) {
@@ -16,6 +17,8 @@ export function readInstalledManifest(distDir) {
 
 /** Si le programme s'est arrêté entre les deux renommages, on remet l'ancienne version en place. */
 export function recoverInterruptedUpdate(distDir) {
+  // Un autre lanceur est peut-être en pleine mise à jour : on ne touche à rien.
+  if (isLockHeld(`${distDir}.lock`)) return;
   const stage = `${distDir}.update`;
   const old = `${distDir}.old`;
   if (!fs.existsSync(distDir) && fs.existsSync(old)) fs.renameSync(old, distDir);
@@ -50,6 +53,20 @@ function stagedPath(stage, relative) {
  */
 export async function applyUpdate({ distDir, remote, source, onProgress = () => {} }) {
   const manifest = validateManifest(remote);
+  const release = acquireLock(`${distDir}.lock`);
+  if (!release) {
+    const busy = new Error('Une mise à jour est déjà en cours dans un autre lanceur');
+    busy.code = 'BUSY';
+    throw busy;
+  }
+  try {
+    return await applyLocked({ distDir, manifest, source, onProgress });
+  } finally {
+    release();
+  }
+}
+
+async function applyLocked({ distDir, manifest, source, onProgress }) {
   recoverInterruptedUpdate(distDir);
   const installed = readInstalledManifest(distDir);
   if (!installed) throw new Error('Version installée inconnue (pas de manifeste) : mise à jour impossible');
