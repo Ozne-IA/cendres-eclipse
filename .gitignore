@@ -16,3 +16,5 @@ cendres-eclipse-save.json
 
 /.graphify-venv/
 /graphify-out/
+
+/test-results/
