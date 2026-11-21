@@ -24,6 +24,8 @@ export async function createRelease({ distDir, outDir, version }) {
 
   let copied = 0;
   for (const file of manifest.files) {
+    // GitHub refuse les fichiers de 0 octet : ils restent dans le manifeste et le lanceur les recrée sans les télécharger.
+    if (file.size === 0) continue;
     const target = path.join(outDir, file.sha256);
     if (fs.existsSync(target)) continue; // deux fichiers identiques ne sont publiés qu'une fois
     fs.copyFileSync(path.join(distDir, ...file.path.split('/')), target);

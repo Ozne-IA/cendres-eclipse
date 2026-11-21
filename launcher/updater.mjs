@@ -88,7 +88,8 @@ export async function applyUpdate({ distDir, remote, source, onProgress = () => 
     let doneFiles = 0;
     const expectedBytes = toDownload.reduce((sum, file) => sum + file.size, 0) || totalDownloadBytes;
     for (const file of toDownload) {
-      const data = await source.download(file);
+      // Un fichier vide n'est jamais publié (GitHub refuse les fichiers de 0 octet) : on le recrée, puis on vérifie l'empreinte.
+      const data = file.size === 0 ? Buffer.alloc(0) : await source.download(file);
       if (data.length !== file.size) throw new Error(`Taille inattendue pour ${file.path}`);
       if (sha256Buffer(data) !== file.sha256) throw new Error(`Empreinte incorrecte pour ${file.path}`);
       const target = stagedPath(stage, file.path);
@@ -115,9 +116,10 @@ export async function applyUpdate({ distDir, remote, source, onProgress = () => 
   }
   await fsp.rm(old, { recursive: true, force: true });
 
+  const fromNetwork = toDownload.filter((file) => file.size > 0);
   return {
     version: manifest.version,
-    downloadedFiles: toDownload.length,
+    downloadedFiles: fromNetwork.length,
     downloadedBytes,
     reusedFiles,
     removedFiles: plan.remove.length,
