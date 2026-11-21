@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { InputHub } from './input';
+import { GameplayInputBuffer, InputHub } from './input';
 
 function controller(t: TestContext) {
   const axes = [0, 0, 0, 0];
@@ -65,4 +65,24 @@ test('menu controls held during a transition cannot move or jump until released'
   assert.equal(fresh.moveX, 1);
   assert.equal(fresh.jump, true);
   assert.equal(fresh.interact, true);
+});
+
+test('a controller tap between simulation ticks fires once and retains the latest held state', (t) => {
+  const pad = controller(t);
+  const input = new InputHub();
+  const buffer = new GameplayInputBuffer();
+  pad.press(0);
+  buffer.sample(input.poll());
+  pad.release(0);
+  const latest = input.poll();
+  buffer.sample(latest);
+  const first = buffer.consume(latest);
+  assert.equal(first.jump, true);
+  assert.equal(first.interact, true);
+  assert.equal(first.jumpReleased, true);
+  assert.equal(first.jumpHeld, false);
+  const catchUp = buffer.consume(latest);
+  assert.equal(catchUp.jump, false);
+  assert.equal(catchUp.interact, false);
+  assert.equal(catchUp.jumpReleased, false);
 });

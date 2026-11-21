@@ -18,6 +18,32 @@ export function formatKeyLabel(code: string): string {
   return code;
 }
 
+// These actions survive frames without a tick and fire once on the next gameplay tick.
+const GAMEPLAY_EDGES = [
+  'jump', 'jumpReleased', 'dash', 'attack', 'heavy', 'parry', 'skill', 'heal', 'interact',
+] as const;
+
+export class GameplayInputBuffer {
+  private pending = new Set<(typeof GAMEPLAY_EDGES)[number]>();
+
+  sample(input: InputState): void {
+    for (const action of GAMEPLAY_EDGES) {
+      if (input[action]) this.pending.add(action);
+    }
+  }
+
+  consume(held: InputState): InputState {
+    const input = { ...held };
+    for (const action of GAMEPLAY_EDGES) input[action] = this.pending.has(action);
+    this.clear();
+    return input;
+  }
+
+  clear(): void {
+    this.pending.clear();
+  }
+}
+
 export class InputHub {
   private keys = new Set<string>();
   private keysJust = new Set<string>();
@@ -32,6 +58,8 @@ export class InputHub {
   private active = false;
   private bindings: KeyBindings = { ...DEFAULT_KEY_BINDINGS };
   public lastInputMode = 'Clavier / Souris';
+
+  constructor(private readonly onClear?: () => void) {}
 
   setKeyBindings(bindings: KeyBindings): void {
     this.bindings = { ...DEFAULT_KEY_BINDINGS, ...bindings };
@@ -111,6 +139,7 @@ export class InputHub {
     this.mouseHeld.clear();
     this.mouseJust.clear();
     this.prevJumpHeld = false;
+    this.onClear?.();
   }
 
   blockHeldGamepad(): void {
@@ -194,7 +223,7 @@ export class InputHub {
       this.previousMenuDirection = null;
     }
 
-    inp.jumpReleased = this.prevJumpHeld && !inp.jumpHeld;
+    inp.jumpReleased = (this.prevJumpHeld || inp.jump) && !inp.jumpHeld;
     this.prevJumpHeld = inp.jumpHeld;
 
     this.keysJust.clear();

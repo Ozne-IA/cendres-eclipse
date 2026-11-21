@@ -34,7 +34,7 @@ Vérifications faites : `npm run lint` propre, `npm test` 46 tests réussis, `np
 Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 
 - **Téléphone et tablette : hors cible** (voir plus haut). Le travail tactile reste sur `luc/commandes-tactiles-optionnel` si l'utilisateur change d'avis.
-- **Pas de temps fixe à 60 Hz** avec interpolation (#1) et **tests de combat déterministes** avec graine (#58) : à faire ensemble, avant tout découpage.
+- **Pas de temps fixe à 60 Hz** avec interpolation (#1) et **tests de combat déterministes** avec graine (#58) : réalisés ensemble avant le découpage. Voir [[Validation]].
 - **Découper `src/game/engine.ts`** (2194 lignes) (#57), puis `artSprites.ts`, `renderer.ts`.
 - **`devicePixelRatio`** : le canvas est flou sur écrans HiDPI (#51).
 - **Chaîne de migration des sauvegardes** testée, somme de contrôle, 3 copies tournantes (#66, #67).
@@ -55,3 +55,5 @@ Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 
 - 21/11/2026, Luc : sécurité du serveur, réduction des animations. Commandes tactiles écrites puis retirées (le mobile n'est pas une cible), gardées sur une branche à part.
 - 21/11/2026, Codex : audio adaptatif et effets de combat enrichis (`39125be`), statistiques et chronique des expéditions au Bastion (`1c9ba3e`). Les vérifications audio sont simulées. L’écoute manuelle reste à faire. Voir [[Validation]].
+
+- 21/11/2026, Codex : simulation à 60 Hz, interpolation et tests de combat à graine fixe.

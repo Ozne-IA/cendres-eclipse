@@ -19,6 +19,8 @@ node --check launcher/server-pc.mjs
 
 Pour un changement de commandes, vérifier le trajet écran titre → Cour → pause → Bastion → expédition. Contrôler le focus visible, les appuis maintenus, la fermeture des options et la conservation de la progression après l’entraînement. La validation de la PR #6 utilisait une manette simulée dans Chromium. [Scénarios et vérifications de la PR #6](https://github.com/Ozne-IA/cendres-eclipse/pull/6)
 
+Les tests de cadence rejouent le même combat avec une graine fixe à 30, 60, 120 et 144 images par seconde. Ils couvrent aussi le ralenti, la pause, l’arrêt à l’impact, les appuis entre deux mises à jour, la manette et l’interpolation des positions.
+
 Pour un changement de sauvegarde, faire les essais avec des fichiers de test. Les tests du dépôt couvrent la récupération depuis `.bak` et le rafraîchissement de la page servie par le service worker. [Sauvegarde PC](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/pc-save.test.mjs) · [Cache web](https://github.com/Ozne-IA/cendres-eclipse/blob/main/test/service-worker.test.mjs)
 
 Les tests audio simulent l’API Web Audio. Ils vérifient que les biomes et les deux phases de chaque gardien produisent des séquences distinctes, que la musique baisse en combat et lors d’une parade, et que le mixage suit les réglages de volume. L’écoute manuelle en jeu reste à faire.

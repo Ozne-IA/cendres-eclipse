@@ -49,6 +49,7 @@ export interface RenderContextState {
   trauma: number;
   room: RoomData | null;
   player: Player | null;
+  interpolatePosition?: <T extends { x: number; y: number }>(position: T) => T;
   run: RunState | null;
   weapon: WeaponKey;
   armorSkin?: ArmorSkinKey;
@@ -269,7 +270,9 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   if (!st.room || !st.player) return;
-  const { room, player } = st;
+  const { room } = st;
+  const interpolate = st.interpolatePosition ?? (<T>(position: T): T => position);
+  const player = interpolate(st.player);
 
   ctx.save();
   const shakePower = st.trauma * st.trauma * 18 * shakeMult;
@@ -309,7 +312,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
 
   // 7. Textured Carved Stone Platforms & Gothic Bridges (horizontally clipped to viewport)
   const stonePat = getStonePattern(ctx, b);
-  for (const p of room.platforms) {
+  for (const entity of room.platforms) {
+    const p = interpolate(entity);
     if (p.x + p.w < camX - 40 || p.x > camX + W + 40) continue;
     const drawX = Math.max(p.x, Math.floor(camX - 4));
     const drawRight = Math.min(p.x + p.w, Math.ceil(camX + W + 4));
@@ -471,7 +475,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 8. Hazards
-  for (const h of room.hazards) {
+  for (const entity of room.hazards) {
+    const h = interpolate(entity);
     if (h.x + h.w < camX - 60 || h.x > camX + W + 60) continue;
     if (h.kind === 'spikes') {
       for (let x = h.x; x < h.x + h.w; x += 14) {
@@ -551,20 +556,23 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   }
 
   // 9b. Dynamic Ground Contact Shadows (Anchor characters and bosses to the gothic architecture)
-  for (const e of room.enemies) {
+  for (const entity of room.enemies) {
+    const e = interpolate(entity);
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120 || e.state === 'dead') continue;
     drawCharacterGroundShadow(ctx, e.x, e.y, e.w, e.h, room, !!e.flying);
   }
   drawCharacterGroundShadow(ctx, player.x, player.y, player.w, player.h, room, false);
 
   // 10. Enemies & Bosses
-  for (const e of room.enemies) {
+  for (const entity of room.enemies) {
+    const e = interpolate(entity);
     if (e.x + e.w < camX - 120 || e.x > camX + W + 120) continue;
     drawDetailedEnemy(ctx, e, time, showEnemyBars);
   }
 
   // 11. Luminous Projectiles
-  for (const pr of room.projectiles) {
+  for (const entity of room.projectiles) {
+    const pr = interpolate(entity);
     if (pr.kind === 'eruption') {
       if (pr.telegraphT && pr.telegraphT > 0) {
         ctx.strokeStyle = '#ff5a36';
@@ -711,7 +719,8 @@ export function renderGameFrame(ctx: CanvasRenderingContext2D, st: RenderContext
   // Attack cues stay legible over particles, foreground fog, and color grading.
   ctx.save();
   ctx.translate(-Math.round(camX - sx), -Math.round(camY - sy));
-  for (const enemy of room.enemies) {
+  for (const entity of room.enemies) {
+    const enemy = interpolate(entity);
     if (enemy.state !== 'windup' || enemy.x + enemy.w < camX - 120 || enemy.x > camX + W + 120) continue;
     drawAttackWarning(ctx, enemy, player, highContrast);
   }
