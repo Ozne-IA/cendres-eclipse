@@ -123,8 +123,8 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 
 ### Contenu, Bastion et distribution
 
-- [ ] L24 — Créer une fiche par ennemi avec rôle, portée, signaux, attaques et contre-jeu. Transmettre deux prototypes à Codex.
-- [ ] L25 — Concevoir par Gardien une transition et deux attaques de phase 2, avec une réponse lisible.
+- [x] L24 — Créer une fiche par ennemi avec rôle, portée, signaux, attaques et contre-jeu. Transmettre deux prototypes à Codex.
+- [x] L25 — Concevoir par Gardien une transition et deux attaques de phase 2, avec une réponse lisible.
 - [ ] L26 — Concevoir salles fixes, mini-boss, secrets et chemins à risque, avec règles d’apparition et récompenses pour intégration.
 - [ ] L27 — Concevoir familles de reliques, bénédictions et synergies ouvrant différents styles de jeu. Préciser interactions et limites.
 - [ ] L28 — Faire évoluer visuellement le Bastion selon les infrastructures, en commençant par un bâtiment dont les niveaux sont reconnaissables.
