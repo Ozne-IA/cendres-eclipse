@@ -90,7 +90,6 @@ export class CendresEngine {
   private movement = new PlayerMovement(this.particles, this.vfx);
 
   private rafId: number | null = null;
-  private timeoutId: number | null = null;
   private destroyed = false;
   private resizeObs: ResizeObserver | null = null;
   private pixelRatio = 1;
@@ -199,19 +198,6 @@ export class CendresEngine {
     let last = performance.now();
     let needsStaticRender = true;
     let cooldownFrames = 0;
-    const isAutomated =
-      typeof navigator !== 'undefined' &&
-      (!!navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent));
-    const scheduleNext = (): void => {
-      if (this.destroyed) return;
-      if (isAutomated) {
-        this.timeoutId = window.setTimeout(() => {
-          if (!this.destroyed) this.rafId = requestAnimationFrame(tick);
-        }, 120);
-      } else {
-        this.rafId = requestAnimationFrame(tick);
-      }
-    };
     const tick = (now: number): void => {
       if (this.destroyed) return;
       // Zoom and display changes can change the DPR while the layout size stays fixed.
@@ -252,13 +238,13 @@ export class CendresEngine {
       this.advanceSimulation(clampedDt, inp);
 
       if (this.phase === 'title' || this.phase === 'playing') {
-        if (!this.canvasNeedsRender && !isAutomated && cooldownFrames > 0) {
+        if (!this.canvasNeedsRender && cooldownFrames > 0) {
           cooldownFrames--;
         } else {
           const t0 = performance.now();
           this.render();
           const renderMs = performance.now() - t0;
-          if (!isAutomated && (renderMs > 8 || rawDt > 0.032)) {
+          if (renderMs > 8 || rawDt > 0.032) {
             cooldownFrames = 1;
           }
         }
@@ -268,7 +254,7 @@ export class CendresEngine {
         needsStaticRender = false;
       }
 
-      scheduleNext();
+      if (!this.destroyed) this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
   }
@@ -276,7 +262,6 @@ export class CendresEngine {
   destroy(): void {
     this.destroyed = true;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
-    if (this.timeoutId !== null) clearTimeout(this.timeoutId);
     this.input.unmount();
     this.resizeObs?.disconnect();
     window.removeEventListener('resize', this.handleResize);
