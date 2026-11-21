@@ -69,6 +69,12 @@ export interface EngineCallbacks {
   isOverlayOpen?: () => boolean;
 }
 
+const MAX_CANVAS_PIXEL_RATIO = 2;
+
+function canvasPixelRatio(): number {
+  return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_PIXEL_RATIO);
+}
+
 export class CendresEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -87,6 +93,8 @@ export class CendresEngine {
   private timeoutId: number | null = null;
   private destroyed = false;
   private resizeObs: ResizeObserver | null = null;
+  private pixelRatio = 1;
+  private canvasNeedsRender = false;
   private width = 1280;
   private height = 720;
 
@@ -173,9 +181,10 @@ export class CendresEngine {
   init(autostart = false): void {
     this.input.mount();
     this.handleResize();
+    window.addEventListener('resize', this.handleResize);
 
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObs = new ResizeObserver(() => this.handleResize());
+      this.resizeObs = new ResizeObserver(this.handleResize);
       if (this.canvas.parentElement) this.resizeObs.observe(this.canvas.parentElement);
     }
 
@@ -205,6 +214,8 @@ export class CendresEngine {
     };
     const tick = (now: number): void => {
       if (this.destroyed) return;
+      // Zoom and display changes can change the DPR while the layout size stays fixed.
+      if (this.pixelRatio !== canvasPixelRatio()) this.handleResize();
       const rawDt = (now - last) / 1000;
       last = now;
       if (rawDt > 0.001 && rawDt < 0.25) {
@@ -241,7 +252,7 @@ export class CendresEngine {
       this.advanceSimulation(clampedDt, inp);
 
       if (this.phase === 'title' || this.phase === 'playing') {
-        if (!isAutomated && cooldownFrames > 0) {
+        if (!this.canvasNeedsRender && !isAutomated && cooldownFrames > 0) {
           cooldownFrames--;
         } else {
           const t0 = performance.now();
@@ -252,7 +263,7 @@ export class CendresEngine {
           }
         }
         needsStaticRender = true;
-      } else if (needsStaticRender || prevPhase !== this.phase) {
+      } else if (this.canvasNeedsRender || needsStaticRender || prevPhase !== this.phase) {
         this.render();
         needsStaticRender = false;
       }
@@ -268,19 +279,27 @@ export class CendresEngine {
     if (this.timeoutId !== null) clearTimeout(this.timeoutId);
     this.input.unmount();
     this.resizeObs?.disconnect();
+    window.removeEventListener('resize', this.handleResize);
   }
 
-  private handleResize(): void {
+  private handleResize = (): void => {
     const rect = this.canvas.getBoundingClientRect();
     const w = Math.max(320, Math.round(rect.width || window.innerWidth));
     const h = Math.max(240, Math.round(rect.height || window.innerHeight));
-    if (this.canvas.width !== w || this.canvas.height !== h) {
-      this.canvas.width = w;
-      this.canvas.height = h;
+    this.pixelRatio = canvasPixelRatio();
+    const backingWidth = Math.round(w * this.pixelRatio);
+    const backingHeight = Math.round(h * this.pixelRatio);
+    if (
+      this.width !== w || this.height !== h ||
+      this.canvas.width !== backingWidth || this.canvas.height !== backingHeight
+    ) {
+      this.canvasNeedsRender = true;
     }
+    if (this.canvas.width !== backingWidth) this.canvas.width = backingWidth;
+    if (this.canvas.height !== backingHeight) this.canvas.height = backingHeight;
     this.width = w;
     this.height = h;
-  }
+  };
 
   private setPhase(next: GamePhase): void {
     this.phase = next;
@@ -2133,6 +2152,8 @@ export class CendresEngine {
     const interpolate = <T extends { x: number; y: number }>(position: T): T =>
       this.interpolation.interpolate(position, alpha);
     const camera = interpolate(this.camera);
+    this.ctx.save();
+    this.ctx.setTransform(this.canvas.width / this.width, 0, 0, this.canvas.height / this.height, 0, 0);
     renderGameFrame(this.ctx, {
       phase: this.phase,
       time: this.previousSimTime + (this.simTime - this.previousSimTime) * alpha,
@@ -2152,5 +2173,7 @@ export class CendresEngine {
       vfx: this.vfx,
       settings: this.save.settings,
     });
+    this.ctx.restore();
+    this.canvasNeedsRender = false;
   }
 }
