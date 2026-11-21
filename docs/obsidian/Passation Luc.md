@@ -57,3 +57,4 @@ Les numéros renvoient à `cendres-eclipse-audit.md` dans le cerveau.
 - 21/11/2026, Codex : audio adaptatif et effets de combat enrichis (`39125be`), statistiques et chronique des expéditions au Bastion (`1c9ba3e`). Les vérifications audio sont simulées. L’écoute manuelle reste à faire. Voir [[Validation]].
 
 - 21/11/2026, Codex : simulation à 60 Hz, interpolation et tests de combat à graine fixe.
+- 21/11/2026, Codex : sprites répartis par type. Déplacement, plateformes, caméra et démarrage des attaques extraits du moteur. Voir [[Validation]].
