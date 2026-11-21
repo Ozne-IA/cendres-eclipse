@@ -19,6 +19,7 @@ import { ProjectilePool } from './projectiles';
 import { createSeededRandom } from './random';
 import { RenderInterpolation } from './renderInterpolation';
 import { renderGameFrame } from './renderer';
+import { FrameProfile } from './frameProfile';
 import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
 import { VfxSystem } from './vfx';
@@ -94,6 +95,7 @@ export class CendresEngine {
   private resizeObs: ResizeObserver | null = null;
   private pixelRatio = 1;
   private canvasNeedsRender = false;
+  private profile?: FrameProfile;
   private width = 1280;
   private height = 720;
 
@@ -195,6 +197,14 @@ export class CendresEngine {
       this.setPhase('title');
     }
 
+    const profile = new URLSearchParams(window.location.search).get('profile') === '1'
+      ? new FrameProfile()
+      : undefined;
+    if (profile) {
+      this.profile = profile;
+      window.cendresProfile = profile;
+    }
+
     let last = performance.now();
     let needsStaticRender = true;
     let cooldownFrames = 0;
@@ -235,23 +245,31 @@ export class CendresEngine {
 
       const inp = this.input.poll(this.phase !== 'playing');
       const prevPhase = this.phase;
+      const simulationStart = profile?.now() ?? 0;
       this.advanceSimulation(clampedDt, inp);
+      profile?.finishTiming('simulation', simulationStart);
 
       if (this.phase === 'title' || this.phase === 'playing') {
         if (!this.canvasNeedsRender && cooldownFrames > 0) {
           cooldownFrames--;
+          profile?.skipCooldown();
         } else {
           const t0 = performance.now();
           this.render();
           const renderMs = performance.now() - t0;
+          profile?.recordTiming('render', renderMs);
           if (renderMs > 8 || rawDt > 0.032) {
             cooldownFrames = 1;
           }
         }
         needsStaticRender = true;
       } else if (this.canvasNeedsRender || needsStaticRender || prevPhase !== this.phase) {
+        const renderStart = profile?.now() ?? 0;
         this.render();
+        profile?.finishTiming('render', renderStart);
         needsStaticRender = false;
+      } else {
+        profile?.skipStatic();
       }
 
       if (!this.destroyed) this.rafId = requestAnimationFrame(tick);
@@ -261,6 +279,7 @@ export class CendresEngine {
 
   destroy(): void {
     this.destroyed = true;
+    if (this.profile && window.cendresProfile === this.profile) delete window.cendresProfile;
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     this.input.unmount();
     this.resizeObs?.disconnect();
@@ -642,11 +661,12 @@ export class CendresEngine {
     this.interpolation.capture(this.camera);
     if (this.player) this.interpolation.capture(this.player);
     if (!this.room) return;
+    // Wait for the first simulation pose before capturing room machinery.
     for (const platform of this.room.platforms) {
-      if (platform.type === 'moving') this.interpolation.capture(platform);
+      if (platform.type === 'moving' && platform.vx !== undefined) this.interpolation.capture(platform);
     }
     for (const hazard of this.room.hazards) {
-      if (hazard.kind === 'pendulum') this.interpolation.capture(hazard);
+      if (hazard.kind === 'pendulum' && hazard.angle !== undefined) this.interpolation.capture(hazard);
     }
     for (const enemy of this.room.enemies) this.interpolation.capture(enemy);
     for (const projectile of this.room.projectiles) this.interpolation.capture(projectile);
@@ -1505,6 +1525,7 @@ export class CendresEngine {
       const target = room.enemies.find((e) => e.hp > 0 && e.state !== 'dead' && Math.abs(e.x - cx) < 320);
       if (target) {
         player.x = Math.max(24, Math.min(room.width - 52, target.x - player.facing * 32));
+        this.interpolation.forget(player);
         player.facing = target.x >= player.x ? 1 : -1;
         this.vfx.spawnLightning(cx, cy, player.x + 14, cy, '#9fd0ff', 2.8, 0.22);
       } else {
@@ -1580,6 +1601,7 @@ export class CendresEngine {
         Math.min(this.room.width - e.w - 30, this.player.x - this.player.facing * 54)
       );
       e.x = targetX;
+      this.interpolation.forget(e);
       e.facing = this.player.x >= e.x ? 1 : -1;
       e.vx = e.facing * 240;
       return;
@@ -2157,7 +2179,7 @@ export class CendresEngine {
       blood: this.blood,
       vfx: this.vfx,
       settings: this.save.settings,
-    });
+    }, this.profile);
     this.ctx.restore();
     this.canvasNeedsRender = false;
   }

@@ -35,8 +35,8 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 - [x] **C03** — Automatiser titre → Cour → pause → Bastion → expédition → bilan, au clavier et à la manette simulée.
 - [x] **C04** — Après stabilisation des tests, retirer le traitement spécial de navigator.webdriver et tester la boucle utilisée par les joueurs.
 - [x] **C05** — Corriger la netteté HiDPI du Canvas en conservant les coordonnées du jeu. Vérifier à 100 %, 125 %, 150 % et 200 %.
-- [ ] C06 — Mesurer séparément le temps de simulation, le rendu, les images sautées et le coût des couches du décor.
-- [ ] C07 — Corriger les discontinuités de rendu, dont la traversée visuelle entre les deux positions de téléportation du Spectre.
+- [x] C06 — Mesurer séparément le temps de simulation, le rendu, les images sautées et le coût des couches du décor.
+- [x] C07 — Corriger les discontinuités de rendu, dont la traversée visuelle entre les deux positions de téléportation du Spectre.
 - [ ] C08 — Extraire l’IA, la résolution des dégâts, les projectiles et les interactions de salle de engine.ts, par étapes avec scénarios à graine fixe avant et après.
 - [ ] C09 — Découper renderer.ts par couches et garder des captures de référence du titre, d’une salle, d’un télégraphe et d’un Gardien.
 - [ ] C10 — Mesurer les allocations sur une longue expédition et optimiser les vrais postes de coût en combat.
