@@ -207,7 +207,7 @@ export function generateRoom(
   const torches: Array<{ x: number; y: number }> = [];
 
   if (isBoss) {
-    platforms.push({ x: 0, y: groundY, w: width, h: 240, type: 'solid' });
+    platforms.push({ x: 0, y: groundY, w: width, h: height - groundY, type: 'solid' });
     platforms.push({ x: 160, y: groundY - 135, w: 230, h: 18, type: 'oneway' });
     platforms.push({ x: width - 390, y: groundY - 135, w: 230, h: 18, type: 'oneway' });
     platforms.push({
@@ -259,19 +259,26 @@ export function generateRoom(
     });
   } else {
     // Safe starting sanctuary platform (always wide and clear >= 380px so player spawns safely)
-    platforms.push({ x: 0, y: groundY, w: 410, h: 240, type: 'solid' });
+    platforms.push({ x: 0, y: groundY, w: 410, h: height - groundY, type: 'solid' });
     torches.push({ x: 110, y: groundY - 140 });
     torches.push({ x: 320, y: groundY - 140 });
 
-    // First enemy placed comfortably away from spawn (> 430px) so player survives initial idle seconds
+    // Keep the approach, encounter and optional rescue clear of the exit.
+    const combatEnd = width - 400;
+    const minSegmentWidth = 260;
     let curX = 410;
     let segIdx = 0;
+    let previousY = groundY;
 
-    while (curX < width - 440) {
-      const segW = 260 + Math.floor(rng() * 190);
-      const hasGap = segIdx > 0 && rng() < 0.38;
-      if (hasGap) {
-        const gap = 95 + Math.floor(rng() * 55);
+    while (combatEnd - curX >= minSegmentWidth) {
+      const targetWidth = minSegmentWidth + Math.floor(rng() * 190);
+      const targetGap = segIdx > 0 && rng() < 0.38 ? 95 + Math.floor(rng() * 55) : 0;
+      const remaining = combatEnd - curX;
+      const gap = remaining - targetGap >= minSegmentWidth ? targetGap : 0;
+      const segW = Math.min(targetWidth, remaining - gap);
+      const py = groundY - (rng() < 0.45 ? 35 + Math.floor(rng() * 75) : 0);
+
+      if (gap > 0) {
         hazards.push({
           x: curX,
           y: groundY + 46,
@@ -281,12 +288,13 @@ export function generateRoom(
           timer: 0,
           active: true,
         });
-        // Add helpful stepping platform over wide gaps
-        if (gap > 120) {
+        // Split wide or steep crossings into two jumps with a foothold between the banks.
+        if (gap > 120 || Math.abs(py - previousY) > 80) {
+          const footholdWidth = 84;
           platforms.push({
-            x: curX + gap * 0.25,
-            y: groundY - 58,
-            w: 84,
+            x: curX + (gap - footholdWidth) / 2,
+            y: (previousY + py) / 2 - 32,
+            w: footholdWidth,
             h: 16,
             type: 'crumble',
             crumbleT: 0,
@@ -296,28 +304,29 @@ export function generateRoom(
         curX += gap;
       }
 
-      const elev = rng() < 0.45 ? -(35 + Math.floor(rng() * 75)) : 0;
-      const py = groundY + elev;
-      platforms.push({ x: curX, y: py, w: segW, h: 260 - elev, type: 'solid' });
+      platforms.push({ x: curX, y: py, w: segW, h: height - py, type: 'solid' });
       torches.push({ x: curX + segW * 0.5, y: py - 145 });
 
       // Upper platforms (oneway, crumble, moving, or bounce)
       if (rng() < 0.82) {
         const platY = py - (115 + Math.floor(rng() * 65));
-        const platW = 140 + Math.floor(rng() * 110);
+        const targetPlatformWidth = 140 + Math.floor(rng() * 110);
         const rType = rng();
         const pType = rType < 0.25 ? 'crumble' : rType < 0.42 ? 'moving' : 'oneway';
+        const platX = curX + 26;
+        const moveRangeX = pType === 'moving' ? 45 : 0;
+        const platW = Math.min(targetPlatformWidth, combatEnd - platX - moveRangeX);
         platforms.push({
-          x: curX + 26,
+          x: platX,
           y: platY,
           w: platW,
           h: 18,
           type: pType,
           crumbleT: 0,
           broken: false,
-          baseX: curX + 26,
+          baseX: platX,
           baseY: platY,
-          moveRangeX: pType === 'moving' ? 45 : 0,
+          moveRangeX,
           moveRangeY: pType === 'moving' ? 28 : 0,
           moveSpeed: 1.2,
           phase: segIdx,
@@ -415,11 +424,12 @@ export function generateRoom(
       }
 
       curX += segW;
+      previousY = py;
       segIdx++;
     }
 
-    // Special room encounter near exit: Brazier, Blood Shrine, Merchant, or Lore Tablet
-    platforms.push({ x: curX, y: groundY, w: width - curX, h: 240, type: 'solid' });
+    // Special room encounter near exit: Brazier, Blood Shrine, or Merchant
+    platforms.push({ x: curX, y: groundY, w: width - curX, h: height - groundY, type: 'solid' });
     torches.push({ x: width - 160, y: groundY - 150 });
 
     const eventRoll = rng();
