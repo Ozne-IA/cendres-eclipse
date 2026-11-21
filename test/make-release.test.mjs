@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { createRelease } from '../scripts/make-release.mjs';
+import { MANIFEST_NAME, validateManifest } from '../launcher/update-lib.mjs';
+
+async function fakeDist(t) {
+  const root = await mkdtemp(join(tmpdir(), 'cendres-release-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const distDir = join(root, 'dist');
+  await mkdir(join(distDir, 'assets'), { recursive: true });
+  await writeFile(join(distDir, 'index.html'), '<html>');
+  await writeFile(join(distDir, 'assets', 'a.js'), 'meme contenu');
+  await writeFile(join(distDir, 'assets', 'b.js'), 'meme contenu');
+  await writeFile(join(distDir, 'sw.js'), 'const BUILD_VERSION = "abc123def456";\n');
+  return { root, distDir, outDir: join(root, 'release') };
+}
+
+test('createRelease publishes one asset per distinct file, named by its hash, and a valid manifest', async (t) => {
+  const { distDir, outDir } = await fakeDist(t);
+  const { manifest, assets } = await createRelease({ distDir, outDir, version: '1.2.0' });
+
+  assert.equal(manifest.version, '1.2.0');
+  assert.equal(manifest.buildId, 'abc123def456');
+  assert.equal(manifest.files.length, 4);
+  // a.js et b.js ont le même contenu : un seul fichier publié pour les deux.
+  assert.equal(assets, 3 + 1);
+  const published = (await readdir(outDir)).sort();
+  assert.equal(published.length, 4);
+  assert.ok(published.includes(MANIFEST_NAME));
+  for (const file of manifest.files) assert.ok(existsSync(join(outDir, file.sha256)), file.path);
+
+  const published_manifest = JSON.parse(await readFile(join(outDir, MANIFEST_NAME), 'utf8'));
+  assert.doesNotThrow(() => validateManifest(published_manifest));
+  // La version installée connaît son propre manifeste.
+  assert.equal(JSON.parse(await readFile(join(distDir, MANIFEST_NAME), 'utf8')).version, '1.2.0');
+});
+
+test('createRelease refuses a bad version number or a missing build', async (t) => {
+  const { distDir, outDir, root } = await fakeDist(t);
+  await assert.rejects(createRelease({ distDir, outDir, version: '1.2' }), /invalide/);
+  await assert.rejects(createRelease({ distDir: join(root, 'vide'), outDir, version: '1.2.0' }), /npm run build/);
+});

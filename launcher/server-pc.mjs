@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createGithubSource, DEFAULT_REPO } from './github-source.mjs';
+import { createUpdateService } from './update-service.mjs';
+import { recoverInterruptedUpdate } from './updater.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -18,6 +21,7 @@ const port = portArg === '--port=0'
   : Number(portArg ? portArg.split('=')[1] : process.env.PORT || 4173) || 4173;
 const noOpen = args.includes('--no-open');
 const appMode = !args.includes('--browser');
+const updatesDisabled = args.includes('--no-update-check') || process.env.CENDRES_NO_UPDATE === '1';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -33,6 +37,13 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
+
+// Une mise à jour interrompue (coupure, fermeture de la fenêtre) ne doit jamais laisser le jeu sans fichiers.
+try {
+  recoverInterruptedUpdate(distDir);
+} catch (error) {
+  console.warn('[Cendres PC] Reprise de la mise à jour impossible :', error.message);
+}
 
 if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   console.error('[Cendres PC] Dossier dist/ introuvable. Executez d abord: npm run build');
@@ -132,11 +143,51 @@ function isTrustedOrigin(req) {
   return site === undefined || site === 'same-origin' || site === 'none';
 }
 
+// Mises à jour : les variables CENDRES_UPDATE_* servent aux tests et aux copies hébergées ailleurs.
+const updateService = createUpdateService({
+  distDir,
+  source: updatesDisabled
+    ? null
+    : createGithubSource({
+      repo: process.env.CENDRES_UPDATE_REPO || DEFAULT_REPO,
+      ...(process.env.CENDRES_UPDATE_API ? { apiBase: process.env.CENDRES_UPDATE_API } : {}),
+      ...(process.env.CENDRES_UPDATE_DOWNLOAD ? { downloadBase: process.env.CENDRES_UPDATE_DOWNLOAD } : {}),
+    }),
+});
+
+async function handleUpdateRoute(req, res, urlPath) {
+  if (urlPath === '/api/update/status' && req.method === 'GET') {
+    return sendJson(res, 200, updateService.status());
+  }
+  if (urlPath === '/api/update/check' && req.method === 'POST') {
+    return sendJson(res, 200, await updateService.check({ force: true }));
+  }
+  if (urlPath === '/api/update/apply' && req.method === 'POST') {
+    try {
+      const stats = await updateService.apply();
+      return sendJson(res, 200, { ok: true, stats, status: updateService.status() });
+    } catch (error) {
+      const known = { BUSY: 409, NONE: 409, FULL_DOWNLOAD: 409 };
+      const status = known[error.code] || 500;
+      return sendJson(res, status, { ok: false, code: error.code || 'FAILED', error: status === 500
+        ? "La mise à jour n'a pas pu être installée. Le jeu reste dans sa version actuelle."
+        : error.message });
+    }
+  }
+  return sendJson(res, 404, { ok: false });
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
 
-  if (!isTrustedHost(req) || (urlPath === '/api/save' && !isTrustedOrigin(req))) {
+  // Toutes les routes /api/ vérifient Host et Origin : une page tierce ne peut ni lire ni modifier le jeu.
+  if (!isTrustedHost(req) || (urlPath.startsWith('/api/') && !isTrustedOrigin(req))) {
     return sendJson(res, 403, { ok: false, error: 'Requête refusée' });
+  }
+
+  if (urlPath.startsWith('/api/update/')) {
+    handleUpdateRoute(req, res, urlPath).catch(() => sendJson(res, 500, { ok: false }));
+    return;
   }
 
   if (urlPath === '/api/save') {
@@ -274,6 +325,8 @@ function startListening(p) {
     if (!noOpen) {
       openBrowser(url);
     }
+    // Vérification discrète en arrière-plan : le jeu démarre sans attendre le réseau.
+    if (!updatesDisabled) void updateService.check();
   });
 }
 

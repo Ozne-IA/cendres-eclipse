@@ -16,6 +16,10 @@ Dépôt `Ozne-IA/cendres-eclipse`, vérifié sur `origin/main` à `4f8a00d`.
 - Simulation à 60 Hz, interpolation et tests de combat à graine fixe. [PR #13](https://github.com/Ozne-IA/cendres-eclipse/pull/13)
 - Sprites répartis par type. Déplacement, plateformes, caméra et démarrage des attaques extraits du moteur. 63 tests, TypeScript et compilation de production validés pour ce découpage. [PR #14](https://github.com/Ozne-IA/cendres-eclipse/pull/14)
 
+## En cours : mises à jour des joueurs ([PR #17](https://github.com/Ozne-IA/cendres-eclipse/pull/17), branche `luc/mise-a-jour-joueurs`)
+
+Le lanceur PC installe une nouvelle version en ne téléchargeant que les fichiers modifiés (manifeste SHA-256 publié avec chaque release GitHub), avec retour arrière et sans toucher à la sauvegarde. Un bandeau sur l’écran titre propose l’installation. 88 tests, types et build passent, et un essai complet 1.0.0 vers 1.0.1 a été fait à la main. À faire avant d’annoncer la fonction : fusionner la PR, publier une release de test (`git tag v1.0.1`, `git push origin v1.0.1`) et vérifier le workflow `release.yml` sur GitHub. Détails : [[Decisions|Décisions]] et [[Validation]]. Ne pas toucher à `launcher/update-*.mjs` ni à `scripts/make-release.mjs` sans relancer les tests de mise à jour.
+
 ## Vérification indépendante de Luc (21/11/2026, `origin/main` à `86f2762`)
 
 - Contrôles relancés sur une installation propre : TypeScript propre, 63 tests réussis, compilation de production réussie.

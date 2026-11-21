@@ -1,0 +1,17 @@
+CENDRES DE L'ECLIPSE - Version à jouer
+======================================
+
+1. Installez Node.js 22.12 ou plus récent (gratuit) : https://nodejs.org
+2. Double-cliquez sur Lancer_Cendres_Eclipse.bat (Windows) ou lancez Lancer_Cendres_Eclipse.sh (Mac, Linux).
+   Le jeu s'ouvre dans une fenêtre. Laissez la fenêtre noire ouverte pendant que vous jouez.
+
+Votre progression est enregistrée dans le fichier cendres-eclipse-save.json, à côté de ce fichier.
+Gardez-le : c'est votre sauvegarde (une copie de secours .bak est faite automatiquement).
+
+MISES À JOUR
+------------
+Quand une nouvelle version existe, le jeu l'indique sur l'écran titre. Un clic sur « Installer » télécharge
+seulement ce qui a changé (en général moins d'un Mo), vérifie chaque fichier, puis remplace l'ancienne version.
+Votre sauvegarde n'est jamais touchée. Si quelque chose échoue, le jeu reste dans sa version actuelle.
+
+Pour ne jamais chercher de mise à jour (jeu entièrement hors ligne), lancez le jeu avec l'option --no-update-check.

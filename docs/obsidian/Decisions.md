@@ -20,4 +20,6 @@ tags:
 
 - **Isoler les responsabilités du moteur et des sprites.** Le déplacement du joueur, les plateformes, la caméra et le déclenchement des attaques ont leurs propres modules. Les dessins sont regroupés par type de sprite.
 
+- **Mettre à jour le jeu sans tout retélécharger.** Chaque version publiée sur GitHub contient un manifeste des fichiers avec leur empreinte SHA-256 et une copie de chaque fichier nommée d’après cette empreinte. Le lanceur PC compare, ne télécharge que ce qui a changé, vérifie chaque fichier, prépare la nouvelle version à côté puis remplace `dist/` d’un seul geste, avec retour arrière si quelque chose échoue. La sauvegarde est hors de `dist/` et n’est jamais touchée. Les copies de développement (sans manifeste) ne sont jamais mises à jour. Une version qui exige un lanceur plus récent renvoie vers le téléchargement complet. Le jeu entier se télécharge une seule fois, en zip, depuis la page Releases. Pas de signature des manifestes pour l’instant : la confiance repose sur le compte GitHub et sur HTTPS. [[Point de reprise]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].

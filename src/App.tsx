@@ -8,6 +8,7 @@ import { LauncherModal, type BeforeInstallPromptEvent } from './components/Launc
 import { MerchantModal } from './components/MerchantModal';
 import { PauseModal } from './components/PauseModal';
 import { TitleScreen } from './components/TitleScreen';
+import { UpdateNotice } from './components/UpdateNotice';
 import { CendresEngine } from './game/engine';
 import { focusGamepadMenu, handleGamepadMenu } from './game/menuNavigation';
 import { defaultSave } from './game/rules';
@@ -121,6 +122,8 @@ export default function App() {
           Mode Hors-ligne · Cache PWA actif
         </div>
       )}
+
+      {phase === 'title' && !menuOpen && !launcherOpen && <UpdateNotice />}
 
       {phase === 'title' && (
         <TitleScreen

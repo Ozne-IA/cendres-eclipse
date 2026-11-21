@@ -107,6 +107,21 @@ npm run start:pc
 ```
 Le jeu s'ouvre automatiquement dans une fenêtre applicative dédiée et sauvegarde votre progression directement dans `cendres-eclipse-save.json`. Si ce fichier est absent ou corrompu, le lanceur utilise la dernière copie valide disponible dans `cendres-eclipse-save.json.bak`.
 
+### 3. Distribuer le jeu et le mettre à jour sans tout retélécharger
+
+Les joueurs téléchargent **une seule fois** `Cendres-Eclipse-<version>.zip` depuis la page [Releases](https://github.com/Ozne-IA/cendres-eclipse/releases) (il leur faut seulement Node.js 22.12 ou plus récent), puis lancent `Lancer_Cendres_Eclipse.bat`.
+
+Ensuite, le lanceur cherche une nouvelle version au démarrage. Si elle existe, l'écran titre propose **Installer** : seuls les fichiers modifiés sont téléchargés (souvent moins de 1 Mo au lieu de 6 Mo), chaque fichier est vérifié par son empreinte SHA-256, puis `dist/` est remplacé d'un coup. En cas d'échec ou de coupure, l'ancienne version reste en place. La sauvegarde (`cendres-eclipse-save.json`) n'est jamais touchée. L'option `--no-update-check` coupe toute vérification.
+
+Pour publier une version (administrateur) :
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+Le workflow `.github/workflows/release.yml` teste le jeu, le compile, prépare `update-manifest.json` et les fichiers nommés par empreinte (`scripts/make-release.mjs`), construit le zip et crée la release. Une copie lancée depuis le dépôt (sans `dist/update-manifest.json`) n'est jamais mise à jour automatiquement.
+
 ---
 
 ## 📁 Structure du Projet
