@@ -12,6 +12,7 @@ tags:
 Cendres de l’Éclipse est un roguelike d’action 2D. Le joueur alterne entre les expéditions dans l’Abîme et la préparation au Bastion du Crépuscule. La Cour d’entraînement est accessible depuis l’écran titre. [Présentation et commandes du jeu](https://github.com/Ozne-IA/cendres-eclipse#readme)
 
 - [[Point de reprise]] indique le dernier état vérifié et les prochaines actions pour Codex et Claude Code.
+- [[Backlog de passation]] détaille les 88 tâches proposées et leur répartition entre Codex et Luc.
 - [[Architecture]] répertorie les fichiers où modifier le jeu, ses commandes et ses sauvegardes.
 - [[Decisions|Décisions]] conserve les changements intégrés et leur raison d’être.
 - [[Validation]] décrit les contrôles à effectuer avant de fusionner une modification.
