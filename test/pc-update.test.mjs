@@ -20,7 +20,7 @@ async function writeTree(dir, files) {
 }
 
 /** Faux GitHub : dernière release v1.1.0 avec un manifeste et des fichiers nommés d'après leur empreinte. */
-async function startFakeGithub(t, { launcherApi = 1 } = {}) {
+async function startFakeGithub(t, { launcherApi = 1, saveVersion } = {}) {
   const blobs = new Map();
   const files = Object.entries(V2).map(([path, content]) => {
     const buffer = Buffer.from(content);
@@ -28,7 +28,7 @@ async function startFakeGithub(t, { launcherApi = 1 } = {}) {
     blobs.set(sha256, buffer);
     return { path, sha256, size: buffer.length };
   });
-  const manifest = { schema: 1, launcherApi, version: '1.1.0', buildId: 'v2', files };
+  const manifest = { schema: 1, launcherApi, version: '1.1.0', buildId: 'v2', files, ...(saveVersion ? { saveVersion } : {}) };
   const downloads = [];
   const server = http.createServer((req, res) => {
     if (req.url === '/repos/test/jeu/releases/latest') {
@@ -165,6 +165,24 @@ test('a release that needs a newer launcher asks for a full download instead of 
   const refused = await api('/api/update/apply', { method: 'POST' });
   assert.equal(refused.status, 409);
   assert.equal(refused.body.code, 'FULL_DOWNLOAD');
+});
+
+test('a release that writes a newer save version than this launcher understands asks for a full download', { timeout: 20000 }, async (t) => {
+  const github = await startFakeGithub(t, { saveVersion: 99 });
+  const { api, waitForStatus } = await startGame(t, { github });
+  const status = await waitForStatus((s) => s.available);
+  assert.equal(status.fullDownloadRequired, true);
+  const refused = await api('/api/update/apply', { method: 'POST' });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'FULL_DOWNLOAD');
+});
+
+test('a release whose save version the launcher understands installs normally', { timeout: 20000 }, async (t) => {
+  const github = await startFakeGithub(t, { saveVersion: 2 });
+  const { api, waitForStatus } = await startGame(t, { github });
+  const status = await waitForStatus((s) => s.available);
+  assert.equal(status.fullDownloadRequired, false);
+  assert.equal((await api('/api/update/apply', { method: 'POST' })).status, 200);
 });
 
 test('when GitHub cannot be reached the game just starts normally', { timeout: 20000 }, async (t) => {

@@ -94,11 +94,11 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 
 ### Lanceur, sauvegardes et publications
 
-- [ ] **L01** — Essayer le ZIP v1.0.1 sur un autre PC Windows avec Node 22.12, en chemin avec accents ou espaces. Vérifier démarrage, sauvegarde et relance.
-- [ ] **L02** — Tester en CI le ZIP réellement distribué sous Windows et Linux avant publication, avec vérification du manifeste et des fichiers.
-- [ ] **L03** — Tester la prochaine mise à jour réelle depuis v1.0.1 avec interruption, relance et conservation de la sauvegarde.
-- [ ] **L04** — Unifier les migrations navigateur et PC, tester les anciens formats et préserver les sauvegardes de versions plus récentes.
-- [ ] **L05** — Ajouter somme de contrôle et trois copies tournantes, tester fichier tronqué, écriture interrompue et compatibilité avec le .bak.
+- [ ] **L01** — Essayer le ZIP v1.0.1 sur un autre PC Windows avec Node 22.12, en chemin avec accents ou espaces. Vérifier démarrage, sauvegarde et relance. *Fait en partie par Luc (21/11/2026) : paquet assemblé comme le zip et essayé sur ce PC dans un chemin avec accents et espace (démarrage, sauvegarde, relance), et en CI sous Windows et Linux. Reste : le vrai zip sur un autre ordinateur.*
+- [x] **L02** — Tester en CI le ZIP réellement distribué sous Windows et Linux avant publication, avec vérification du manifeste et des fichiers. *Fait : elease.yml ne publie qu'après erify-package sur le zip décompressé (Windows et Linux) ; erify.yml essaie le paquet à chaque PR. Luc, branche luc/sauvegardes-fiables.*
+- [x] **L03** — Tester la prochaine mise à jour réelle depuis v1.0.1 avec interruption, relance et conservation de la sauvegarde. *Fait en automatique (	est/pc-update-interrupt.test.mjs : arrêt en plein téléchargement, arrêt entre les deux renommages, relance, sauvegarde intacte). La vraie mise à jour depuis v1.0.1 reste à passer à la prochaine release.*
+- [x] **L04** — Unifier les migrations navigateur et PC, tester les anciens formats et préserver les sauvegardes de versions plus récentes. *Fait : src/game/saveFormat.ts (versions, chaîne de migration), copie gardée de côté d'une sauvegarde plus récente ou abîmée (navigateur et PC), version commune vérifiée par test.*
+- [x] **L05** — Ajouter somme de contrôle et trois copies tournantes, tester fichier tronqué, écriture interrompue et compatibilité avec le .bak. *Fait : launcher/save-store.mjs (champ _checksum, copies .bak, .bak2, .bak3, fichier illisible mis de côté).*
 - [ ] L06 — Vérifier deux lanceurs ouverts dans la même installation et sérialiser les mises à jour si nécessaire.
 - [ ] L07 — Enrichir le bandeau de mise à jour avec taille, notes de version, progression, reprise après erreur et validation à la manette.
 - [ ] L08 — Étudier la signature des manifestes, la rotation des clés et les lanceurs déjà distribués.

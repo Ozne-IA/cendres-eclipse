@@ -58,6 +58,11 @@ test('validateManifest rejects dangerous or malformed manifests', () => {
   assert.throws(() => validateManifest({ ...manifest([ok]), version: '1.0' }));
   assert.throws(() => validateManifest({ ...manifest([ok]), schema: 2 }));
   assert.throws(() => validateManifest({ ...manifest([ok]), launcherApi: 0 }));
+  assert.equal(validateManifest({ ...manifest([ok]), saveVersion: 2 }).saveVersion, 2);
+  assert.equal(validateManifest(manifest([ok])).saveVersion, undefined);
+  for (const bad of [0, -1, 1.5, '2', 5000]) {
+    assert.throws(() => validateManifest({ ...manifest([ok]), saveVersion: bad }), undefined, String(bad));
+  }
   assert.throws(() => validateManifest(null));
   assert.throws(() => validateManifest({ ...manifest([ok]), files: 'x' }));
   assert.throws(() => validateManifest(manifest([])));

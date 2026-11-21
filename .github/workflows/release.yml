@@ -1,18 +1,20 @@
 name: Publish a game version
 
 # Se déclenche quand on pousse une étiquette de version, par exemple v1.1.0.
-# Publie sur GitHub : le jeu à télécharger en entier (une seule fois par joueur), le manifeste des mises à jour
-# et chaque fichier du jeu nommé d'après son empreinte, pour que les joueurs ne téléchargent que ce qui a changé.
+# 1. build : teste, compile, prépare les fichiers de mise à jour et le zip complet pour les nouveaux joueurs.
+# 2. verify : décompresse le zip réellement distribué sous Windows et Linux (chemin avec accents et espace),
+#    vérifie les fichiers, démarre le jeu, écrit puis relit une sauvegarde après relance.
+# 3. publish : seulement si tout est vert, crée la release (zip, manifeste et fichiers nommés par empreinte).
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -37,19 +39,82 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           NAME="Cendres-Eclipse-${VERSION}"
-          mkdir -p "package/${NAME}/launcher"
-          cp -r dist "package/${NAME}/dist"
-          cp launcher/*.mjs "package/${NAME}/launcher/"
-          cp scripts/release/Lancer_Cendres_Eclipse.bat scripts/release/Lancer_Cendres_Eclipse.sh scripts/release/LISEZMOI.txt "package/${NAME}/"
-          # Fins de ligne Windows pour le .bat et le texte
-          sed -i 's/$/\r/' "package/${NAME}/Lancer_Cendres_Eclipse.bat" "package/${NAME}/LISEZMOI.txt"
-          chmod +x "package/${NAME}/Lancer_Cendres_Eclipse.sh"
+          node scripts/build-package.mjs --out "package/${NAME}"
           (cd package && zip -qr "../${NAME}.zip" "${NAME}")
+      - name: Keep the update files
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/
+          if-no-files-found: error
+      - name: Keep the full package
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-zip
+          path: Cendres-Eclipse-*.zip
+          if-no-files-found: error
+
+  verify:
+    name: verify the zip (${{ matrix.os }})
+    needs: build
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Download the full package
+        uses: actions/download-artifact@v4
+        with:
+          name: game-zip
+          path: zip
+      - name: Unzip into a path with accents and a space
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          TARGET="${RUNNER_TEMP}/Cendres éclipse installé"
+          mkdir -p "$TARGET"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -Command "Expand-Archive -LiteralPath 'zip/Cendres-Eclipse-${VERSION}.zip' -DestinationPath '${TARGET}' -Force"
+          else
+            unzip -q "zip/Cendres-Eclipse-${VERSION}.zip" -d "$TARGET"
+          fi
+          echo "PACKAGE_DIR=${TARGET}/Cendres-Eclipse-${VERSION}" >> "$GITHUB_ENV"
+      - name: Verify the package like a player would
+        run: node scripts/verify-package.mjs "$PACKAGE_DIR" --version "${GITHUB_REF_NAME#v}"
+
+  publish:
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the update files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release
+      - name: Download the full package
+        uses: actions/download-artifact@v4
+        with:
+          name: game-zip
+          path: zip
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          gh release create "${GITHUB_REF_NAME}" release/* "Cendres-Eclipse-${VERSION}.zip" \
+          gh release create "${GITHUB_REF_NAME}" release/* "zip/Cendres-Eclipse-${VERSION}.zip" \
             --title "Cendres de l'Éclipse ${VERSION}" \
             --generate-notes

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createRelease } from '../scripts/make-release.mjs';
+import { SAVE_VERSION } from '../src/game/saveFormat.ts';
 import { MANIFEST_NAME, validateManifest } from '../launcher/update-lib.mjs';
 
 async function fakeDist(t) {
@@ -25,6 +26,8 @@ test('createRelease publishes one asset per distinct file, named by its hash, an
 
   assert.equal(manifest.version, '1.2.0');
   assert.equal(manifest.buildId, 'abc123def456');
+  // Le manifeste annonce la version de sauvegarde du jeu, lue dans src/game/saveFormat.ts.
+  assert.equal(manifest.saveVersion, SAVE_VERSION);
   assert.equal(manifest.files.length, 4);
   // a.js et b.js ont le même contenu : un seul fichier publié pour les deux.
   assert.equal(assets, 3 + 1);

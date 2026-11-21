@@ -7,12 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { createGithubSource, DEFAULT_REPO } from './github-source.mjs';
 import { createUpdateService } from './update-service.mjs';
 import { recoverInterruptedUpdate } from './updater.mjs';
+import { classifySave, cleanStaleTemporaryFiles, loadBestSave, writeSave } from './save-store.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const saveFilePath = path.join(rootDir, 'cendres-eclipse-save.json');
-const backupFilePath = `${saveFilePath}.bak`;
 
 const args = process.argv.slice(2);
 const portArg = args.find((a) => a.startsWith('--port='));
@@ -45,59 +45,16 @@ try {
   console.warn('[Cendres PC] Reprise de la mise à jour impossible :', error.message);
 }
 
+// Une écriture interrompue (coupure de courant, fermeture brutale) peut laisser un fichier temporaire : on le nettoie.
+try {
+  cleanStaleTemporaryFiles(saveFilePath);
+} catch {
+  // dossier en lecture seule : sans importance au démarrage
+}
+
 if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   console.error('[Cendres PC] Dossier dist/ introuvable. Executez d abord: npm run build');
   process.exit(1);
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isValidSavePayload(save) {
-  if (!isPlainObject(save) || !isPlainObject(save.res) || !isPlainObject(save.buildings)) {
-    return false;
-  }
-  if (save.version !== undefined
-    && (!Number.isInteger(save.version) || save.version < 1 || save.version > 2)) {
-    return false;
-  }
-  for (const key of ['cendres', 'fer', 'larmes']) {
-    if (save.res[key] !== undefined
-      && (typeof save.res[key] !== 'number' || !Number.isFinite(save.res[key]) || save.res[key] < 0)) {
-      return false;
-    }
-  }
-  for (const value of Object.values(save.buildings)) {
-    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return false;
-  }
-  return true;
-}
-
-function readSave(filePath) {
-  let raw;
-  try {
-    raw = fs.readFileSync(filePath, 'utf8');
-  } catch (error) {
-    if (error.code === 'ENOENT') return undefined;
-    throw error;
-  }
-  try {
-    const save = JSON.parse(raw);
-    return isValidSavePayload(save) ? save : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeSaveAtomically(filePath, save) {
-  const temporaryPath = `${filePath}.${process.pid}.tmp`;
-  try {
-    fs.writeFileSync(temporaryPath, JSON.stringify(save, null, 2), 'utf8');
-    fs.renameSync(temporaryPath, filePath);
-  } finally {
-    fs.rmSync(temporaryPath, { force: true });
-  }
 }
 
 // En-têtes de sécurité envoyés sur toutes les réponses (le jeu n'a pas besoin d'être affiché dans un cadre
@@ -193,14 +150,14 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/api/save') {
     if (req.method === 'GET') {
       try {
-        const primary = readSave(saveFilePath);
-        if (primary) return sendJson(res, 200, { exists: true, save: primary });
-
-        const backup = readSave(backupFilePath);
-        if (backup) return sendJson(res, 200, { exists: true, save: backup });
-        if (primary === undefined && backup === undefined) {
-          return sendJson(res, 200, { exists: false });
+        const best = loadBestSave(saveFilePath);
+        if (best.kind === 'ok') {
+          if (best.source !== 'primary') console.warn(`[Cendres PC] Sauvegarde principale illisible : copie « ${best.source} » utilisée.`);
+          return sendJson(res, 200, { exists: true, save: best.save });
         }
+        if (best.kind === 'none') return sendJson(res, 200, { exists: false });
+        // Écrite par une version plus récente du jeu : on la signale sans la modifier ni la remplacer.
+        if (best.kind === 'newer') return sendJson(res, 200, { exists: true, tooNew: true, version: best.version });
         return sendJson(res, 422, { ok: false, error: 'Sauvegarde illisible' });
       } catch {
         return sendJson(res, 500, { ok: false, error: 'Lecture de la sauvegarde impossible' });
@@ -226,13 +183,12 @@ const server = http.createServer((req, res) => {
         } catch {
           return sendJson(res, 400, { ok: false, error: 'JSON invalide' });
         }
-        if (!isValidSavePayload(parsed)) {
+        if (classifySave(parsed).status !== 'ok') {
           return sendJson(res, 400, { ok: false, error: 'Format invalide' });
         }
         try {
-          const primary = readSave(saveFilePath);
-          if (primary) writeSaveAtomically(backupFilePath, primary);
-          writeSaveAtomically(saveFilePath, parsed);
+          // Somme de contrôle, trois copies tournantes, et mise de côté d'un ancien fichier illisible.
+          writeSave(saveFilePath, parsed);
           return sendJson(res, 200, { ok: true, path: saveFilePath });
         } catch {
           return sendJson(res, 500, { ok: false, error: 'Écriture de la sauvegarde impossible' });

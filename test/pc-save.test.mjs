@@ -57,7 +57,10 @@ test('the PC launcher loads and preserves a valid backup when the main save is c
   assert.deepEqual(await (await get()).json(), { exists: true, save: original });
   assert.equal((await post(newer)).status, 200);
   assert.deepEqual(await (await get()).json(), { exists: true, save: newer });
-  assert.deepEqual(JSON.parse(await readFile(backup, 'utf8')), original);
+  // La copie contient la sauvegarde et sa somme de contrôle (champ _checksum).
+  const { _checksum, ...backupSave } = JSON.parse(await readFile(backup, 'utf8'));
+  assert.equal(typeof _checksum, 'string');
+  assert.deepEqual(backupSave, original);
 
   await writeFile(primary, '{}');
   await writeFile(backup, '{');

@@ -12,6 +12,7 @@ import {
   TALENTS_DEF,
   WEAPONS_DEF,
 } from './data';
+import { inspectSaveVersion, migrateSave } from './saveFormat';
 import type {
   ArmorSkinKey,
   AttackMove,
@@ -201,10 +202,10 @@ function mergeRunHistory(raw: unknown): RunRecord[] {
 export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   const base = defaultSave();
   if (!isPlainRecord(raw)) return base;
-  const source = raw as Record<string, unknown>;
-  if (source.version !== undefined
-    && (typeof source.version !== 'number' || !Number.isInteger(source.version)
-      || source.version < 1 || source.version > 2)) return base;
+  // Une version inconnue ou plus récente ne se lit pas : on repart d'une sauvegarde neuve (loadSave garde l'originale).
+  const verdict = inspectSaveVersion((raw as Record<string, unknown>).version);
+  if (verdict.status === 'invalid' || verdict.status === 'newer') return base;
+  const source = migrateSave(raw as Record<string, unknown>);
 
   const rawRes = isPlainRecord(source.res) ? source.res : {};
   const res = { ...base.res };
@@ -314,12 +315,34 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   };
 }
 
+/** Garde une copie d'une sauvegarde qu'on ne sait pas lire, sans jamais remplacer une copie déjà gardée. */
+function keepAside(key: string, raw: string): void {
+  try {
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, raw);
+  } catch {
+    // stockage plein ou indisponible : rien de plus à faire
+  }
+}
+
 export function loadSave(): SaveData {
   try {
     if (typeof localStorage === 'undefined') return defaultSave();
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultSave();
-    return mergeSave(JSON.parse(raw));
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Fichier abîmé : la prochaine sauvegarde va l'écraser, on en garde donc une copie.
+      keepAside(`${SAVE_KEY}.corrupt`, raw);
+      return defaultSave();
+    }
+    if (isPlainRecord(parsed)) {
+      const verdict = inspectSaveVersion(parsed.version);
+      // Écrite par une version plus récente du jeu : on la garde de côté avant de repartir d'une sauvegarde neuve.
+      if (verdict.status === 'newer') keepAside(`${SAVE_KEY}.newer-v${verdict.version}`, raw);
+    }
+    return mergeSave(parsed as Partial<SaveData>);
   } catch {
     return defaultSave();
   }
@@ -676,12 +699,9 @@ export function importSaveJson(rawText: string): SaveData | null {
     if (!isPlainRecord(parsed) || !isPlainRecord(parsed.res) || !isPlainRecord(parsed.buildings)) {
       return null;
     }
-    // Older saves without a version are treated as legacy v2 exports.
-    if (parsed.version !== undefined
-      && (typeof parsed.version !== 'number' || !Number.isInteger(parsed.version)
-        || parsed.version < 1 || parsed.version > 2)) {
-      return null;
-    }
+    // Older saves without a version are treated as legacy exports of the current version.
+    const verdict = inspectSaveVersion(parsed.version);
+    if (verdict.status === 'invalid' || verdict.status === 'newer') return null;
     return mergeSave(parsed as unknown as Partial<SaveData>);
   } catch {
     return null;
