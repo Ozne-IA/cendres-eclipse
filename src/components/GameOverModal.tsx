@@ -1,5 +1,6 @@
 import React from 'react';
 import { SYNERGIES_POOL } from '../game/data';
+import { computeComboRank } from '../game/rules';
 import type { RunSummary } from '../game/types';
 import { ExpeditionRewards } from './ExpeditionRewards';
 
@@ -9,10 +10,16 @@ interface GameOverModalProps {
   onOpenBastion: () => void;
 }
 
+function signedDelta(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
+}
+
 export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverModalProps) {
   const mins = Math.floor(summary.elapsedSec / 60);
   const secs = summary.elapsedSec % 60;
   const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+  const rank = computeComboRank(summary.peakComboHits).rank;
+  const previous = summary.previousRun;
 
   return (
     <div
@@ -42,7 +49,7 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
         </div>
 
         {/* Mastery / Progress Metrics Grid */}
-        <div className="grid grid-cols-3 gap-3 mb-5 text-left">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5 text-left">
           <div className="bg-[#18141e] border border-[#352b22] p-3">
             <div className="text-[11px] text-[#9d9284] uppercase">Strate</div>
             <div className="font-mono-num text-lg text-[#d4a853] font-semibold mt-0.5">
@@ -74,12 +81,41 @@ export function GameOverModal({ summary, onPlayAgain, onOpenBastion }: GameOverM
             </div>
           </div>
           <div className="bg-[#18141e] border border-[#352b22] p-3">
-            <div className="text-[11px] text-[#9d9284] uppercase">Durée · Dégâts</div>
+            <div className="text-[11px] text-[#9d9284] uppercase">Durée en jeu</div>
             <div className="font-mono-num text-sm text-[#e8e1d5] mt-1">
-              {timeStr} · {summary.damageTaken}
+              {timeStr}
             </div>
           </div>
+          <div className="bg-[#18141e] border border-[#352b22] p-3">
+            <div className="text-[11px] text-[#9d9284] uppercase">Dégâts infligés</div>
+            <div className="font-mono-num text-base text-[#e8e1d5] mt-0.5">{summary.damageDealt}</div>
+          </div>
+          <div className="bg-[#18141e] border border-[#352b22] p-3">
+            <div className="text-[11px] text-[#9d9284] uppercase">Dégâts reçus</div>
+            <div className="font-mono-num text-base text-[#e8e1d5] mt-0.5">{summary.damageTaken}</div>
+          </div>
+          <div className="bg-[#18141e] border border-[#352b22] p-3">
+            <div className="text-[11px] text-[#9d9284] uppercase">Rang de combo max.</div>
+            <div className="font-mono-num text-base text-[#ffd470] mt-0.5">{rank} · {summary.peakComboHits}</div>
+          </div>
         </div>
+
+        {previous && (
+          <div className="mb-3 px-4 py-2.5 bg-[#18141e] border border-[#352b22] text-left text-xs">
+            <h3 className="text-[#d4a853] m-0 mb-1">Par rapport à l’expédition précédente</h3>
+            <p className="text-[#e8e1d5] m-0">
+              Strate {signedDelta(summary.depthReached - previous.depthReached)} ·
+              {' '}Vaincus {signedDelta(summary.kills - previous.kills)} ·
+              {' '}Déviations {signedDelta(summary.parries - previous.parries)} ·
+              {' '}Rang {computeComboRank(previous.peakComboHits).rank} → {rank}
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-[#cfc6b8] text-left mt-0 mb-4">
+          Records locaux · Strate {summary.bests.depthReached} · {summary.bests.damageDealt} dégâts infligés ·
+          {' '}Rang {computeComboRank(summary.bests.peakComboHits).rank}
+        </p>
 
         <div className="mb-5">
           <ExpeditionRewards rewards={summary.rewards} />

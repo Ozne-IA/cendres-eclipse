@@ -16,13 +16,27 @@ import type {
   ArmorSkinKey,
   AttackMove,
   BuildingKey,
+  Enemy,
   NpcKey,
   ResourceBag,
+  RunBests,
+  RunOutcome,
+  RunRecord,
   RunState,
   SaveData,
   TalentKey,
   WeaponKey,
 } from './types';
+
+export const MAX_RUN_HISTORY = 20;
+
+const EMPTY_RUN_BESTS: RunBests = {
+  depthReached: 0,
+  kills: 0,
+  parries: 0,
+  damageDealt: 0,
+  peakComboHits: 0,
+};
 
 export function defaultSave(): SaveData {
   return {
@@ -80,6 +94,8 @@ export function defaultSave(): SaveData {
       bossesSlain: 0,
       totalPlaySec: 0,
     },
+    runHistory: [],
+    runBests: { ...EMPTY_RUN_BESTS },
   };
 }
 
@@ -143,6 +159,44 @@ const ENEMY_KINDS = [
   'penitent', 'watcher', 'flagellant', 'lancer', 'arbalest',
   'specter', 'pyromancer', 'archon', 'mother', 'sovereign',
 ] as const;
+
+function updateRunBests(bests: RunBests, run: RunRecord): RunBests {
+  return {
+    depthReached: Math.max(bests.depthReached, run.depthReached),
+    kills: Math.max(bests.kills, run.kills),
+    parries: Math.max(bests.parries, run.parries),
+    damageDealt: Math.max(bests.damageDealt, run.damageDealt),
+    peakComboHits: Math.max(bests.peakComboHits, run.peakComboHits),
+  };
+}
+
+function mergeRunHistory(raw: unknown): RunRecord[] {
+  if (!Array.isArray(raw)) return [];
+  const result: RunRecord[] = [];
+  for (const value of raw) {
+    if (!isPlainRecord(value)) continue;
+    const { outcome } = value;
+    if (outcome !== 'victory' && outcome !== 'defeat' && outcome !== 'return') continue;
+    if (typeof value.depthReached !== 'number' || !Number.isFinite(value.depthReached) || value.depthReached < 1) {
+      continue;
+    }
+    result.push({
+      outcome,
+      depthReached: safeNumber(value.depthReached, 1, 1),
+      kills: safeNumber(value.kills, 0),
+      parries: safeNumber(value.parries, 0),
+      perfectDodges: safeNumber(value.perfectDodges, 0),
+      bestParryStreak: safeNumber(value.bestParryStreak, 0),
+      damageTaken: safeNumber(value.damageTaken, 0),
+      damageDealt: safeNumber(value.damageDealt, 0),
+      peakComboHits: safeNumber(value.peakComboHits, 0),
+      elapsedSec: safeNumber(value.elapsedSec, 0),
+      ascensionLevel: safeNumber(value.ascensionLevel, 0, 0, 5),
+    });
+    if (result.length === MAX_RUN_HISTORY) break;
+  }
+  return result;
+}
 
 export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   const base = defaultSave();
@@ -219,6 +273,8 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   for (const key of Object.keys(base.records) as Array<keyof typeof base.records>) {
     records[key] = safeNumber(rawRecords[key], base.records[key]);
   }
+  const runHistory = mergeRunHistory(source.runHistory);
+  const runBests = runHistory.reduce(updateRunBests, mergeNumericRecord(EMPTY_RUN_BESTS, source.runBests));
   const rawBestiary = isPlainRecord(source.bestiaryKills) ? source.bestiaryKills : {};
   const bestiaryKills: SaveData['bestiaryKills'] = {};
   for (const kind of ENEMY_KINDS) {
@@ -253,6 +309,8 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
     muted: typeof source.muted === 'boolean' ? source.muted : base.muted,
     settings,
     records,
+    runHistory,
+    runBests,
   };
 }
 
@@ -374,8 +432,10 @@ export function createRunState(
     bestParryStreak: 0,
     perfectDodges: 0,
     comboHits: 0,
+    peakComboHits: 0,
     comboTimer: 0,
     damageTaken: 0,
+    damageDealt: 0,
     elapsedSec: 0,
     secondWindUsed: false,
     critNextAttack: false,
@@ -513,8 +573,29 @@ export function calculateBastionProduction(save: SaveData): ResourceBag {
   return prod;
 }
 
-export function bankRunIntoSave(save: SaveData, run: RunState, victory: boolean): SaveData {
+export function applyEnemyDamage(run: RunState, enemy: Pick<Enemy, 'hp'>, damage: number): void {
+  // Count health actually lost without changing the existing damage and kill order.
+  run.damageDealt += Math.min(Math.max(0, enemy.hp), damage);
+  enemy.hp -= damage;
+}
+
+export function bankRunIntoSave(save: SaveData, run: RunState, result: boolean | RunOutcome): SaveData {
   if (run.isTraining) return save;
+  const outcome = typeof result === 'boolean' ? (result ? 'victory' : 'defeat') : result;
+  const victory = outcome === 'victory';
+  const record: RunRecord = {
+    outcome,
+    depthReached: run.depth,
+    kills: run.kills,
+    parries: run.parries,
+    perfectDodges: run.perfectDodges,
+    bestParryStreak: run.bestParryStreak,
+    damageTaken: Math.round(run.damageTaken),
+    damageDealt: Math.round(run.damageDealt),
+    peakComboHits: run.peakComboHits,
+    elapsedSec: Math.round(run.elapsedSec),
+    ascensionLevel: run.ascensionLevel,
+  };
   const prod = calculateBastionProduction(save);
   const nextAscensionUnlocked =
     victory && (save.ascensionLevel || 0) >= (save.maxAscensionUnlocked || 0)
@@ -524,6 +605,8 @@ export function bankRunIntoSave(save: SaveData, run: RunState, victory: boolean)
   const next: SaveData = {
     ...save,
     maxAscensionUnlocked: nextAscensionUnlocked,
+    runHistory: [record, ...save.runHistory].slice(0, MAX_RUN_HISTORY),
+    runBests: updateRunBests(save.runBests, record),
     res: {
       cendres: save.res.cendres + run.loot.cendres + prod.cendres,
       fer: save.res.fer + run.loot.fer + prod.fer,

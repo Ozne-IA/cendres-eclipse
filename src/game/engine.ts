@@ -17,6 +17,7 @@ import { renderGameFrame } from './renderer';
 import { setPreferCinematicArt } from './textures';
 import { VfxSystem } from './vfx';
 import {
+  applyEnemyDamage,
   bankRunIntoSave,
   computeActiveSynergies,
   computeComboRank,
@@ -44,6 +45,7 @@ import type {
   InputState,
   Player,
   RoomData,
+  RunOutcome,
   RunState,
   RunSummary,
   SaveData,
@@ -80,6 +82,7 @@ export class CendresEngine {
   private save: SaveData;
   private phase: GamePhase = 'title';
   private run: RunState | null = null;
+  private lastBankedRun: RunState | null = null;
   private room: RoomData | null = null;
   private player: Player | null = null;
 
@@ -426,34 +429,31 @@ export class CendresEngine {
   extractVictory(): void {
     if (!this.run || this.run.isTraining || this.phase !== 'blessing') return;
     AudioFX.victory();
-    this.bankExpedition(true);
+    this.bankExpedition('victory');
     this.setPhase('gameover');
   }
 
   extractReturnBastion(): void {
     if (this.phase !== 'paused') return;
-    this.bankExpedition(false);
+    this.bankExpedition('return');
     this.openBastion();
   }
 
-  private bankExpedition(victory: boolean, boss?: Enemy): void {
+  private bankExpedition(outcome: RunOutcome, boss?: Enemy): void {
     const run = this.run;
-    if (!run || run.isTraining) return;
+    if (!run || run.isTraining || run === this.lastBankedRun) return;
+    this.lastBankedRun = run;
 
     const previousResources = this.save.res;
+    const previousRun = this.save.runHistory[0];
     const weapon = WEAPONS_DEF[this.save.weapon] || WEAPONS_DEF.clay_blade;
-    this.updateSave((save) => bankRunIntoSave(save, run, victory));
+    this.updateSave((save) => bankRunIntoSave(save, run, outcome));
     const resources = this.save.res;
     this.cb.onRunSummary({
-      victory,
-      depthReached: run.depth,
-      kills: run.kills,
-      parries: run.parries,
-      perfectDodges: run.perfectDodges,
-      bestParryStreak: run.bestParryStreak,
-      damageTaken: Math.round(run.damageTaken),
-      elapsedSec: Math.round(run.elapsedSec),
-      ascensionLevel: run.ascensionLevel,
+      ...this.save.runHistory[0],
+      victory: outcome === 'victory',
+      previousRun,
+      bests: this.save.runBests,
       weaponName: weapon.name,
       activeSynergies: [...run.activeSynergies],
       rewards: {
@@ -565,6 +565,7 @@ export class CendresEngine {
     if (!this.run || !this.player) return;
     const prevRank = computeComboRank(this.run.comboHits).rank;
     this.run.comboHits += hits;
+    this.run.peakComboHits = Math.max(this.run.peakComboHits, this.run.comboHits);
     this.run.comboTimer = 4.2;
     const nextRankInfo = computeComboRank(this.run.comboHits);
     if (nextRankInfo.rank !== prevRank && this.run.comboHits >= 2) {
@@ -655,7 +656,7 @@ export class CendresEngine {
       this.vfx.update(dt);
       if (this.deathDelayTimer <= 0) {
         const boss = this.room.enemies.find((e) => e.isBoss && e.hp > 0);
-        this.bankExpedition(false, boss);
+        this.bankExpedition('defeat', boss);
         this.setPhase('gameover');
       }
       return;
@@ -1183,7 +1184,7 @@ export class CendresEngine {
             }
           }
 
-          e.hp -= finalDmg;
+          applyEnemyDamage(run, e, finalDmg);
           e.stagger += finalStag;
           e.hitFlashT = 0.06;
           e.vx = player.facing * (isHeavy ? 230 : 120);
@@ -1349,7 +1350,7 @@ export class CendresEngine {
         e.burnTickT -= dt;
         if (e.burnTickT <= 0) {
           e.burnTickT = 0.75;
-          e.hp -= 10;
+          applyEnemyDamage(run, e, 10);
           this.particles.spawnBurst(e.x + e.w / 2, e.y + 18, '#e06b2b', 4, 90);
           this.particles.addText(e.x + e.w / 2, e.y - 8, '-10 🔥', '#e06b2b', 0.85);
           if (e.hp <= 0) {
@@ -1578,7 +1579,7 @@ export class CendresEngine {
             pr.y + pr.r > e.y &&
             pr.y - pr.r < e.y + e.h
           ) {
-            e.hp -= pr.dmg;
+            applyEnemyDamage(run, e, pr.dmg);
             e.hitFlashT = 0.06;
             if (run.blessings.includes('cinder_burn')) e.burnT = Math.max(e.burnT, 3.0);
             if (run.blessings.includes('sunder_steel')) e.sunderT = Math.max(e.sunderT, 4.0);
@@ -1695,7 +1696,7 @@ export class CendresEngine {
       this.vfx.spawnImpactFlare(cx + player.facing * 50, player.y + player.h - 10, 96, '#ff9842', 'amber', 0.3);
       for (const e of room.enemies) {
         if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 175) {
-          e.hp -= 54;
+          applyEnemyDamage(run, e, 54);
           e.stagger += 75;
           e.hitFlashT = 0.08;
           if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
@@ -1722,7 +1723,7 @@ export class CendresEngine {
       this.vfx.spawnSlashArc(cx, cy, 118, -1.5, 1.5, player.facing, '#ffd470', '#ffffff', 24, 0.25);
       for (const e of room.enemies) {
         if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 145) {
-          e.hp -= 44;
+          applyEnemyDamage(run, e, 44);
           e.sunderT = 5.0;
           if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
           if (run.blessings.includes('lunar_frost')) e.chillT = 3.0;
@@ -1737,7 +1738,7 @@ export class CendresEngine {
       let drained = 0;
       for (const e of room.enemies) {
         if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 135) {
-          e.hp -= 46;
+          applyEnemyDamage(run, e, 46);
           e.chillT = 4.0;
           if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
           if (run.blessings.includes('sunder_steel')) e.sunderT = 4.0;
@@ -1757,7 +1758,7 @@ export class CendresEngine {
       this.vfx.spawnGroundFissure(cx + 48, player.y + player.h, 85, '#ff7b29', 1.5);
       for (const e of room.enemies) {
         if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 150) {
-          e.hp -= 42;
+          applyEnemyDamage(run, e, 42);
           e.stagger = e.maxStagger;
           e.state = 'staggered';
           e.stateT = 2.4;
@@ -1942,7 +1943,7 @@ export class CendresEngine {
             ? Math.round(stagPower * 1.45)
             : stagPower;
           if (run.blessings.includes('thunder_parry')) {
-            e.hp -= 38;
+            applyEnemyDamage(run, e, 38);
             e.hitFlashT = 0.06;
             this.particles.addText(e.x + e.w / 2, e.y - 24, '-38 ⚡', '#ffd470');
             if (e.hp <= 0) this.onEnemyKilled(e);
@@ -1977,8 +1978,8 @@ export class CendresEngine {
       this.particles.addText(player.x + 14, player.y - 12, `-${dmg}`, '#ff4d5e', 1.1);
     }
 
+    run.damageTaken += Math.min(run.hp, dmg);
     run.hp = Math.max(0, run.hp - dmg);
-    run.damageTaken += dmg;
     player.invulnT = 0.65;
     player.hitFlashT = 0.08;
     player.vx = (player.x < sourceX ? -1 : 1) * 240;
@@ -2035,17 +2036,19 @@ export class CendresEngine {
     e.deadT = 0.35;
     this.run.kills += 1;
 
-    this.updateSave((s) => ({
-      ...s,
-      bestiaryKills: {
-        ...s.bestiaryKills,
-        [e.kind]: (s.bestiaryKills[e.kind] || 0) + 1,
-      },
-      records: {
-        ...s.records,
-        bossesSlain: s.records.bossesSlain + (e.isBoss ? 1 : 0),
-      },
-    }));
+    if (!this.run.isTraining) {
+      this.updateSave((s) => ({
+        ...s,
+        bestiaryKills: {
+          ...s.bestiaryKills,
+          [e.kind]: (s.bestiaryKills[e.kind] || 0) + 1,
+        },
+        records: {
+          ...s.records,
+          bossesSlain: s.records.bossesSlain + (e.isBoss ? 1 : 0),
+        },
+      }));
+    }
 
     this.particles.spawnBurst(
       e.x + e.w / 2,
