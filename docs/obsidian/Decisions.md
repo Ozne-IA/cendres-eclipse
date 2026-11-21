@@ -18,4 +18,6 @@ tags:
 
 - **Fixer la simulation à 60 Hz.** Le ralenti espace les mises à jour de 1/60 s. Le rendu interpole la caméra et les positions entre deux mises à jour. Le combat et la génération utilisent un tirage aléatoire indépendant des effets visuels et reproductible dans les tests.
 
+- **Isoler les responsabilités du moteur et des sprites.** Le déplacement du joueur, les plateformes, la caméra et le déclenchement des attaques ont leurs propres modules. Les dessins sont regroupés par type de sprite.
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].

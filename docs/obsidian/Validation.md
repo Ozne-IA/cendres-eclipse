@@ -29,4 +29,6 @@ Les tests de la chronique couvrent la compatibilité des anciennes sauvegardes, 
 
 La reprise de l’audio et des statistiques a passé le contrôle TypeScript, les 53 tests, la compilation de production et la vérification de syntaxe du serveur PC.
 
+Après le découpage, 24 scénarios à graine fixe, avec toutes les armes, en expédition et dans la Cour, donnent les mêmes états de jeu, de caméra, de HUD et de sauvegarde qu’avant l’extraction. Les 63 tests, TypeScript et la compilation de production passent.
+
 Revenir à [[Accueil]] ou consulter [[Architecture]].
