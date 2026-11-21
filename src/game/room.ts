@@ -107,17 +107,18 @@ export function interactWithProps(
   effects: RoomInteractionEffects,
 ): string | undefined {
   let prompt = '';
-  const interactLabel = usingGamepad
-    ? 'A / Croix'
-    : formatKeyLabel(effects.save.settings?.keyBindings?.interact ?? DEFAULT_KEY_BINDINGS.interact);
-  const action = `[${interactLabel}]`;
+  let action: string | undefined;
 
-  for (const pr of room.props) {
+  for (let i = 0; i < room.props.length; i++) {
+    const pr = room.props[i];
     if (pr.type === 'urn') continue;
     const near =
       Math.abs(player.x + player.w / 2 - (pr.x + pr.w / 2)) < 58 &&
       Math.abs(player.y + player.h - (pr.y + pr.h)) < 70;
     if (!near) continue;
+    action ??= usingGamepad
+      ? '[A / Croix]'
+      : `[${formatKeyLabel(effects.save.settings?.keyBindings?.interact ?? DEFAULT_KEY_BINDINGS.interact)}]`;
 
     if ((pr.type === 'chest' || pr.type === 'gilded_chest') && !pr.opened) {
       prompt = pr.type === 'gilded_chest' ? `${action} Ouvrir le Reliquaire Doré` : `${action} Ouvrir le Reliquaire`;

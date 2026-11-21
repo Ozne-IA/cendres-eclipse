@@ -711,14 +711,17 @@ export class CendresEngine {
     if (this.player) this.interpolation.capture(this.player);
     if (!this.room) return;
     // Wait for the first simulation pose before capturing room machinery.
-    for (const platform of this.room.platforms) {
+    const { platforms, hazards, enemies, projectiles } = this.room;
+    for (let i = 0; i < platforms.length; i++) {
+      const platform = platforms[i];
       if (platform.type === 'moving' && platform.vx !== undefined) this.interpolation.capture(platform);
     }
-    for (const hazard of this.room.hazards) {
+    for (let i = 0; i < hazards.length; i++) {
+      const hazard = hazards[i];
       if (hazard.kind === 'pendulum' && hazard.angle !== undefined) this.interpolation.capture(hazard);
     }
-    for (const enemy of this.room.enemies) this.interpolation.capture(enemy);
-    for (const projectile of this.room.projectiles) this.interpolation.capture(projectile);
+    for (let i = 0; i < enemies.length; i++) this.interpolation.capture(enemies[i]);
+    for (let i = 0; i < projectiles.length; i++) this.interpolation.capture(projectiles[i]);
   }
 
   private acquireProjectile(active: Projectile[]): Projectile {
@@ -975,7 +978,7 @@ export class CendresEngine {
     }
   }
 
-  private lastHudKey = '';
+  private lastHudKey: (number | string | boolean)[] = [];
 
   private pushHud(force: boolean): void {
     if (!this.run || !this.room) return;
@@ -993,7 +996,6 @@ export class CendresEngine {
     const larmesTotal = this.save.res.larmes + this.run.loot.larmes;
     const bossHp = boss ? Math.max(0, Math.ceil(boss.hp)) : -1;
     const bossStag = boss ? Math.min(boss.maxStagger, Math.round(boss.stagger)) : -1;
-    const comboInfo = computeComboRank(this.run.comboHits);
     const fpsVal = Math.round(this.smoothedFps);
     const showFps = !!this.save.settings?.showFps;
 
@@ -1004,8 +1006,13 @@ export class CendresEngine {
     const oathDef = OATHS_DEF[this.save.oath] || OATHS_DEF.argile;
 
     const riposteReady = (this.player?.riposteBuffT ?? 0) > 0;
-    const hudKey = `${this.input.lastInputMode}|${riposteReady}|${hp}|${ghostHp}|${this.run.maxHp}|${stam}|${this.run.maxStam}|${this.run.flasks}|${this.run.depth}|${cendresTotal}|${ferTotal}|${larmesTotal}|${this.promptText}|${bannerVisible}|${bossHp}|${bossStag}|${this.run.parryStreak}|${this.run.perfectDodges}|${this.save.weapon}|${skillCd}|${this.run.activeSynergies.length}|${this.achievementToast}|${this.run.comboHits}|${showFps ? fpsVal : 0}`;
-    if (!force && hudKey === this.lastHudKey) return;
+    const hudKey = [
+      this.input.lastInputMode, riposteReady, hp, ghostHp, this.run.maxHp, stam, this.run.maxStam,
+      this.run.flasks, this.run.depth, cendresTotal, ferTotal, larmesTotal, this.promptText, bannerVisible,
+      bossHp, bossStag, this.run.parryStreak, this.run.perfectDodges, this.save.weapon, skillCd,
+      this.run.activeSynergies.length, this.achievementToast, this.run.comboHits, showFps ? fpsVal : 0,
+    ];
+    if (!force && hudKey.every((value, index) => value === this.lastHudKey[index])) return;
     this.lastHudKey = hudKey;
 
     this.cb.onHudUpdate({
@@ -1037,7 +1044,7 @@ export class CendresEngine {
       perfectDodges: this.run.perfectDodges,
       elapsedSec: Math.round(this.run.elapsedSec),
       comboHits: this.run.comboHits,
-      comboRank: comboInfo.rank,
+      comboRank: computeComboRank(this.run.comboHits).rank,
       affixName: this.room.affix?.name,
       affixDesc: this.room.affix?.desc,
       fps: fpsVal,

@@ -351,7 +351,8 @@ export class BloodSystem {
 
     // 2. Age and purge faded decals
     let remaining = 0;
-    for (const decal of this.decals) {
+    for (let i = 0; i < this.decals.length; i++) {
+      const decal = this.decals[i];
       decal.life -= dt;
       if (decal.life <= 0) this.idleDecals.push(decal);
       else this.decals[remaining++] = decal;
