@@ -1,4 +1,4 @@
-name: Verify Chromium journeys
+name: Verify Chromium journeys and canvas
 
 on:
   push:
@@ -30,11 +30,11 @@ jobs:
         run: npx playwright install --only-shell --with-deps chromium
       - name: Production build
         run: npm run build
-      - name: Keyboard and gamepad journeys
+      - name: Journeys and renderer screenshots
         run: npm run test:e2e
-      - name: Keep failure traces
+      - name: Keep failure traces and screenshot diffs
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: chromium-failure-traces
+          name: chromium-failure-results
           path: test-results/

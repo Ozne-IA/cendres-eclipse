@@ -6,8 +6,11 @@ const baseURL = `http://localhost:${port}`;
 export default defineConfig({
   testDir: './test/e2e',
   timeout: 120_000,
-  expect: { timeout: 10_000 },
-  // Each game renders a Canvas. Running the two journeys serially avoids CPU contention.
+  expect: {
+    timeout: 10_000,
+    toHaveScreenshot: { pathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}{ext}' },
+  },
+  // Run the canvas tests serially to avoid CPU contention.
   workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
