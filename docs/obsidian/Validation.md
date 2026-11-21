@@ -31,6 +31,8 @@ La reprise de l’audio et des statistiques a passé le contrôle TypeScript, le
 
 Après le découpage, 24 scénarios à graine fixe, avec toutes les armes, en expédition et dans la Cour, donnent les mêmes états de jeu, de caméra, de HUD et de sauvegarde qu’avant l’extraction. Les 63 tests, TypeScript et la compilation de production passent.
 
+Les tests de mise à jour (`test/update-lib.test.mjs`, `updater.test.mjs`, `github-source.test.mjs`, `pc-update.test.mjs`, `make-release.test.mjs`) simulent GitHub avec un serveur local. Ils vérifient que seuls les fichiers modifiés sont téléchargés, qu’un fichier falsifié, tronqué ou absent annule tout et laisse la version installée intacte, qu’un manifeste avec un chemin dangereux est refusé, qu’une copie de développement n’est jamais remplacée, qu’une page tierce ne peut pas déclencher l’installation et qu’une mise à jour interrompue entre les deux renommages est rattrapée au démarrage. Un essai complet a aussi été fait à la main : jeu installé en 1.0.0, fausse publication 1.0.1, bandeau sur l’écran titre, installation, version 1.0.1 sur disque, sauvegarde intacte. Il reste à faire une vraie publication de test (`git tag`) pour vérifier le workflow `release.yml` sur GitHub.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

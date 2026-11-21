@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -20,11 +20,10 @@ async function startServer(t) {
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(join(root, 'dist'));
-  await mkdir(join(root, 'launcher'));
   await writeFile(join(root, 'dist', 'index.html'), '<title>PC security test</title>');
   await writeFile(join(root, 'secret.txt'), 'NE-DOIT-JAMAIS-SORTIR');
   const launcher = join(root, 'launcher', 'server-pc.mjs');
-  await copyFile(new URL('../launcher/server-pc.mjs', import.meta.url), launcher);
+  await cp(new URL('../launcher/', import.meta.url), join(root, 'launcher'), { recursive: true });
   server = spawn(process.execPath, [launcher, '--port=0', '--no-open'], { stdio: ['ignore', 'pipe', 'inherit'] });
   const origin = await new Promise((resolve, reject) => {
     server.once('error', reject);
