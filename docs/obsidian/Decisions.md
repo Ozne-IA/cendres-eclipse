@@ -13,5 +13,7 @@ tags:
 
 - **Protéger le serveur local.** Seules les requêtes dont `Host` et `Origin` désignent le serveur sont acceptées : une page web tierce ne peut plus écraser la sauvegarde. Les chemins restent confinés à `dist/` et les réponses portent des en-têtes de sécurité. [[Passation Luc]]
 - **Pas de version téléphone.** Le jeu vise l'ordinateur ; le mobile est réservé au bot Discord. Des commandes tactiles ont été écrites puis laissées sur une branche à part. [[Passation Luc]]
+- **Adapter la musique à la situation.** Chaque biome et chaque gardien a son motif. Celui des gardiens varie entre les deux phases. La musique baisse en combat et pendant certains effets, dont la parade parfaite et le jingle du rang Éclipse. Les attaques légères, lourdes et les arts utilisent le timbre de l’arme équipée.
+- **Conserver une chronique locale des expéditions.** Le Bastion présente les 20 dernières expéditions terminées, avec des records qui persistent au-delà de cet historique. Le bilan compare l’expédition à la précédente. La Cour reste exclue de la chronique.
 
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
