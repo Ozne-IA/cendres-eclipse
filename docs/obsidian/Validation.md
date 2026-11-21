@@ -31,4 +31,6 @@ La reprise de l’audio et des statistiques a passé le contrôle TypeScript, le
 
 Après le découpage, 24 scénarios à graine fixe, avec toutes les armes, en expédition et dans la Cour, donnent les mêmes états de jeu, de caméra, de HUD et de sauvegarde qu’avant l’extraction. Les 63 tests, TypeScript et la compilation de production passent.
 
+Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
+
 Revenir à [[Accueil]] ou consulter [[Architecture]].
