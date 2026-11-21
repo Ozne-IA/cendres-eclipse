@@ -16,4 +16,6 @@ tags:
 - **Adapter la musique à la situation.** Chaque biome et chaque gardien a son motif. Celui des gardiens varie entre les deux phases. La musique baisse en combat et pendant certains effets, dont la parade parfaite et le jingle du rang Éclipse. Les attaques légères, lourdes et les arts utilisent le timbre de l’arme équipée.
 - **Conserver une chronique locale des expéditions.** Le Bastion présente les 20 dernières expéditions terminées, avec des records qui persistent au-delà de cet historique. Le bilan compare l’expédition à la précédente. La Cour reste exclue de la chronique.
 
+- **Fixer la simulation à 60 Hz.** Le ralenti espace les mises à jour de 1/60 s. Le rendu interpole la caméra et les positions entre deux mises à jour. Le combat et la génération utilisent un tirage aléatoire indépendant des effets visuels et reproductible dans les tests.
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].

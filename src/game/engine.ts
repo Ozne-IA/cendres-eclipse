@@ -9,11 +9,14 @@ import {
   RELICS_POOL,
   WEAPONS_DEF,
 } from './data';
-import { formatKeyLabel, InputHub } from './input';
+import { formatKeyLabel, GameplayInputBuffer, InputHub } from './input';
 import { generateRoom, generateTrainingRoom } from './levelGen';
 import { ParticlePool } from './particles';
 import { ProjectilePool } from './projectiles';
+import { createSeededRandom } from './random';
+import { RenderInterpolation } from './renderInterpolation';
 import { renderGameFrame } from './renderer';
+import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
 import { VfxSystem } from './vfx';
 import {
@@ -44,6 +47,7 @@ import type {
   HudSnapshot,
   InputState,
   Player,
+  Projectile,
   RoomData,
   RunOutcome,
   RunState,
@@ -66,7 +70,10 @@ export class CendresEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private cb: EngineCallbacks;
-  private input = new InputHub();
+  private gameplayInputs = new GameplayInputBuffer();
+  private input = new InputHub(() => this.gameplayInputs.clear());
+  private clock = new SimulationClock();
+  private interpolation = new RenderInterpolation();
   private projectiles = new ProjectilePool();
   private particles = new ParticlePool();
   private blood = new BloodSystem();
@@ -88,9 +95,9 @@ export class CendresEngine {
 
   private camera = { x: 0, y: 0 };
   private hitStop = 0;
-  private slowMoT = 0;
   private trauma = 0;
   private simTime = 0;
+  private previousSimTime = 0;
   private freeDashTimer = 0;
   private footstepTimer = 0;
   private hudSyncTimer = 0;
@@ -101,7 +108,11 @@ export class CendresEngine {
   private deathDelayTimer = 0;
   private smoothedFps = 60;
 
-  constructor(canvas: HTMLCanvasElement, callbacks: EngineCallbacks) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    callbacks: EngineCallbacks,
+    private readonly gameplayRandom = createSeededRandom(Math.random() * 0x100000000)
+  ) {
     this.canvas = canvas;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D context unavailable');
@@ -197,12 +208,7 @@ export class CendresEngine {
         const instFps = Math.min(240, 1 / rawDt);
         this.smoothedFps = this.smoothedFps * 0.9 + instFps * 0.1;
       }
-      const clampedDt = Math.min(0.05, Math.max(0.0001, rawDt));
-      if (this.slowMoT > 0) {
-        this.slowMoT = Math.max(0, this.slowMoT - clampedDt);
-      }
-      const dt = this.slowMoT > 0 ? clampedDt * 0.42 : clampedDt;
-      this.simTime += dt;
+      const clampedDt = Math.min(MAX_FRAME_TIME, Math.max(0, rawDt));
 
       // Update adaptive procedural music & toast timers
       const enemies = this.phase === 'playing' ? this.room?.enemies : undefined;
@@ -229,7 +235,7 @@ export class CendresEngine {
 
       const inp = this.input.poll(this.phase !== 'playing');
       const prevPhase = this.phase;
-      this.step(dt, inp);
+      this.advanceSimulation(clampedDt, inp);
 
       if (this.phase === 'title' || this.phase === 'playing') {
         if (!isAutomated && cooldownFrames > 0) {
@@ -275,9 +281,12 @@ export class CendresEngine {
 
   private setPhase(next: GamePhase): void {
     this.phase = next;
+    this.clock.clearFrame();
+    this.interpolation.clear();
+    this.previousSimTime = this.simTime;
     const bodyState =
       next === 'blessing' || next === 'merchant' ? 'playing' : next;
-    document.body.dataset.state = bodyState;
+    if (typeof document !== 'undefined') document.body.dataset.state = bodyState;
     this.input.clearAll();
     this.input.blockHeldGamepad();
     if (next === 'playing') {
@@ -382,10 +391,12 @@ export class CendresEngine {
       ...s,
       records: { ...s.records, runs: s.records.runs + 1 },
     }));
-    this.run = createRunState(this.save, Math.random, false);
+    this.run = createRunState(this.save, this.gameplayRandom, false);
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
-    this.slowMoT = 0;
+    this.clock.slowFor(0);
+    this.hitStop = 0;
+    this.simTime = 0;
     this.loadRoom(1);
     this.setPhase('playing');
     this.pushHud(true);
@@ -394,10 +405,12 @@ export class CendresEngine {
   startTrainingMode(): void {
     this.cb.onRunSummary(null);
     AudioFX.ui();
-    this.run = createRunState(this.save, Math.random, true);
+    this.run = createRunState(this.save, this.gameplayRandom, true);
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
-    this.slowMoT = 0;
+    this.clock.slowFor(0);
+    this.hitStop = 0;
+    this.simTime = 0;
     if (this.room) this.projectiles.clear(this.room.projectiles);
     this.room = generateTrainingRoom();
     this.player = this.createPlayer(110, this.room.groundY - 48);
@@ -584,7 +597,7 @@ export class CendresEngine {
     if (!this.run) return;
     this.promptText = '';
     if (this.room) this.projectiles.clear(this.room.projectiles);
-    this.room = generateRoom(depth, this.save);
+    this.room = generateRoom(depth, this.save, this.gameplayRandom);
     this.run.depth = depth;
 
     if (depth > 1 && this.run.relics.includes('chalice_shard')) {
@@ -619,20 +632,27 @@ export class CendresEngine {
     this.banner = { title, sub, color, timer: dur };
   }
 
-  private step(dt: number, inp: InputState): void {
+  // Both requestAnimationFrame and deterministic tests drive the same update path.
+  advanceSimulation(elapsed: number, inp: InputState): void {
     if (inp.mute) {
       this.toggleMute();
     }
 
     if (inp.gamepadMenuCommand) {
       this.cb.onGamepadMenu?.(inp.gamepadMenuCommand);
-      return;
+      if (this.phase !== 'title') return;
     }
 
     if (this.phase === 'title') {
-      if ((inp.jump || inp.interact) && !this.cb.isOverlayOpen?.()) {
+      if (!inp.gamepadMenuCommand && (inp.jump || inp.interact) && !this.cb.isOverlayOpen?.()) {
         this.startNewRun();
+        return;
       }
+      this.clock.advance(elapsed, (dt) => {
+        this.previousSimTime = this.simTime;
+        this.simTime += dt;
+        return true;
+      });
       return;
     }
 
@@ -646,7 +666,40 @@ export class CendresEngine {
       return;
     }
 
-    if (this.phase !== 'playing' || !this.run || !this.room || !this.player) return;
+    if (this.phase !== 'playing') return;
+
+    this.gameplayInputs.sample(inp);
+    this.clock.advance(elapsed, (dt) => {
+      this.previousSimTime = this.simTime;
+      this.simTime += dt;
+      this.captureRenderPositions();
+      this.step(dt, inp);
+      return this.phase === 'playing';
+    });
+  }
+
+  private captureRenderPositions(): void {
+    this.interpolation.capture(this.camera);
+    if (this.player) this.interpolation.capture(this.player);
+    if (!this.room) return;
+    for (const platform of this.room.platforms) {
+      if (platform.type === 'moving') this.interpolation.capture(platform);
+    }
+    for (const hazard of this.room.hazards) {
+      if (hazard.kind === 'pendulum') this.interpolation.capture(hazard);
+    }
+    for (const enemy of this.room.enemies) this.interpolation.capture(enemy);
+    for (const projectile of this.room.projectiles) this.interpolation.capture(projectile);
+  }
+
+  private acquireProjectile(active: Projectile[]): Projectile {
+    const shot = this.projectiles.acquire(active);
+    this.interpolation.forget(shot);
+    return shot;
+  }
+
+  private step(dt: number, held: InputState): void {
+    if (!this.run || !this.room || !this.player) return;
 
     // Delayed defeat beat before Game Over summary modal
     if (this.deathDelayTimer > 0) {
@@ -668,10 +721,11 @@ export class CendresEngine {
     this.run.ghostHp += (this.run.hp - this.run.ghostHp) * Math.min(1, dt * 4.5);
 
     if (this.hitStop > 0) {
-      this.hitStop -= dt;
+      this.hitStop = Math.max(0, this.hitStop - dt);
       return;
     }
 
+    const inp = this.gameplayInputs.consume(held);
     this.run.elapsedSec += dt;
     this.freeDashTimer = Math.max(0, this.freeDashTimer - dt);
 
@@ -832,7 +886,7 @@ export class CendresEngine {
         this.startAttack(move, (move === 'light3' ? 0.27 : 0.2) / atkSpdMult);
         AudioFX.slash(player.comboStep, weapon.key);
         if (move === 'light3' && run.activeSynergies.includes('eternal_pyre')) {
-          const shot = this.projectiles.acquire(room.projectiles);
+          const shot = this.acquireProjectile(room.projectiles);
           shot.x = player.x + player.w / 2 + player.facing * 18;
           shot.y = player.y + 22;
           shot.vx = player.facing * 430;
@@ -1066,6 +1120,7 @@ export class CendresEngine {
         player.y + player.h > h.y
       ) {
         this.hurtPlayer(22, h.x + h.w / 2);
+        this.interpolation.forget(player);
         player.y = room.groundY - 120;
         player.vy = -300;
       }
@@ -1073,6 +1128,7 @@ export class CendresEngine {
 
     if (player.y > room.height + 90) {
       this.hurtPlayer(24, player.x);
+      this.interpolation.forget(player);
       player.x = 120;
       player.y = room.groundY - 120;
       player.vy = 0;
@@ -1092,7 +1148,7 @@ export class CendresEngine {
         if (target) {
           player.wispCd = 1.15;
           const ang = Math.atan2(target.y + target.h / 2 - (player.y + 20), target.x + target.w / 2 - (player.x + 14));
-          const shot = this.projectiles.acquire(room.projectiles);
+          const shot = this.acquireProjectile(room.projectiles);
           shot.x = player.x + 14;
           shot.y = player.y + 20;
           shot.vx = Math.cos(ang) * 440;
@@ -1120,7 +1176,7 @@ export class CendresEngine {
       for (const pr of room.props) {
         if (pr.type === 'urn' && !pr.broken && ax < pr.x + pr.w && ax + reach > pr.x && ay < pr.y + pr.h && ay + ah > pr.y) {
           pr.broken = true;
-          const c = Math.round((4 + Math.random() * 5) * getLootMultiplier(this.save, run));
+          const c = Math.round((4 + this.gameplayRandom() * 5) * getLootMultiplier(this.save, run));
           run.loot.cendres += c;
           AudioFX.hit(false);
           this.particles.spawnBurst(pr.x + pr.w / 2, pr.y + pr.h / 2, '#9c785c', 10, 170);
@@ -1146,7 +1202,7 @@ export class CendresEngine {
             player.attackMove,
             isRiposte,
             e.sunderT > 0,
-            Math.random,
+            this.gameplayRandom,
             room.affix?.id
           );
           if (run.critNextAttack) run.critNextAttack = false;
@@ -1677,7 +1733,7 @@ export class CendresEngine {
 
     if (wDef.key === 'clay_blade') {
       this.startAttack('heavy', 0.28);
-      const shot = this.projectiles.acquire(room.projectiles);
+      const shot = this.acquireProjectile(room.projectiles);
       shot.x = cx + player.facing * 20;
       shot.y = cy;
       shot.vx = player.facing * 520;
@@ -1791,7 +1847,7 @@ export class CendresEngine {
     }
 
     if (e.kind === 'pyromancer') {
-      const shot = this.projectiles.acquire(this.room.projectiles);
+      const shot = this.acquireProjectile(this.room.projectiles);
       shot.x = this.player.x + this.player.w / 2;
       shot.y = this.room.groundY;
       shot.vx = 0;
@@ -1809,7 +1865,7 @@ export class CendresEngine {
     if (e.kind === 'watcher' || e.kind === 'arbalest') {
       const ang = Math.atan2(dy, dx);
       const speed = e.kind === 'arbalest' ? 520 : 340;
-      const shot = this.projectiles.acquire(this.room.projectiles);
+      const shot = this.acquireProjectile(this.room.projectiles);
       shot.x = e.x + e.w / 2;
       shot.y = e.y + e.h * 0.45;
       shot.vx = Math.cos(ang) * speed;
@@ -1830,7 +1886,7 @@ export class CendresEngine {
         const count = e.phase === 2 ? 5 : 3;
         for (let i = 0; i < count; i++) {
           const a = ang + (i - (count - 1) / 2) * 0.2;
-          const shot = this.projectiles.acquire(this.room.projectiles);
+          const shot = this.acquireProjectile(this.room.projectiles);
           shot.x = e.x + e.w / 2;
           shot.y = e.y + e.h * 0.45;
           shot.vx = Math.cos(a) * (e.phase === 2 ? 400 : 340);
@@ -1844,7 +1900,7 @@ export class CendresEngine {
         }
       } else if (e.phase === 2 && e.attackPattern === 2) {
         // Ground Eruption Pillar
-        const shot = this.projectiles.acquire(this.room.projectiles);
+        const shot = this.acquireProjectile(this.room.projectiles);
         shot.x = this.player.x + this.player.w / 2;
         shot.y = this.room.groundY;
         shot.vx = 0;
@@ -1878,7 +1934,7 @@ export class CendresEngine {
         run.perfectDodges += 1;
         run.stam = Math.min(run.maxStam, run.stam + 14);
         run.critNextAttack = true;
-        this.slowMoT = 0.22;
+        this.clock.slowFor(0.22);
         AudioFX.perfectDodge();
         this.vfx.spawnImpactFlare(player.x + player.w / 2, player.y + 24, 62, '#8ab8e6', 'astral', 0.24);
         this.particles.addText(player.x + 14, player.y - 18, 'ESQUIVE PARFAITE !', '#8ab8e6', 1.1);
@@ -1892,7 +1948,7 @@ export class CendresEngine {
     if (player.parryT > 0) {
       AudioFX.parry();
       if (this.save.settings?.hitstopEnabled !== false) this.hitStop = 0.08;
-      this.slowMoT = 0.18;
+      this.clock.slowFor(0.18);
       this.trauma = 0.48;
       this.input.rumble(0.42, 0.85, 130, this.save.settings?.gamepadRumble !== false);
       player.invulnT = 0.26;
@@ -2066,7 +2122,7 @@ export class CendresEngine {
       e.h
     );
     if (e.isBoss) {
-      this.slowMoT = 0.45;
+      this.clock.slowFor(0.45);
       this.vfx.spawnImpactFlare(e.x + e.w / 2, e.y + e.h * 0.5, 130, '#ffd470', 'gold', 0.42);
       this.vfx.triggerScreenFlash('#ffd470', 0.32);
     }
@@ -2085,10 +2141,10 @@ export class CendresEngine {
     this.run.loot.cendres += cendres;
 
     const ferChance = (e.elite !== 'none' ? 0.85 : 0.25) + (this.run.relics.includes('cinder_magnet') ? 0.15 : 0);
-    if (e.isBoss || Math.random() < ferChance) {
+    if (e.isBoss || this.gameplayRandom() < ferChance) {
       this.run.loot.fer += e.isBoss ? 2 : 1;
     }
-    if (e.isBoss || Math.random() < 0.08 + (this.save.buildings.vigie || 0) * 0.03) {
+    if (e.isBoss || this.gameplayRandom() < 0.08 + (this.save.buildings.vigie || 0) * 0.03) {
       this.run.loot.larmes += 1;
     }
 
@@ -2132,15 +2188,15 @@ export class CendresEngine {
         if (inp.interact) {
           pr.opened = true;
           const mult = getLootMultiplier(this.save, run);
-          const c = Math.round((pr.type === 'gilded_chest' ? 35 : 20 + Math.random() * 14) * mult);
-          const f = pr.type === 'gilded_chest' || Math.random() < 0.48 + (this.save.buildings.vigie || 0) * 0.08 ? 1 : 0;
+          const c = Math.round((pr.type === 'gilded_chest' ? 35 : 20 + this.gameplayRandom() * 14) * mult);
+          const f = pr.type === 'gilded_chest' || this.gameplayRandom() < 0.48 + (this.save.buildings.vigie || 0) * 0.08 ? 1 : 0;
           run.loot.cendres += c;
           run.loot.fer += f;
 
           if (pr.type === 'gilded_chest') {
             const unowned = RELICS_POOL.filter((r) => !run.relics.includes(r.id));
             if (unowned.length > 0) {
-              const relic = unowned[Math.floor(Math.random() * unowned.length)];
+              const relic = unowned[Math.floor(this.gameplayRandom() * unowned.length)];
               run.relics.push(relic.id);
               run.activeSynergies = computeActiveSynergies(run);
               this.particles.addText(pr.x, pr.y - 34, `Relique : ${relic.name}`, '#ffd470', 1.1);
@@ -2233,7 +2289,7 @@ export class CendresEngine {
           prompt = `${action} Descendre vers la Strate ${run.depth + 1}`;
           if (inp.interact) {
             AudioFX.ui();
-            this.cb.onBlessingChoices(pickBlessingChoices(run, 3));
+            this.cb.onBlessingChoices(pickBlessingChoices(run, 3, this.gameplayRandom));
             this.setPhase('blessing');
             return;
           }
@@ -2338,16 +2394,21 @@ export class CendresEngine {
   }
 
   private render(): void {
+    const alpha = this.phase === 'playing' || this.phase === 'title' ? this.clock.alpha : 1;
+    const interpolate = <T extends { x: number; y: number }>(position: T): T =>
+      this.interpolation.interpolate(position, alpha);
+    const camera = interpolate(this.camera);
     renderGameFrame(this.ctx, {
       phase: this.phase,
-      time: this.simTime,
+      time: this.previousSimTime + (this.simTime - this.previousSimTime) * alpha,
       width: this.width,
       height: this.height,
-      cameraX: this.camera.x,
-      cameraY: this.camera.y,
+      cameraX: camera.x,
+      cameraY: camera.y,
       trauma: this.trauma,
       room: this.room,
       player: this.player,
+      interpolatePosition: interpolate,
       run: this.run,
       weapon: this.save.weapon,
       armorSkin: this.save.armorSkin || 'eclipse',

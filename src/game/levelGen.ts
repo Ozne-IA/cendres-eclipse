@@ -11,9 +11,8 @@ import type {
   SaveData,
 } from './types';
 
-let nextEnemyId = 1;
-
-export function createEnemy(
+function createEnemy(
+  id: number,
   kind: EnemyKind,
   x: number,
   groundY: number,
@@ -27,7 +26,7 @@ export function createEnemy(
   const eliteDmgMult = (elite === 'blazing' ? 1.25 : elite !== 'none' ? 1.15 : 1) * dmgMult;
 
   const base: Enemy = {
-    id: nextEnemyId++,
+    id,
     kind,
     name: ENEMY_LORE[kind].title,
     x,
@@ -234,7 +233,7 @@ export function generateRoom(
 
     const cycle = (depth / 3) % 3;
     const bossKind: EnemyKind = cycle === 1 ? 'archon' : cycle === 2 ? 'mother' : 'sovereign';
-    enemies.push(createEnemy(bossKind, width - 350, groundY, depth, 'none', ascHpMult, ascDmgMult));
+    enemies.push(createEnemy(enemies.length + 1, bossKind, width - 350, groundY, depth, 'none', ascHpMult, ascDmgMult));
 
     // Pre-boss campfire brazier near entry for tactical prep
     if (depth > 3) {
@@ -326,7 +325,7 @@ export function generateRoom(
 
         if (rng() < 0.46) {
           const skyEnemy: EnemyKind = depth >= 2 && rng() < 0.35 ? 'arbalest' : 'watcher';
-          enemies.push(createEnemy(skyEnemy, curX + 68, platY, depth, 'none', ascHpMult, ascDmgMult));
+          enemies.push(createEnemy(enemies.length + 1, skyEnemy, curX + 68, platY, depth, 'none', ascHpMult, ascDmgMult));
         }
         if (rng() < 0.28) {
           props.push({
@@ -361,7 +360,7 @@ export function generateRoom(
         depth >= 2 && rng() < 0.14 + Math.min(0.15, depth * 0.02) + asc * 0.05
           ? (['swift', 'blazing', 'armored'][Math.floor(rng() * 3)] as EliteTrait)
           : 'none';
-      enemies.push(createEnemy(chosen, curX + segW * 0.56, py, depth, isElite, ascHpMult, ascDmgMult));
+      enemies.push(createEnemy(enemies.length + 1, chosen, curX + segW * 0.56, py, depth, isElite, ascHpMult, ascDmgMult));
 
       // Destructible urns & flame traps
       if (rng() < 0.5) {
@@ -544,10 +543,10 @@ export function generateTrainingRoom(): RoomData {
       { id: 'train_exit', type: 'exit', x: width - 135, y: groundY - 86, w: 58, h: 86, locked: false },
     ],
     enemies: [
-      createEnemy('penitent', 620, groundY, 1, 'none', 1.6, 0.35),
-      createEnemy('watcher', 820, groundY, 1, 'none', 1.5, 0.35),
-      createEnemy('lancer', 940, groundY, 2, 'none', 1.5, 0.45),
-      createEnemy('flagellant', 1180, groundY, 2, 'none', 1.8, 0.5),
+      createEnemy(1, 'penitent', 620, groundY, 1, 'none', 1.6, 0.35),
+      createEnemy(2, 'watcher', 820, groundY, 1, 'none', 1.5, 0.35),
+      createEnemy(3, 'lancer', 940, groundY, 2, 'none', 1.5, 0.45),
+      createEnemy(4, 'flagellant', 1180, groundY, 2, 'none', 1.8, 0.5),
     ],
     projectiles: [],
     torches: [
