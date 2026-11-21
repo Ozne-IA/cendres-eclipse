@@ -35,12 +35,16 @@ Pour publier la suivante : `git tag v1.1.0`, `git push origin v1.1.0`. Ne pas to
 
 Le lot a été livré sur la branche `codex/c01-c05`, dont le code a été rassemblé dans `c762f6e`. La sortie de la strate 1 est corrigée pour la graine 4, 18 432 salles ont passé les contrôles de génération et le parcours Chromium passe au clavier et à la manette simulée avec la boucle normale. Le canvas s’adapte au rapport de pixels jusqu’à 2. Les essais sur écran et manette physiques restent à faire. Voir [[Validation#Premier lot Codex (C01 à C05)]].
 
+## Profilage et interpolation (C06 et C07)
+
+Les deux tâches sont terminées sur le code rassemblé dans `5f0ea7c`. Le profilage à la demande mesure séparément la simulation, le rendu et les couches du décor. Le Spectre et l’Art des Dagues de l’Éclipse s’affichent immédiatement à leur destination. Les plateformes mobiles et pendules affichent leur première position simulée dès le premier pas. [[Validation#Profilage et interpolation (C06 et C07)]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
 - Poursuivre le découpage de `src/game/engine.ts` et `src/game/renderer.ts` en conservant les scénarios de référence de [[Validation]].
-- Côté Codex, la prochaine tâche du backlog est C06, mesurer séparément le temps de simulation, le rendu, les images sautées et le coût du décor.
+- Côté Codex, reprendre C08 en extrayant les responsabilités du moteur par étapes, avec des scénarios à graine fixe avant et après chaque extraction.
 - Luc a intégré L02 à L05. L’essai du vrai ZIP sur un autre PC Windows reste à faire selon le [[Protocole d'essai matériel]]. [PR #21](https://github.com/Ozne-IA/cendres-eclipse/pull/21)
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.

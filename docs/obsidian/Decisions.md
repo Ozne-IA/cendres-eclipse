@@ -30,4 +30,7 @@ tags:
 
 - **Utiliser la même boucle de rendu dans Chromium automatisé et en jeu.** La couverture du parcours complet au clavier et à la manette simulée permet de retirer le traitement spécial de `navigator.webdriver`. [[Validation#Premier lot Codex (C01 à C05)]]
 
+- **Profiler à la demande.** Le profilage CPU s’active avec `?profile=1`. Il compte séparément les rendus sautés par temporisation et les images statiques sans nouveau rendu.
+- **Repartir de la nouvelle position après une discontinuité.** Les téléportations et le premier pas des éléments mobiles d’une salle affichent directement leur nouvel état. Les pas suivants reprennent l’interpolation ordinaire.
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].

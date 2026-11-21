@@ -41,6 +41,22 @@ Les tests de sauvegarde (`test/save-store.test.mjs`, `pc-save-safety.test.mjs`, 
 - **Parcours de bout en bout.** Après `npm run build` et `npx playwright install chromium`, lancer `npm run test:e2e`. Les deux scénarios Playwright utilisent Chromium et la version de production servie par Vite. Au clavier et à la manette simulée, ils passent par la Cour, la pause et le Bastion, puis atteignent un bilan après une défaite réelle. Ils vérifient les gains et la persistance de la chronique. Chaque parcours a réussi avant le retrait du traitement spécial de `navigator.webdriver`, puis trois fois après. Après intégration sur la base de la PR #21, 121 tests, la vérification TypeScript, le build et les deux parcours Chromium passent sous Node 22.12. La validation sur une manette physique relève des essais matériels.
 - **Canvas HiDPI.** Dans Chromium, vérifier la résolution interne aux ratios 1, 1,25, 1,5 et 2, le plafond à 2 et le redimensionnement en pause. Les essais avec rapport de pixels simulé sont passés. Le rendu sur un écran physique reste à vérifier.
 
+## Profilage et interpolation (C06 et C07)
+
+Ouvrir `/?profile=1` sur la version à mesurer. Dans la console, exécuter `window.cendresProfile.reset()` au début de la séquence, puis `window.cendresProfile.snapshot()` à la fin. Pour afficher les temps sous forme de tableau, utiliser `console.table(window.cendresProfile.snapshot().cpuMs)`. Les temps mesurent la durée côté CPU. Le résultat compte séparément les rendus sautés par temporisation (`cooldown`) et les images statiques sans rendu (`static`).
+
+Deux séquences de 122 appels de `requestAnimationFrame` en strate 1, graine 5, joueur immobile. Chromium 156 sans interface sur Debian, 1 280 × 720, DPR 1 et GPU désactivé.
+
+| Temps CPU moyen | Séquence 1 | Séquence 2 |
+| --- | ---: | ---: |
+| Simulation | 0,074 ms | 0,111 ms |
+| Rendu | 1,209 ms | 0,989 ms |
+| Terrain et torches | 0,322 ms | 0,218 ms |
+
+Les deux séquences en jeu n’ont sauté aucun rendu. Un essai en pause a compté 21 images statiques sur 21 appels. Ces mesures ne couvrent ni le coût GPU, ni le combat, ni les performances sur un PC de jeu.
+
+Dans `src/game/simulationClock.test.ts`, six scénarios du moteur vérifient la téléportation du Spectre et l’Art des Dagues, le premier pas des plateformes et des pendules, la réapparition du joueur et la réutilisation des projectiles. Ils couvrent le retour à l’interpolation normale après la discontinuité.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].
