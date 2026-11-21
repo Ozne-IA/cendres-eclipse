@@ -18,7 +18,16 @@ export async function createRelease({ distDir, outDir, version }) {
   const worker = path.join(distDir, 'sw.js');
   if (fs.existsSync(worker)) buildId = /BUILD_VERSION = "([^"]+)"/.exec(fs.readFileSync(worker, 'utf8'))?.[1] ?? '';
 
-  const manifest = validateManifest(await buildManifest(distDir, { version, buildId }));
+  // Version de sauvegarde du jeu (src/game/saveFormat.ts) : un ancien lanceur qui ne la comprend pas ne doit pas
+  // installer cette version mais renvoyer le joueur vers le téléchargement complet.
+  let saveVersion;
+  const saveFormat = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'game', 'saveFormat.ts');
+  if (fs.existsSync(saveFormat)) {
+    const found = /export const SAVE_VERSION = (\d+);/.exec(fs.readFileSync(saveFormat, 'utf8'));
+    if (found) saveVersion = Number(found[1]);
+  }
+  const built = await buildManifest(distDir, { version, buildId });
+  const manifest = validateManifest(saveVersion ? { ...built, saveVersion } : built);
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });
 

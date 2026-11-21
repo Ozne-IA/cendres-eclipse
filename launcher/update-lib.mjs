@@ -82,9 +82,14 @@ export function validateManifest(raw) {
     return { path: file.path, sha256: file.sha256, size: file.size };
   });
   if (total > MAX_TOTAL_BYTES) throw new Error('Mise à jour trop volumineuse');
+  // Version de sauvegarde écrite par cette version du jeu (absente dans les manifestes plus anciens).
+  if (raw.saveVersion !== undefined && (!Number.isInteger(raw.saveVersion) || raw.saveVersion < 1 || raw.saveVersion > 1000)) {
+    throw new Error('Version de sauvegarde invalide');
+  }
   return {
     schema: 1,
     launcherApi: raw.launcherApi,
+    ...(raw.saveVersion !== undefined ? { saveVersion: raw.saveVersion } : {}),
     version: raw.version,
     buildId: typeof raw.buildId === 'string' ? raw.buildId.slice(0, 64) : '',
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt.slice(0, 40) : '',

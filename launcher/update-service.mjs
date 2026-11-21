@@ -1,7 +1,16 @@
 // Service de mise à jour du lanceur PC : vérifie s'il existe une version plus récente, l'installe sur demande,
 // et expose un état simple que l'interface du jeu affiche.
+import { SAVE_VERSION } from './save-store.mjs';
 import { LAUNCHER_API, compareVersions, planUpdate } from './update-lib.mjs';
 import { applyUpdate, readInstalledManifest } from './updater.mjs';
+
+/**
+ * Le lanceur n'est pas remplacé par une mise à jour de dist/. Une version du jeu qui demande un lanceur plus récent,
+ * ou qui écrit des sauvegardes qu'il ne sait pas lire, doit donc passer par un téléchargement complet.
+ */
+export function needsNewLauncher(manifest) {
+  return manifest.launcherApi > LAUNCHER_API || (manifest.saveVersion !== undefined && manifest.saveVersion > SAVE_VERSION);
+}
 
 const CHECK_COOLDOWN_MS = 30_000;
 
@@ -35,7 +44,7 @@ export function createUpdateService({ distDir, source, now = Date.now }) {
       current: current ? { version: current.version, buildId: current.buildId } : null,
       latest: latest ? { version: latest.version, tag: latest.tag, url: latest.releaseUrl } : null,
       available,
-      fullDownloadRequired: available && latest.manifest.launcherApi > LAUNCHER_API,
+      fullDownloadRequired: available && needsNewLauncher(latest.manifest),
       downloadBytes: plan ? plan.downloadBytes : 0,
       totalBytes: plan ? plan.totalBytes : 0,
       progress,
@@ -74,7 +83,7 @@ export function createUpdateService({ distDir, source, now = Date.now }) {
       none.code = 'NONE';
       throw none;
     }
-    if (latest.manifest.launcherApi > LAUNCHER_API) {
+    if (needsNewLauncher(latest.manifest)) {
       const full = new Error('Cette version demande de télécharger le jeu complet');
       full.code = 'FULL_DOWNLOAD';
       throw full;
