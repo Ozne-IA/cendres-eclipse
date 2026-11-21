@@ -642,11 +642,12 @@ export class CendresEngine {
     this.interpolation.capture(this.camera);
     if (this.player) this.interpolation.capture(this.player);
     if (!this.room) return;
+    // Wait for the first simulation pose before capturing room machinery.
     for (const platform of this.room.platforms) {
-      if (platform.type === 'moving') this.interpolation.capture(platform);
+      if (platform.type === 'moving' && platform.vx !== undefined) this.interpolation.capture(platform);
     }
     for (const hazard of this.room.hazards) {
-      if (hazard.kind === 'pendulum') this.interpolation.capture(hazard);
+      if (hazard.kind === 'pendulum' && hazard.angle !== undefined) this.interpolation.capture(hazard);
     }
     for (const enemy of this.room.enemies) this.interpolation.capture(enemy);
     for (const projectile of this.room.projectiles) this.interpolation.capture(projectile);
@@ -1505,6 +1506,7 @@ export class CendresEngine {
       const target = room.enemies.find((e) => e.hp > 0 && e.state !== 'dead' && Math.abs(e.x - cx) < 320);
       if (target) {
         player.x = Math.max(24, Math.min(room.width - 52, target.x - player.facing * 32));
+        this.interpolation.forget(player);
         player.facing = target.x >= player.x ? 1 : -1;
         this.vfx.spawnLightning(cx, cy, player.x + 14, cy, '#9fd0ff', 2.8, 0.22);
       } else {
@@ -1580,6 +1582,7 @@ export class CendresEngine {
         Math.min(this.room.width - e.w - 30, this.player.x - this.player.facing * 54)
       );
       e.x = targetX;
+      this.interpolation.forget(e);
       e.facing = this.player.x >= e.x ? 1 : -1;
       e.vx = e.facing * 240;
       return;

@@ -142,3 +142,129 @@ test('interpolation only moves presentation state and forgets discontinuities', 
   interpolation.forget(entity);
   assert.equal(interpolation.interpolate(entity, 0), entity);
 });
+
+function renderedPosition<T extends { x: number; y: number }>(engine: CendresEngine, entity: T): T {
+  return engine['interpolation'].interpolate(entity, engine['clock'].alpha);
+}
+
+test('the Spectre jumps to its attack position and interpolates subsequent movement', () => {
+  const engine = makeEngine();
+  engine.startNewRun();
+  for (let depth = 2; depth <= 4; depth++) engine.selectBlessing('iron_lungs');
+  const room = engine['room']!;
+  const player = engine['player']!;
+  const specter = room.enemies.find((enemy) => enemy.kind === 'specter')!;
+  room.enemies = [specter];
+  player.x = 400;
+  player.invulnT = 1;
+  specter.x = 500;
+  specter.state = 'windup';
+  specter.stateT = SIMULATION_STEP / 2;
+
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.equal(specter.state, 'attack');
+  assert.equal(specter.x, player.x - 54 + 240 * SIMULATION_STEP);
+  assert.equal(renderedPosition(engine, specter), specter);
+
+  const arrivalX = specter.x;
+  engine.advanceSimulation(SIMULATION_STEP, idle);
+  assert.ok(specter.x > arrivalX);
+  assert.equal(renderedPosition(engine, specter).x, (arrivalX + specter.x) / 2);
+});
+
+test('the Eclipse Daggers weapon art snaps the player to its target', () => {
+  const engine = makeEngine();
+  engine.updateSave((save) => ({ ...save, weapon: 'eclipse_daggers' }));
+  engine.startTrainingMode();
+  const room = engine['room']!;
+  const player = engine['player']!;
+  const target = room.enemies[0];
+  target.x = 320;
+  target.state = 'staggered';
+  target.stateT = 1;
+
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, { ...idle, skill: true });
+  assert.equal(player.x, 320 - 32);
+  assert.equal(renderedPosition(engine, player), player);
+});
+
+test('arena entry clears the old camera and skips the moving platform placeholder', () => {
+  const engine = makeEngine();
+  engine.startNewRun();
+  engine.selectBlessing('iron_lungs');
+  const camera = engine['camera'];
+  const player = engine['player']!;
+  player.x = 900;
+  engine['simTime'] = 1;
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.ok(camera.x > 0);
+  assert.ok(Math.abs(renderedPosition(engine, camera).x - camera.x / 2) < 1e-10);
+
+  engine.selectBlessing('iron_lungs');
+  const arena = engine['room']!;
+  assert.equal(arena.isBoss, true);
+  const platform = arena.platforms.find((candidate) => candidate.type === 'moving')!;
+  const placeholderX = platform.x;
+  assert.notEqual(engine['player'], player);
+  assert.equal(renderedPosition(engine, engine['player']!), engine['player']);
+  assert.equal(camera.x, 0);
+  assert.equal(renderedPosition(engine, camera), camera);
+
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.ok(platform.x > placeholderX + 50);
+  assert.equal(renderedPosition(engine, platform), platform);
+
+  const firstX = platform.x;
+  engine.advanceSimulation(SIMULATION_STEP, idle);
+  assert.ok(platform.x > firstX);
+  assert.ok(Math.abs(renderedPosition(engine, platform).x - (firstX + platform.x) / 2) < 1e-10);
+});
+
+test('a generated pendulum starts at its simulation pose and interpolates its swing', () => {
+  const engine = makeEngine();
+  engine.startNewRun();
+  for (let depth = 2; depth <= 4; depth++) engine.selectBlessing('iron_lungs');
+  const pendulum = engine['room']!.hazards.find((hazard) => hazard.kind === 'pendulum')!;
+  const placeholderX = pendulum.x;
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.ok(Math.abs(pendulum.x - placeholderX) > 20);
+  assert.equal(renderedPosition(engine, pendulum), pendulum);
+
+  const firstAngle = pendulum.angle!;
+  engine.advanceSimulation(SIMULATION_STEP, idle);
+  assert.notEqual(pendulum.angle, firstAngle);
+  assert.ok(Math.abs(renderedPosition(engine, pendulum).angle! - (firstAngle + pendulum.angle!) / 2) < 1e-10);
+});
+
+test('fall recovery renders the player immediately at the respawn position', () => {
+  const engine = makeEngine();
+  engine.startTrainingMode();
+  const room = engine['room']!;
+  const player = engine['player']!;
+  player.x = 660;
+  player.y = room.height + 100;
+  player.invulnT = 1;
+
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.equal(player.x, 120);
+  assert.equal(player.y, room.groundY - 120);
+  assert.equal(renderedPosition(engine, player), player);
+});
+
+test('an enemy projectile can reuse an expired shot without interpolating from its old coordinates', () => {
+  const engine = makeEngine();
+  engine.startTrainingMode();
+  const room = engine['room']!;
+  const watcher = room.enemies.find((enemy) => enemy.kind === 'watcher')!;
+  watcher.state = 'windup';
+  watcher.stateT = SIMULATION_STEP * 1.5;
+  const shot = engine['acquireProjectile'](room.projectiles);
+  Object.assign(shot, { x: 100, y: 100, life: SIMULATION_STEP / 2 });
+  engine.advanceSimulation(SIMULATION_STEP, idle);
+  assert.equal(room.projectiles.length, 0);
+
+  engine.advanceSimulation(SIMULATION_STEP * 1.5, idle);
+  assert.equal(room.projectiles[0], shot);
+  assert.ok(shot.x > 700);
+  assert.equal(renderedPosition(engine, shot), shot);
+});

@@ -408,7 +408,6 @@ export function generateRoom(
           pivotX,
           pivotY,
           length: 162,
-          angle: 0,
         });
       }
       if (rng() < 0.32) {
