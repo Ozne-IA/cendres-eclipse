@@ -16,9 +16,13 @@ Dépôt `Ozne-IA/cendres-eclipse`, vérifié sur `origin/main` à `4f8a00d`.
 - Simulation à 60 Hz, interpolation et tests de combat à graine fixe. [PR #13](https://github.com/Ozne-IA/cendres-eclipse/pull/13)
 - Sprites répartis par type. Déplacement, plateformes, caméra et démarrage des attaques extraits du moteur. 63 tests, TypeScript et compilation de production validés pour ce découpage. [PR #14](https://github.com/Ozne-IA/cendres-eclipse/pull/14)
 
-## En cours : mises à jour des joueurs ([PR #17](https://github.com/Ozne-IA/cendres-eclipse/pull/17), branche `luc/mise-a-jour-joueurs`)
+## Intégré : mises à jour des joueurs ([PR #17](https://github.com/Ozne-IA/cendres-eclipse/pull/17) et [PR #18](https://github.com/Ozne-IA/cendres-eclipse/pull/18))
 
-Le lanceur PC installe une nouvelle version en ne téléchargeant que les fichiers modifiés (manifeste SHA-256 publié avec chaque release GitHub), avec retour arrière et sans toucher à la sauvegarde. Un bandeau sur l’écran titre propose l’installation. 88 tests, types et build passent, et un essai complet 1.0.0 vers 1.0.1 a été fait à la main. À faire avant d’annoncer la fonction : fusionner la PR, publier une release de test (`git tag v1.0.1`, `git push origin v1.0.1`) et vérifier le workflow `release.yml` sur GitHub. Détails : [[Decisions|Décisions]] et [[Validation]]. Ne pas toucher à `launcher/update-*.mjs` ni à `scripts/make-release.mjs` sans relancer les tests de mise à jour.
+Le lanceur PC installe une nouvelle version en ne téléchargeant que les fichiers modifiés (manifeste SHA-256 publié avec chaque release GitHub), avec retour arrière et sans toucher à la sauvegarde. Un bandeau sur l’écran titre propose l’installation. 90 tests, types et build passent.
+
+La première version est publiée : [release v1.0.1](https://github.com/Ozne-IA/cendres-eclipse/releases/tag/v1.0.1) (zip pour les nouveaux joueurs et fichiers de mise à jour). Le workflow `release.yml` a réussi à la deuxième tentative : GitHub refusait les fichiers de 0 octet, désormais gardés dans le manifeste mais non publiés. Essai réel depuis cette release avec une copie installée plus ancienne : 7 fichiers téléchargés (551 Ko sur 6,1 Mo), 15 réutilisés, 22 fichiers finaux identiques à la release.
+
+Pour publier la suivante : `git tag v1.1.0`, `git push origin v1.1.0`. Ne pas toucher à `launcher/update-*.mjs`, `launcher/updater.mjs` ni à `scripts/make-release.mjs` sans relancer les tests de mise à jour. Détails : [[Decisions|Décisions]] et [[Validation]]. Reste à faire : essayer le zip sur un autre ordinateur (avec Node.js 22.12) et envisager de signer les manifestes.
 
 ## Vérification indépendante de Luc (21/11/2026, `origin/main` à `86f2762`)
 
