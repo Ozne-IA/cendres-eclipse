@@ -117,6 +117,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # Guide de téléchargement en tête, puis les notes générées par GitHub.
+          cat > guide.md <<'GUIDE_EOF'
+          ## Quel fichier télécharger ?
+
+          - **Première installation** : `Cendres-Eclipse-__VERSION__.zip`. C'est le seul fichier à télécharger à la main. Décompressez-le, puis lancez le jeu depuis le dossier décompressé.
+          - **Mise à jour** : pas besoin de télécharger quoi que ce soit. Le lanceur récupère automatiquement les fichiers nécessaires.
+
+          Les autres fichiers, dont le nom est une longue suite de chiffres et de lettres (une empreinte SHA-256), et `update-manifest.json` servent au lanceur pour les mises à jour. Ne les téléchargez pas à la main et ne les renommez pas : le lanceur les retrouve grâce à leur nom.
+
+          GUIDE_EOF
+          sed -i "s/__VERSION__/${VERSION}/" guide.md
+          gh api "repos/${GH_REPO}/releases/generate-notes" -f tag_name="${GITHUB_REF_NAME}" --jq .body > generated.md
+          cat guide.md generated.md > notes.md
           gh release create "${GITHUB_REF_NAME}" release/* "zip/Cendres-Eclipse-${VERSION}.zip" \
             --title "Cendres de l'Éclipse ${VERSION}" \
-            --generate-notes
+            --notes-file notes.md
