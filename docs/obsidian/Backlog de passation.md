@@ -45,7 +45,7 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 
 ### Combat, entraînement et rencontres
 
-- [ ] C13 — Tester parade parfaite, renvoi, esquive parfaite, posture brisée, attaques multicibles et invulnérabilités.
+- [x] C13 — Tester parade parfaite, renvoi, esquive parfaite, posture brisée, attaques multicibles et invulnérabilités.
 - [ ] C14 — Ajouter des exercices de parade, riposte, renvoi, esquive, déplacement et Arts d’Éclipse dans la Cour, avec critère de réussite et reprise rapide.
 - [ ] C15 — Permettre de rejouer un Gardien découvert dans la Cour, avec choix de phase et entraînement séparé des records.
 - [ ] C16 — Affiner la mémorisation des commandes pendant les animations et vérifier attaque, esquive et saut au clavier et à la manette.
