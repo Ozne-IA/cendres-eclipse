@@ -46,6 +46,8 @@ tags:
 
 - **Valider les exercices sur les actions du jeu.** La Cour réutilise les règles de l’expédition pour reconnaître un geste réussi. Chaque essai peut être relancé depuis la pause et les résultats de la Cour restent hors des records d’expédition. [[Validation#Exercices de la Cour (C14)]]
 
+- **Afficher le résultat de l’essai courant dans la Cour.** Les exercices partagent la reprise rapide du menu Pause. Le déplacement utilise trois repères et une limite de 20 secondes. [[Validation#Critères avancés de la Cour (L18)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)

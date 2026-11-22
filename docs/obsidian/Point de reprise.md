@@ -74,7 +74,7 @@ Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consig
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - Voir [[Messages Codex et Luc]] pour la passation de C01 à C13 et la coordination entre C14 et L18.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
-- Côté Codex, reprendre C15 avec la répétition des Gardiens découverts dans la Cour. C14 est jouable. Les propositions L18 de Luc ont été validées le 22 novembre 2026. Les ajustements de la Cour restent à intégrer selon [[L18 Cour - consignes et criteres]].
+- Côté Codex, reprendre C15 avec la répétition des Gardiens découverts dans la Cour. C14 est jouable. Les propositions L18 de Luc ont été validées le 22 novembre 2026. La Cour applique les critères de [[L18 Cour - consignes et criteres]], documentés dans [[Validation#Critères avancés de la Cour (L18)]].
 - L’utilisateur signale que ses essais sur PC sont bons le 22 novembre 2026. Les résultats détaillés par scénario restent à consigner dans le [[Protocole d'essai matériel]].
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.

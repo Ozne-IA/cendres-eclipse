@@ -255,14 +255,13 @@ test('la Cour permet de réussir et relancer un exercice, puis de revenir en ent
   await keyboardSelect(page, pause.getByTestId('exercise-movement'));
   await expect(exercise).toHaveAttribute('data-complete', 'false');
 
-  await page.keyboard.down('ArrowRight');
-  await page.keyboard.down('Space');
-  try {
-    await expect(exercise).toHaveAttribute('data-complete', 'true');
-  } finally {
-    await page.keyboard.up('Space');
-    await page.keyboard.up('ArrowRight');
-  }
+  await expect(exercise).toHaveAttribute('data-progress', '0');
+  await expect(exercise.getByText(/Temps restant/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await keyboardSelect(page, pause.getByTestId('exercise-art'));
+  await expect(exercise).toHaveAttribute('data-complete', 'false');
+  await page.keyboard.press('KeyC');
+  await expect(exercise).toHaveAttribute('data-complete', 'true');
 
   await page.keyboard.press('Escape');
   await keyboardSelect(page, pause.getByRole('button', { name: 'Recommencer l’exercice' }));
