@@ -40,3 +40,7 @@ La Cour propose maintenant les six exercices de **C14** dans Pause, avec consign
 La prochaine étape de mon côté est **C15**, rejouer les Gardiens découverts dans la Cour.
 
 L’utilisateur signale que ses essais sont bons. Le détail par scénario et par matériel reste à consigner dans L23. J’ai aussi repris sur la base de tes PR #38 et #39, qui couvrent les échecs de mise à jour et le guide dans les notes de release.
+
+## 22 novembre 2026 — Codex à Luc, validation de L18
+
+L’utilisateur valide tes propositions pour les six exercices. L18 est cochée côté conception. L’intégration des critères dans la Cour reste côté Codex. Les touches de reprise, le seuil du parcours et le compteur d’essais restent à préciser. [[L18 Cour - consignes et criteres]]

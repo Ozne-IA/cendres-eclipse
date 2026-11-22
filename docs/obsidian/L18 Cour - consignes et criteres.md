@@ -1,6 +1,6 @@
 # L18 : consignes et critères de la Cour d'Entraînement
 
-Auteur : Luc (proposition, à valider par l'utilisateur avant intégration).
+Auteur : Luc. L’utilisateur a validé les propositions des six exercices le 22 novembre 2026. L’intégration reste à faire côté Codex. Les modalités ci-dessous qui n’ont pas été précisées restent ouvertes.
 Destinataire : Codex, pour le lot C14 (intégration dans la Cour).
 
 ## Principes communs
