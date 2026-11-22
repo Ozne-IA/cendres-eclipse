@@ -77,6 +77,14 @@ Sous Node 22.12.0, neuf exécutions par version donnent une médiane de 294,1 Mo
 
 Un essai Chromium distinct isole le changement dans `actorRender.ts`. Il rejoue 2 880 images dans 16 chargements de salle, en 960 × 540, DPR 1, avec rendu logiciel et un coefficient d’interpolation de 0,45. Sur trois exécutions par version, les allocations JavaScript attribuées au rendu passent de 91,1 à 82,6 Mo en médiane (−9,3 %), dont 17,0 à 8,7 Mo pour l’interpolation (−49,1 %). Vingt images de combat comparées pixel par pixel sont identiques. L’inspecteur Chromium échantillonne le tas JavaScript à 2 Kio. Les allocations natives du Canvas et le coût GPU sont hors de cette mesure.
 
+## Chargement et budget de taille (C11)
+
+Lancer `npm run build` puis `node scripts/check-build-budget.mjs`, comme en CI. Le script additionne la taille gzip des scripts référencés par le HTML de production et des modules préchargés par Vite. Le plafond est de 145 Kio pour ce JavaScript initial, de 165 Kio gzip pour tous les scripts publiés et de 6,25 Mio bruts pour tous les fichiers de `dist/`.
+
+Le build passe de 149,47 à 138,07 Kio gzip au démarrage (−7,6 %). Tous les scripts totalisent 155,44 Kio gzip et la distribution 5,87 Mio bruts. Dans Chromium, avec le service worker désactivé, les images demandées par le titre passent de trois à une et de 1 831 912 à 671 500 octets. L’installation du service worker télécharge séparément les décors des biomes, l’illustration du titre et les modules JavaScript, y compris les écrans différés, pour permettre une première expédition hors ligne.
+
+`npm run test:e2e` couvre l’ouverture et le focus manette pendant un chargement retardé, le retour à l’écran précédent après un échec de chargement, puis l’ouverture des écrans différés et le lancement d’une expédition hors ligne après installation du cache. Un essai Chromium a également vérifié le chargement du décor classique lorsque l’image cinématique échoue.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].
