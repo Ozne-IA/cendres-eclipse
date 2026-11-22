@@ -1,7 +1,7 @@
 {
   "name": "cendres-eclipse",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Cendres de l'Éclipse - Action-Roguelike 2D Dark Fantasy",
   "type": "module",
   "scripts": {
