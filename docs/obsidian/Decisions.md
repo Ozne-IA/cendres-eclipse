@@ -44,6 +44,8 @@ tags:
 
 - **Tester le combat à travers les entrées du moteur.** Les scénarios construisent une rencontre reproductible avec une graine fixe et passent les commandes à la simulation à 60 Hz. Ils couvrent les interactions entre les règles d’attaque, de défense et d’invulnérabilité. [[Validation#Régressions de combat (C13)]]
 
+- **Valider les exercices sur les actions du jeu.** La Cour réutilise les règles de l’expédition pour reconnaître un geste réussi. Chaque essai peut être relancé depuis la pause et les résultats de la Cour restent hors des records d’expédition. [[Validation#Exercices de la Cour (C14)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)

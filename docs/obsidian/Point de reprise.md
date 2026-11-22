@@ -65,13 +65,17 @@ La CI applique TypeScript strict à 12 modules de jeu, dont deux dépendances pa
 
 Six scénarios à graine fixe contrôlent la parade parfaite, le renvoi des projectiles, l’esquive parfaite, la durée d’invulnérabilité, la rupture de posture et les attaques multicibles. Ils utilisent les entrées et les pas de simulation du jeu. [[Validation#Régressions de combat (C13)]]
 
+## Exercices de la Cour (C14)
+
+Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consigne, l’objectif, les commandes et la réussite. Le même menu permet de rejouer l’exercice ou de reprendre l’entraînement libre. Les critères actuels reprennent le backlog et peuvent être affinés avec la passation L18 de Luc. [[Validation#Exercices de la Cour (C14)]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - Voir [[Messages Codex et Luc]] pour la passation de C01 à C13 et la coordination entre C14 et L18.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
-- Côté Codex, reprendre C14 avec les exercices de la Cour d’entraînement, leurs critères de réussite et une reprise rapide.
-- Essais matériels à effectuer sur PC. Le [[Protocole d'essai matériel]] couvre le ZIP publié sur un autre PC Windows (L01), la fluidité à 60 et 120/144 Hz (L14), le son (L15) et les manettes et claviers physiques (L16).
+- Côté Codex, reprendre C15 avec la répétition des Gardiens découverts dans la Cour. C14 est jouable et les consignes restent ouvertes aux retours de L18.
+- L’utilisateur signale que ses essais sur PC sont bons le 22 novembre 2026. Les résultats détaillés par scénario restent à consigner dans le [[Protocole d'essai matériel]].
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.
 
