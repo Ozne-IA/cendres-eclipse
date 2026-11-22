@@ -56,6 +56,11 @@ for (const input of ['clavier', 'manette'] as const) {
     save.settings.difficulty = 'eclipse';
     // Give the first expedition some real, bankable loot via the normal starting talent.
     save.talents.ash_reserves = 1;
+    const requestedMenus: string[] = [];
+    page.on('request', (request) => {
+      const chunk = /\/assets\/(BastionModal|GameMenuModal|LauncherModal)-[^/]+\.js$/.exec(request.url());
+      if (chunk) requestedMenus.push(chunk[1]);
+    });
     await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
     await page.addInitScript(({ gamepad, key, initialSave }) => {
       localStorage.setItem(key, JSON.stringify(initialSave));
@@ -97,6 +102,7 @@ for (const input of ['clavier', 'manette'] as const) {
     await expect(page.locator('body')).toHaveAttribute('data-state', 'title');
     await page.evaluate(() => window.restoreRandom());
     const training = title.getByRole('button', { name: trainingLabel });
+    expect(requestedMenus).toEqual([]);
 
     if (input === 'clavier') {
       await keyboardSelect(page, training);
@@ -110,7 +116,38 @@ for (const input of ['clavier', 'manette'] as const) {
       await keyboardSelect(page, pause.getByRole('button', { name: retreatLabel }));
     } else {
       await tapPad(page, confirm);
-      await expect(title.getByRole('button', { name: expeditionLabel })).toBeFocused();
+      const startExpedition = title.getByRole('button', { name: expeditionLabel });
+      await expect(startExpedition).toBeFocused();
+
+      // Hold the options chunk to exercise the pending overlay before its controls exist.
+      let releaseOptions!: () => void;
+      const optionsReady = new Promise<void>((resolve) => { releaseOptions = resolve; });
+      await page.route('**/assets/GameMenuModal-*.js', async (route) => {
+        await optionsReady;
+        await route.continue();
+      });
+      try {
+        await title.getByRole('button', { name: 'Menu & Options' }).click();
+        await expect(page.getByText('Chargement…', { exact: true })).toBeVisible();
+        await page.keyboard.press('Enter');
+        await tapPad(page, confirm);
+        await expect(page.locator('body')).toHaveAttribute('data-state', 'title');
+        await expect(title).toHaveAttribute('inert', '');
+      } finally {
+        releaseOptions();
+      }
+      const options = page.getByTestId('game-menu-modal');
+      await expect(options.getByRole('button', { name: 'Fermer' })).toBeFocused();
+      expect(requestedMenus).toEqual(['GameMenuModal']);
+
+      await options.getByRole('button', { name: 'Launcher PC' }).click();
+      const launcher = page.getByTestId('launcher-modal');
+      await expect(launcher.getByRole('button', { name: 'Fermer' })).toBeVisible();
+      await expect(options).toHaveCount(0);
+      expect(requestedMenus).toEqual(['GameMenuModal', 'LauncherModal']);
+      await tapPad(page, back);
+      await expect(startExpedition).toBeFocused();
+
       await tapPad(page, down);
       await expect(training).toBeFocused();
       await expect(training).toHaveAttribute('data-gamepad-focus', '');
@@ -133,6 +170,9 @@ for (const input of ['clavier', 'manette'] as const) {
     }
 
     await expect(bastion.getByRole('heading', { name: 'Bastion du Crépuscule' })).toBeVisible();
+    expect(requestedMenus).toEqual(input === 'manette'
+      ? ['GameMenuModal', 'LauncherModal', 'BastionModal']
+      : ['BastionModal']);
     await expect(bastion.getByText('Gains de l’expédition')).toHaveCount(0);
     expect(await readSave(page)).toMatchObject({ res: save.res, records: { runs: 0 }, runHistory: [] });
     const expedition = bastion.getByRole('button', { name: expeditionLabel });
@@ -176,3 +216,18 @@ for (const input of ['clavier', 'manette'] as const) {
     expect(pageErrors).toEqual([]);
   });
 }
+
+test('un écran différé indisponible permet de revenir au titre et à la Cour', async ({ page }) => {
+  await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
+  await page.route('**/assets/GameMenuModal-*.js', (route) => route.abort());
+
+  await page.goto('/');
+  const title = page.getByTestId('title-screen');
+  await title.getByRole('button', { name: 'Menu & Options' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Impossible de charger cet écran.');
+  await page.getByRole('button', { name: 'Retour', exact: true }).click();
+
+  await expect(title).not.toHaveAttribute('inert', '');
+  await title.getByRole('button', { name: trainingLabel }).click();
+  await expect(page.getByTestId('game-hud').getByText("Cour d'Entraînement · Bastion")).toBeVisible();
+});

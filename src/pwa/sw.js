@@ -25,7 +25,9 @@ async function serveRequest(request) {
   const isNavigation = request.mode === 'navigate';
 
   if (BUILD_ASSETS.includes(new URL(request.url).pathname)) {
-    const cached = await cache.match(request);
+    // These same-origin build files have identical content for every Origin.
+    // Module scripts may send an Origin header that was absent during precaching.
+    const cached = await cache.match(request, { ignoreVary: true });
     if (cached) return cached;
   }
 

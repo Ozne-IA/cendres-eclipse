@@ -38,6 +38,8 @@ tags:
 
 - **Mesurer les allocations avant d’optimiser.** Les scénarios de combat à graine fixe permettent de comparer les versions avec le même nombre de pas et des états de jeu vérifiables. Les mesures Node et Chromium couvrent respectivement la simulation et le rendu JavaScript. [[Validation#Allocations en combat (C10)]]
 
+- **Différer les écrans et décors secondaires.** Le titre, le jeu, le HUD et les écrans de combat immédiats restent chargés au démarrage. Le Bastion, les options et le lanceur PC chargent leur code à l’ouverture. Le service worker prépare le jeu hors ligne en mettant également ces écrans et les illustrations en cache à son installation. [[Validation#Chargement et budget de taille (C11)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)

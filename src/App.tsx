@@ -1,10 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { BastionModal } from './components/BastionModal';
+import { Component, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { BlessingModal } from './components/BlessingModal';
 import { GameHud } from './components/GameHud';
-import { GameMenuModal } from './components/GameMenuModal';
 import { GameOverModal } from './components/GameOverModal';
-import { LauncherModal, type BeforeInstallPromptEvent } from './components/LauncherModal';
+import type { BeforeInstallPromptEvent } from './components/LauncherModal';
 import { MerchantModal } from './components/MerchantModal';
 import { PauseModal } from './components/PauseModal';
 import { TitleScreen } from './components/TitleScreen';
@@ -21,6 +19,27 @@ import type {
   RunSummary,
   SaveData,
 } from './game/types';
+
+const BastionModal = lazy(() => import('./components/BastionModal').then(({ BastionModal }) => ({ default: BastionModal })));
+const GameMenuModal = lazy(() => import('./components/GameMenuModal').then(({ GameMenuModal }) => ({ default: GameMenuModal })));
+const LauncherModal = lazy(() => import('./components/LauncherModal').then(({ LauncherModal }) => ({ default: LauncherModal })));
+
+class DeferredMenuBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+function FocusDeferredMenu({ onMount, children }: { onMount: () => void; children: ReactNode }) {
+  useLayoutEffect(onMount, [onMount]);
+  return children;
+}
 
 export default function App() {
   const appRef = useRef<HTMLDivElement | null>(null);
@@ -98,9 +117,23 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
+  const deferredMenu = launcherOpen ? 'launcher' : menuOpen ? 'options' : phase === 'bastion' ? 'bastion' : null;
+  const focusMenu = useCallback(() => {
     if (appRef.current && engineRef.current?.isUsingGamepad()) focusGamepadMenu(appRef.current);
-  }, [phase, menuOpen, launcherOpen]);
+  }, []);
+
+  useEffect(() => {
+    if (!deferredMenu) focusMenu();
+  }, [phase, deferredMenu, focusMenu]);
+
+  const closeDeferredMenu = () => {
+    if (deferredMenu === 'bastion') {
+      engineRef.current?.openTitle();
+      return;
+    }
+    setMenuOpen(false);
+    setLauncherOpen(false);
+  };
 
   return (
     <div ref={appRef} className="relative w-screen h-screen overflow-hidden bg-[#070609]">
@@ -149,18 +182,6 @@ export default function App() {
         />
       )}
 
-      {phase === 'bastion' && (
-        <BastionModal
-          save={save}
-          expeditionRewards={runSummary?.rewards}
-          onUpdateSave={(updater) => engineRef.current?.updateSave(updater)}
-          onResetSave={() => engineRef.current?.resetSave()}
-          onStartRun={() => engineRef.current?.startNewRun()}
-          onStartTraining={() => engineRef.current?.startTrainingMode()}
-          onReturnTitle={() => engineRef.current?.openTitle()}
-        />
-      )}
-
       {phase === 'blessing' && hud && (
         <BlessingModal
           depth={hud.depth}
@@ -201,30 +222,96 @@ export default function App() {
         />
       )}
 
-      {menuOpen && (
-        <GameMenuModal
-          save={save}
-          onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
-          onResetSettings={() => engineRef.current?.resetSettings()}
-          onToggleMute={() => engineRef.current?.toggleMute()}
-          onExportSave={() => engineRef.current?.exportSaveData() || '{}'}
-          onImportSave={(raw) => engineRef.current?.importSaveData(raw) || false}
-          onResetSave={() => engineRef.current?.resetSave()}
-          onOpenLauncher={() => {
-            setMenuOpen(false);
-            setLauncherOpen(true);
-          }}
-          onClose={() => setMenuOpen(false)}
-        />
-      )}
+      {deferredMenu && (
+        <DeferredMenuBoundary
+          key={deferredMenu}
+          fallback={(
+            <FocusDeferredMenu onMount={focusMenu}>
+              <div
+                data-ui-interactive="true"
+                data-gamepad-menu={deferredMenu === 'bastion' ? 'bastion' : 'overlay'}
+                className="fixed inset-0 z-50 grid place-items-center bg-black/75"
+              >
+                <div className="max-w-sm border border-[#5c4835] bg-[#110e15] p-6 text-center text-[#e8e1d5]">
+                  <p role="alert">Impossible de charger cet écran.</p>
+                  <div className="mt-4 flex justify-center gap-3">
+                    <button
+                      type="button"
+                      data-gamepad-back
+                      data-gamepad-default
+                      className="cursor-pointer border border-[#5c4835] px-3 py-2"
+                      onClick={closeDeferredMenu}
+                    >
+                      Retour
+                    </button>
+                    {phase !== 'paused' && (
+                      <button
+                        type="button"
+                        className="cursor-pointer border border-[#5c4835] px-3 py-2"
+                        onClick={() => window.location.reload()}
+                      >
+                        Recharger le jeu
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </FocusDeferredMenu>
+          )}
+        >
+          <Suspense
+            fallback={(
+              <div
+                role="status"
+                data-ui-interactive="true"
+                data-gamepad-menu={deferredMenu === 'bastion' ? 'bastion' : 'overlay'}
+                className="fixed inset-0 z-50 grid place-items-center bg-black/75 font-display text-[#e8e1d5]"
+              >
+                Chargement…
+              </div>
+            )}
+          >
+            <FocusDeferredMenu onMount={focusMenu}>
+              {deferredMenu === 'bastion' && (
+                <BastionModal
+                  save={save}
+                  expeditionRewards={runSummary?.rewards}
+                  onUpdateSave={(updater) => engineRef.current?.updateSave(updater)}
+                  onResetSave={() => engineRef.current?.resetSave()}
+                  onStartRun={() => engineRef.current?.startNewRun()}
+                  onStartTraining={() => engineRef.current?.startTrainingMode()}
+                  onReturnTitle={() => engineRef.current?.openTitle()}
+                />
+              )}
 
-      {launcherOpen && (
-        <LauncherModal
-          save={save}
-          installPrompt={installPrompt}
-          onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
-          onClose={() => setLauncherOpen(false)}
-        />
+              {deferredMenu === 'options' && (
+                <GameMenuModal
+                  save={save}
+                  onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
+                  onResetSettings={() => engineRef.current?.resetSettings()}
+                  onToggleMute={() => engineRef.current?.toggleMute()}
+                  onExportSave={() => engineRef.current?.exportSaveData() || '{}'}
+                  onImportSave={(raw) => engineRef.current?.importSaveData(raw) || false}
+                  onResetSave={() => engineRef.current?.resetSave()}
+                  onOpenLauncher={() => {
+                    setMenuOpen(false);
+                    setLauncherOpen(true);
+                  }}
+                  onClose={() => setMenuOpen(false)}
+                />
+              )}
+
+              {deferredMenu === 'launcher' && (
+                <LauncherModal
+                  save={save}
+                  installPrompt={installPrompt}
+                  onUpdateSettings={(partial) => engineRef.current?.updateSettings(partial)}
+                  onClose={() => setLauncherOpen(false)}
+                />
+              )}
+            </FocusDeferredMenu>
+          </Suspense>
+        </DeferredMenuBoundary>
       )}
     </div>
   );

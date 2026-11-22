@@ -53,11 +53,15 @@ L’IA, la résolution du combat, la mise à jour des projectiles et les interac
 
 La capture des positions, les collisions, le vieillissement des traces de sang et les mises à jour du HUD allouent moins pendant les combats. Le dessin réutilise les positions interpolées des ennemis entre les ombres et les sprites. Les médianes échantillonnées baissent de 25,6 % dans le scénario Node et de 9,3 % côté rendu dans l’essai Chromium. [[Validation#Allocations en combat (C10)]]
 
+## Chargement et budget de taille (C11)
+
+Le Bastion, les options et le lanceur PC chargent leur JavaScript à l’ouverture. Le JavaScript demandé au démarrage passe de 149,47 à 138,07 Kio gzip. La page de titre charge son illustration en priorité et réduit le poids de ses requêtes d’images de 63 % dans l’essai Chromium sans service worker. Le cache hors ligne inclut l’illustration, les décors et les trois écrans différés. [[Validation#Chargement et budget de taille (C11)]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
-- Côté Codex, reprendre C11 en fixant un budget JavaScript et ressources, puis vérifier le chargement des écrans et assets les plus lourds.
+- Côté Codex, reprendre C12 en introduisant TypeScript strict et ESLint progressivement, à partir des modules isolés.
 - Essais matériels à effectuer sur PC. Le [[Protocole d'essai matériel]] couvre le ZIP publié sur un autre PC Windows (L01), la fluidité à 60 et 120/144 Hz (L14), le son (L15) et les manettes et claviers physiques (L16).
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.

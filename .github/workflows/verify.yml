@@ -32,6 +32,8 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+      - name: Production size budget
+        run: node scripts/check-build-budget.mjs
       - name: Launcher syntax
         run: node --check launcher/server-pc.mjs
 
