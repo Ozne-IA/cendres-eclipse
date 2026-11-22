@@ -206,10 +206,11 @@ export default function App() {
           hud={hud}
           onResume={() => engineRef.current?.resumeGame()}
           onRestart={() => {
-            if (hud?.isTraining) engineRef.current?.startTrainingMode();
+            if (hud?.isTraining) engineRef.current?.startTrainingMode(hud.trainingExercise?.id);
             else engineRef.current?.startNewRun();
           }}
           onOpenMenu={() => setMenuOpen(true)}
+          onStartTraining={(exercise) => engineRef.current?.startTrainingMode(exercise)}
           onReturnBastion={() => engineRef.current?.extractReturnBastion()}
         />
       )}

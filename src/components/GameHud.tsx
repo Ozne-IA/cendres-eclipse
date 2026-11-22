@@ -1,6 +1,7 @@
 import React from 'react';
 import './GameHud.css';
 import { BLESSINGS_POOL, DEFAULT_KEY_BINDINGS, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
+import { TRAINING_EXERCISES } from '../game/trainingExercises';
 import { formatKeyLabel } from '../game/input';
 import type { HudSnapshot, KeyBindings } from '../game/types';
 import {
@@ -27,12 +28,21 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
   const hasBuild = hud.blessings.length + hud.relics.length + hud.activeSynergies.length > 0;
   const lowStamina = stamPct <= 20;
   const showCombatHint = hud.isTraining || hud.riposteReady;
+  const exercise = hud.trainingExercise && TRAINING_EXERCISES.find(({ id }) => id === hud.trainingExercise?.id);
   const onGamepad = hud.inputMode === 'Manette';
   const healKey = onGamepad ? '↑ Croix dir.' : formatKeyLabel(keyBindings.heal);
   const skillKey = onGamepad ? 'RB / R1' : formatKeyLabel(keyBindings.skill);
   const parryKey = onGamepad ? 'LB / L1' : `${formatKeyLabel(keyBindings.parry)} ou clic droit`;
   const attackKey = onGamepad ? 'X / Carré' : `${formatKeyLabel(keyBindings.attack)} ou clic gauche`;
   const dodgeKey = onGamepad ? 'B / Rond' : formatKeyLabel(keyBindings.dash);
+  const exerciseKeys = exercise && {
+    parry: parryKey,
+    riposte: `${parryKey} → ${attackKey}`,
+    reflect: parryKey,
+    dodge: dodgeKey,
+    movement: onGamepad ? 'Stick gauche · A / Croix' : `${formatKeyLabel(keyBindings.left)} / ${formatKeyLabel(keyBindings.right)} · ${formatKeyLabel(keyBindings.jump)}`,
+    art: skillKey,
+  }[exercise.id];
   const skillReady = hud.skillCd <= 0.05;
   const skillPct =
     hud.skillMaxCd > 0
@@ -261,11 +271,25 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
               data-testid="combat-hint"
               aria-live="polite"
             >
-              {hud.riposteReady ? (
+              {exercise ? (
+                <div data-testid="training-exercise" data-complete={hud.trainingExercise?.complete} className="max-w-xl">
+                  <strong className="font-display text-[#ffd470]">{exercise.title}</strong>
+                  {hud.trainingExercise?.complete ? (
+                    <p>Exercice réussi ! Ouvrez la pause pour recommencer ou choisir un autre exercice.</p>
+                  ) : (
+                    <>
+                      <p>{exercise.instruction} <span className="text-[#ffd470]">{exerciseKeys}</span></p>
+                      <p className="text-[#e5be6e]">Objectif · {exercise.goal}</p>
+                      {exercise.id === 'riposte' && hud.riposteReady && <strong>Riposte prête.</strong>}
+                    </>
+                  )}
+                </div>
+              ) : hud.riposteReady ? (
                 <><strong className="text-[#ffd470]">Riposte prête.</strong> Attaquez avec {attackKey}.</>
               ) : (
                 <>Repérez le triangle. Juste avant l’impact, déviez avec {parryKey} ou esquivez avec {dodgeKey}.</>
               )}
+              {hud.isTraining && !exercise && <p className="text-xs text-[#e5be6e]">Choisissez un exercice dans le menu Pause ({onGamepad ? 'Start' : 'Échap'}).</p>}
             </div>
           )}
         </div>
