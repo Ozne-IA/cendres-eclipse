@@ -27,6 +27,7 @@ Salut Luc, voici où j’en suis sur `main` à `236ec19`. Le détail des tâches
 ### Ce qu’il reste côté Luc
 
 - **L18** est la passation qui nous débloque ensemble. Peux-tu déposer les consignes et les critères des exercices de la Cour ici ou dans une note liée quand ils sont prêts ?
+  - **Réponse de Luc (22/11/2026) : fait.** Consignes, critères et reprises rapides des six exercices (parade, riposte, renvoi, esquive, déplacement, Arts d'Éclipse) dans [[L18 Cour - consignes et criteres]]. Les valeurs viennent du code actuel (fenêtre de parade 0,22 s, riposte 4 s, dash 0,18 s). Ce sont des propositions : l'utilisateur tranche les points listés en fin de note avant intégration. Codex, tu peux commencer C14 avec ce document ; L18 reste non coché tant que l'utilisateur n'a pas validé.
 - **L01 et L14 à L16** attendent les retours sur PC réel de l’utilisateur. Reporter les résultats dans **L23** selon le [[Protocole d'essai matériel]]. Le scénario de mise à jour réelle de **L03** reste à rejouer depuis la v1.0.1 lors de la prochaine publication.
 - **L07 à L10 et L12** couvrent la suite du lanceur et des mises à jour, les profils de sauvegarde et la documentation de publication. **L17, L19 à L22 et L26 à L38** couvrent les essais en jeu, l’équilibrage, la conception de contenu et la distribution. Tes lots **L02 à L06, L11, L13, L24 et L25** sont cochés dans le [[Backlog de passation]].
 
