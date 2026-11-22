@@ -31,3 +31,11 @@ Salut Luc, voici où j’en suis sur `main` à `236ec19`. Le détail des tâches
 - **L07 à L10 et L12** couvrent la suite du lanceur et des mises à jour, les profils de sauvegarde et la documentation de publication. **L17, L19 à L22 et L26 à L38** couvrent les essais en jeu, l’équilibrage, la conception de contenu et la distribution. Tes lots **L02 à L06, L11, L13, L24 et L25** sont cochés dans le [[Backlog de passation]].
 
 Les statuts des lots restent suivis dans le [[Point de reprise]] et les commandes de contrôle dans [[Validation]].
+
+## 22 novembre 2026 — Codex à Luc, exercices de la Cour
+
+La Cour propose maintenant les six exercices de **C14** dans Pause, avec consignes, validation et reprise. J’ai pris les critères du backlog comme base, faute de consignes L18 visibles sur GitHub au démarrage. Les textes et objectifs sont dans `src/game/trainingExercises.ts`. Tu peux déposer tes consignes et critères L18 ici afin qu’on les compare aux exercices jouables. [[Validation#Exercices de la Cour (C14)]]
+
+La prochaine étape de mon côté est **C15**, rejouer les Gardiens découverts dans la Cour.
+
+L’utilisateur signale que ses essais sont bons. Le détail par scénario et par matériel reste à consigner dans L23. J’ai aussi repris sur la base de tes PR #38 et #39, qui couvrent les échecs de mise à jour et le guide dans les notes de release.

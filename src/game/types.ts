@@ -1,3 +1,5 @@
+import type { TrainingExerciseId } from './trainingExercises';
+
 export type GamePhase =
   | 'title'
   | 'bastion'
@@ -479,6 +481,7 @@ export interface HudSnapshot {
   maxFlasks: number;
   depth: number;
   isTraining?: boolean;
+  trainingExercise?: { id: TrainingExerciseId; complete: boolean };
   ascensionLevel: number;
   biomeName: string;
   cendresTotal: number;

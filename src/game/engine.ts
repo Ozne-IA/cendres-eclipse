@@ -23,6 +23,7 @@ import { interactWithProps, updateRoomHazards, type RoomHazardEffects, type Room
 import { FrameProfile } from './frameProfile';
 import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
+import type { TrainingExerciseId } from './trainingExercises';
 import { VfxSystem } from './vfx';
 import {
   bankRunIntoSave,
@@ -68,6 +69,7 @@ export interface EngineCallbacks {
 }
 
 const MAX_CANVAS_PIXEL_RATIO = 2;
+const PLAYER_SPAWN_X = 110;
 
 function canvasPixelRatio(): number {
   return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_PIXEL_RATIO);
@@ -102,6 +104,8 @@ export class CendresEngine {
   private lastBankedRun: RunState | null = null;
   private room: RoomData | null = null;
   private player: Player | null = null;
+  private trainingExercise?: NonNullable<HudSnapshot['trainingExercise']>;
+  private trainingMovement = { distance: 0, jumped: false };
 
   private camera = new RoomCamera();
   private hitStop = 0;
@@ -149,6 +153,7 @@ export class CendresEngine {
       hurtPlayer: (damage, sourceX) => hurtPlayer(this.combatEffects, damage, sourceX),
       registerComboHit: (hits) => this.registerComboHit(hits),
       onEnemyKilled: (enemy) => this.onEnemyKilled(enemy),
+      get onTrainingAction() { return engine.trainingExercise ? engine.completeTrainingExercise : undefined; },
       rumble: (weak, strong, duration, enabled) => this.input.rumble(weak, strong, duration, enabled),
       stopFor: (seconds) => { this.hitStop = seconds; },
       slowFor: (seconds) => this.clock.slowFor(seconds),
@@ -466,6 +471,7 @@ export class CendresEngine {
       ...s,
       records: { ...s.records, runs: s.records.runs + 1 },
     }));
+    this.trainingExercise = undefined;
     this.run = createRunState(this.save, this.gameplayRandom, false);
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
@@ -477,18 +483,24 @@ export class CendresEngine {
     this.pushHud(true);
   }
 
-  startTrainingMode(): void {
+  startTrainingMode(exercise?: TrainingExerciseId): void {
     this.cb.onRunSummary(null);
     AudioFX.ui();
+    this.trainingExercise = exercise ? { id: exercise, complete: false } : undefined;
+    this.trainingMovement.distance = 0;
+    this.trainingMovement.jumped = false;
     this.run = createRunState(this.save, this.gameplayRandom, true);
+    if (exercise) this.run.loot.cendres = 0;
     this.deathDelayTimer = 0;
     this.freeDashTimer = 0;
     this.clock.slowFor(0);
     this.hitStop = 0;
     this.simTime = 0;
+    this.trauma = 0;
+    this.hudSyncTimer = 0;
     if (this.room) this.projectiles.clear(this.room.projectiles);
-    this.room = generateTrainingRoom();
-    this.player = createPlayer(110, this.room.groundY - 48, this.run, this.save);
+    this.room = generateTrainingRoom(exercise);
+    this.player = createPlayer(PLAYER_SPAWN_X, this.room.groundY - 48, this.run, this.save);
     this.particles.clear();
     this.blood.clear();
     this.vfx.clear();
@@ -639,7 +651,7 @@ export class CendresEngine {
       }));
     }
 
-    this.player = createPlayer(110, this.room.groundY - 48, this.run, this.save);
+    this.player = createPlayer(PLAYER_SPAWN_X, this.room.groundY - 48, this.run, this.save);
     this.particles.clear();
     this.blood.clear();
     this.vfx.clear();
@@ -757,6 +769,7 @@ export class CendresEngine {
       return;
     }
 
+    const wasExerciseComplete = this.trainingExercise?.complete;
     const inp = this.gameplayInputs.consume(held);
     this.run.elapsedSec += dt;
     this.freeDashTimer = Math.max(0, this.freeDashTimer - dt);
@@ -937,7 +950,18 @@ export class CendresEngine {
       player.attackBuf = false;
     }
 
-    this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
+    const beforeMoveX = player.x;
+    const wasDashing = player.dashT > 0;
+    const jumped = this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
+    if (this.trainingExercise?.id === 'movement' && !this.trainingExercise.complete) {
+      this.trainingMovement.jumped ||= jumped;
+      if (!wasDashing && inp.moveX !== 0) {
+        this.trainingMovement.distance += Math.max(0, (player.x - beforeMoveX) * Math.sign(inp.moveX));
+      }
+      if (this.trainingMovement.jumped && this.trainingMovement.distance >= player.w * 3) {
+        this.completeTrainingExercise('movement');
+      }
+    }
 
     updateRoomHazards(room, player, dt, this.roomEffects);
 
@@ -959,14 +983,20 @@ export class CendresEngine {
     this.camera.follow(player, room, this.width, this.height, dt);
 
     this.hudSyncTimer += dt;
-    if (this.hudSyncTimer >= 0.06) {
+    if (this.hudSyncTimer >= 0.06 || wasExerciseComplete !== this.trainingExercise?.complete) {
       this.hudSyncTimer = 0;
       this.pushHud(false);
     }
   }
 
+  private completeTrainingExercise = (id: TrainingExerciseId): void => {
+    if (this.trainingExercise?.id === id && !this.trainingExercise.complete) {
+      this.trainingExercise = { id, complete: true };
+    }
+  };
+
   private onEnemyKilled(enemy: Enemy): void {
-    resolveEnemyDeath(this.combatEffects, enemy);
+    resolveEnemyDeath(this.combatEffects, enemy, !this.trainingExercise);
   }
 
   private handlePropsInteraction(inp: InputState): void {
@@ -1011,6 +1041,7 @@ export class CendresEngine {
       this.run.flasks, this.run.depth, cendresTotal, ferTotal, larmesTotal, this.promptText, bannerVisible,
       bossHp, bossStag, this.run.parryStreak, this.run.perfectDodges, this.save.weapon, skillCd,
       this.run.activeSynergies.length, this.achievementToast, this.run.comboHits, showFps ? fpsVal : 0,
+      this.trainingExercise?.id ?? '', this.trainingExercise?.complete ?? false,
     ];
     if (!force && hudKey.every((value, index) => value === this.lastHudKey[index])) return;
     this.lastHudKey = hudKey;
@@ -1025,6 +1056,7 @@ export class CendresEngine {
       maxFlasks: this.run.maxFlasks,
       depth: this.run.depth,
       isTraining: this.run.isTraining,
+      trainingExercise: this.trainingExercise,
       ascensionLevel: this.run.ascensionLevel,
       biomeName: this.room.biome.name,
       cendresTotal,

@@ -1,11 +1,13 @@
 import React from 'react';
 import { BLESSINGS_POOL, RELICS_POOL, SYNERGIES_POOL } from '../game/data';
+import { TRAINING_EXERCISES, type TrainingExerciseId } from '../game/trainingExercises';
 import type { HudSnapshot } from '../game/types';
 
 interface PauseModalProps {
   hud: HudSnapshot | null;
   onResume: () => void;
   onRestart: () => void;
+  onStartTraining: (exercise?: TrainingExerciseId) => void;
   onOpenMenu: () => void;
   onReturnBastion: () => void;
 }
@@ -14,6 +16,7 @@ export function PauseModal({
   hud,
   onResume,
   onRestart,
+  onStartTraining,
   onOpenMenu,
   onReturnBastion,
 }: PauseModalProps) {
@@ -24,7 +27,7 @@ export function PauseModal({
       data-testid="pause-modal"
       data-gamepad-menu="pause"
     >
-      <div className="w-full max-w-md bg-[#110e15] border border-[#4a3b2c] p-6 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
+      <div className="w-full max-h-full overflow-y-auto max-w-md bg-[#110e15] border border-[#4a3b2c] p-6 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
         <h2 className="font-display text-2xl text-[#d4a853] uppercase tracking-[0.18em] m-0">
           Pause
         </h2>
@@ -101,7 +104,7 @@ export function PauseModal({
             onClick={onRestart}
             className="w-full py-2.5 text-xs font-display uppercase tracking-wider bg-[#1b161f] text-[#e8e1d5] border border-[#4a3b2c] hover:border-[#d4a853] cursor-pointer"
           >
-            {hud?.isTraining ? 'Recommencer l’entraînement' : 'Recommencer l’expédition'}
+            {hud?.trainingExercise ? 'Recommencer l’exercice' : hud?.isTraining ? 'Recommencer l’entraînement' : 'Recommencer l’expédition'}
           </button>
           <button
             type="button"
@@ -111,6 +114,35 @@ export function PauseModal({
             Rentrer au Bastion du Crépuscule
           </button>
         </div>
+
+        {hud?.isTraining && (
+          <section aria-labelledby="training-options" className="mt-5 border-t border-[#4a3b2c] pt-4">
+            <h3 id="training-options" className="font-display text-sm uppercase tracking-widest text-[#d4a853]">
+              Exercices de la Cour
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {TRAINING_EXERCISES.map(({ id, title }) => (
+                <button
+                  key={id}
+                  type="button"
+                  data-testid={`exercise-${id}`}
+                  onClick={() => onStartTraining(id)}
+                  className="py-2 px-1 text-xs text-[#e8e1d5] border border-[#4a3b2c] hover:border-[#d4a853] cursor-pointer"
+                >
+                  {title}
+                </button>
+              ))}
+              <button
+                type="button"
+                data-testid="exercise-free"
+                onClick={() => onStartTraining()}
+                className="col-span-2 py-2 text-xs text-[#d4a853] hover:underline cursor-pointer"
+              >
+                Entraînement libre
+              </button>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

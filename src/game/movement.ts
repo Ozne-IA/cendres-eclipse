@@ -63,7 +63,9 @@ export class PlayerMovement {
     inp: InputState,
     simTime: number,
     dt: number
-  ): void {
+  ): boolean {
+    let jumped = false;
+
     // Movement & Gravity
     let moveSpeed = 315;
     if (save.oath === 'pelerin') moveSpeed *= 1.15;
@@ -91,6 +93,7 @@ export class PlayerMovement {
           player.onGround = false;
           player.coyote = 0;
           player.jumpBuf = 0;
+          jumped = true;
           player.jumpsLeft = (run.blessings.includes('wind_dancer') ? 3 : 2) - 1;
           player.squashX = 0.82;
           player.squashY = 1.2;
@@ -100,6 +103,7 @@ export class PlayerMovement {
           player.vx = -player.onWall * 375;
           player.facing = (-player.onWall) as 1 | -1;
           player.jumpBuf = 0;
+          jumped = true;
           player.squashX = 0.84;
           player.squashY = 1.18;
           if (run.blessings.includes('wall_tempest')) run.critNextAttack = true;
@@ -110,6 +114,7 @@ export class PlayerMovement {
           player.vy = -515 * jumpMult;
           player.jumpsLeft -= 1;
           player.jumpBuf = 0;
+          jumped = true;
           player.squashX = 0.86;
           player.squashY = 1.16;
           AudioFX.jump();
@@ -227,5 +232,6 @@ export class PlayerMovement {
     } else {
       this.footstepTimer = 0.05;
     }
+    return jumped;
   }
 }

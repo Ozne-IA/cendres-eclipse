@@ -166,6 +166,10 @@ for (const input of ['clavier', 'manette'] as const) {
       await tapPad(page, down);
       await tapPad(page, down);
       await expect(pause.getByRole('button', { name: retreatLabel })).toBeFocused();
+      await tapPad(page, down);
+      await expect(pause.locator('button[data-testid^="exercise-"][data-gamepad-focus]')).toBeFocused();
+      await tapPad(page, 12); // Up returns to the existing pause actions.
+      await expect(pause.getByRole('button', { name: retreatLabel })).toBeFocused();
       await tapPad(page, confirm);
     }
 
@@ -230,4 +234,41 @@ test('un écran différé indisponible permet de revenir au titre et à la Cour'
   await expect(title).not.toHaveAttribute('inert', '');
   await title.getByRole('button', { name: trainingLabel }).click();
   await expect(page.getByTestId('game-hud').getByText("Cour d'Entraînement · Bastion")).toBeVisible();
+});
+
+test('la Cour permet de réussir et relancer un exercice, puis de revenir en entraînement libre', async ({ page }) => {
+  const save = defaultSave();
+  save.muted = true;
+  await page.route('https://fonts.googleapis.com/**', (route) => route.abort());
+  await page.addInitScript(({ key, initialSave }) => {
+    localStorage.setItem(key, JSON.stringify(initialSave));
+  }, { key: SAVE_KEY, initialSave: save });
+  await page.goto('/');
+  const title = page.getByTestId('title-screen');
+  const pause = page.getByTestId('pause-modal');
+  const exercise = page.getByTestId('training-exercise');
+  const initialSave = await readSave(page);
+
+  await keyboardSelect(page, title.getByRole('button', { name: trainingLabel }));
+  await expect(page.getByTestId('game-hud')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await keyboardSelect(page, pause.getByTestId('exercise-movement'));
+  await expect(exercise).toHaveAttribute('data-complete', 'false');
+
+  await page.keyboard.down('ArrowRight');
+  await page.keyboard.down('Space');
+  try {
+    await expect(exercise).toHaveAttribute('data-complete', 'true');
+  } finally {
+    await page.keyboard.up('Space');
+    await page.keyboard.up('ArrowRight');
+  }
+
+  await page.keyboard.press('Escape');
+  await keyboardSelect(page, pause.getByRole('button', { name: 'Recommencer l’exercice' }));
+  await expect(exercise).toHaveAttribute('data-complete', 'false');
+  await page.keyboard.press('Escape');
+  await keyboardSelect(page, pause.getByTestId('exercise-free'));
+  await expect(exercise).toHaveCount(0);
+  expect(await readSave(page)).toEqual(initialSave);
 });

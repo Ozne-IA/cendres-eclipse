@@ -11,6 +11,7 @@ export interface ProjectileEffects {
   registerComboHit: (hits: number) => void;
   onEnemyKilled: (enemy: Enemy) => void;
   stopFor: (seconds: number) => void;
+  onTrainingAction?: (action: 'reflect') => void;
 }
 
 // Limit retained idle storage while allowing every attack in a burst to spawn.
@@ -82,6 +83,7 @@ export class ProjectilePool {
       ) {
         if (player.parryT > 0) {
           pr.friendly = true;
+          effects.onTrainingAction?.('reflect');
           pr.vx *= -1.5;
           pr.vy *= -1.5;
           pr.dmg = Math.round(pr.dmg * (run.relics.includes('ember_ring') ? 2.4 : 2.0));

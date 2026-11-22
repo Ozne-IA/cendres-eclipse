@@ -1,4 +1,5 @@
 import { BIOMES, DIFFICULTIES_DEF, ENEMY_LORE, LORE_TABLETS, NPCS_DEF, ROOM_AFFIXES } from './data';
+import type { TrainingExerciseId } from './trainingExercises';
 import type {
   EliteTrait,
   Enemy,
@@ -523,12 +524,12 @@ export function generateRoom(
   };
 }
 
-export function generateTrainingRoom(): RoomData {
+export function generateTrainingRoom(exercise?: TrainingExerciseId): RoomData {
   const width = 1480;
   const height = 920;
   const groundY = 720;
 
-  return {
+  const room: RoomData = {
     depth: 0,
     isBoss: false,
     biome: BIOMES[0],
@@ -565,4 +566,16 @@ export function generateTrainingRoom(): RoomData {
       { x: 1240, y: groundY - 150 },
     ],
   };
+  if (!exercise) return room;
+
+  room.enemies = [];
+  if (exercise === 'reflect') {
+    room.enemies.push(createEnemy(1, 'watcher', 345, groundY, 1, 'none', 1.5, 0.35));
+  } else if (exercise === 'parry' || exercise === 'riposte' || exercise === 'dodge') {
+    const penitent = createEnemy(1, 'penitent', 177, groundY, 1, 'none', 1.6, 0.35);
+    // The first perfect parry opens a riposte, even without upgrades.
+    if (exercise === 'riposte') penitent.maxStagger = 55;
+    room.enemies.push(penitent);
+  }
+  return room;
 }

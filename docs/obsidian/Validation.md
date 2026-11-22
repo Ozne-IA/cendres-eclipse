@@ -101,6 +101,12 @@ Lancer `npm test` ou `node --import tsx --test src/game/combatDefense.test.ts sr
 
 Six défauts introduits séparément dans une copie temporaire du moteur ont déclenché les échecs attendus. Ils portaient sur le crédit de parade, l’inversion du tir, le déclenchement de l’esquive, l’invulnérabilité, le seuil de posture et les dégâts répétés sur une cible.
 
+## Exercices de la Cour (C14)
+
+Depuis le titre ou le Bastion, entrer dans la Cour puis ouvrir Pause. Les six exercices peuvent être choisis dans ce menu. Le HUD annonce la réussite. Utiliser « Recommencer l’exercice » pour réinitialiser l’essai ou « Entraînement libre » pour retrouver la Cour ordinaire.
+
+`npm test` vérifie les conditions de réussite dans la simulation. `npm run test:e2e` vérifie l’accès au choix à la manette simulée et le parcours au clavier avec réussite du déplacement, reprise, retour à la Cour libre et conservation de la sauvegarde.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].
