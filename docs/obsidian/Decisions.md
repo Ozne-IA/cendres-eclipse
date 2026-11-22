@@ -40,6 +40,8 @@ tags:
 
 - **Différer les écrans et décors secondaires.** Le titre, le jeu, le HUD et les écrans de combat immédiats restent chargés au démarrage. Le Bastion, les options et le lanceur PC chargent leur code à l’ouverture. Le service worker prépare le jeu hors ligne en mettant également ces écrans et les illustrations en cache à son installation. [[Validation#Chargement et budget de taille (C11)]]
 
+- **Étendre les contrôles par module.** Les entrées de `tsconfig.strict.json` définissent le périmètre initial. TypeScript contrôle aussi les dépendances importées et ESLint applique ses règles aux entrées explicites. Les deux vérifications passent en CI avec le contrôle TypeScript général. [[Validation#TypeScript strict et ESLint (C12)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)
