@@ -4,6 +4,7 @@ import { startAttack } from './combat';
 import { WEAPONS_DEF } from './data';
 import type { ParticlePool } from './particles';
 import { applyEnemyDamage, getLootMultiplier, getPlayerDamageStats } from './rules';
+import type { TrainingExerciseId } from './trainingExercises';
 import type { Enemy, Player, Projectile, RoomData, RunState, SaveData, WeaponDef } from './types';
 import type { VfxSystem } from './vfx';
 
@@ -30,6 +31,7 @@ export interface DamageEffects {
   updateSave: (updater: (save: SaveData) => SaveData) => void;
   showBanner: (title: string, sub: string, color: string, duration: number) => void;
   pushHud: (force: boolean) => void;
+  onTrainingAction?: (action: TrainingExerciseId) => void;
 }
 
 export function resolveMeleeAttack(
@@ -84,7 +86,8 @@ export function resolveMeleeAttack(
         if (run.critNextAttack) run.critNextAttack = false;
 
         let finalDmg = stats.damage;
-        if (player.riposteBuffT > 0) {
+        const followsParry = player.riposteBuffT > 0;
+        if (followsParry) {
           finalDmg = Math.round(finalDmg * 1.2);
           player.riposteBuffT = 0;
         }
@@ -148,6 +151,7 @@ export function resolveMeleeAttack(
 
         // Riposte execution siphon
         if (isRiposte) {
+          if (followsParry) effects.onTrainingAction?.('riposte');
           e.state = 'recover';
           e.stagger = 0;
           if (run.activeSynergies.includes('storm_anvil')) {
@@ -362,6 +366,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
       }
     }
   }
+  effects.onTrainingAction?.('art');
   effects.pushHud(true);
 }
 
@@ -377,6 +382,7 @@ export function hurtPlayer(effects: DamageEffects, rawDmg: number, sourceX: numb
     if (player.invulnT > 0.14) {
       player.invulnT = 0.14;
       run.perfectDodges += 1;
+      effects.onTrainingAction?.('dodge');
       run.stam = Math.min(run.maxStam, run.stam + 14);
       run.critNextAttack = true;
       effects.slowFor(0.22);
@@ -457,6 +463,7 @@ export function hurtPlayer(effects: DamageEffects, rawDmg: number, sourceX: numb
         }
       }
     }
+    effects.onTrainingAction?.('parry');
     effects.pushHud(true);
     return;
   }
@@ -531,7 +538,7 @@ export function hurtPlayer(effects: DamageEffects, rawDmg: number, sourceX: numb
   effects.pushHud(true);
 }
 
-export function resolveEnemyDeath(effects: DamageEffects, e: Enemy): void {
+export function resolveEnemyDeath(effects: DamageEffects, e: Enemy, grantLoot = true): void {
   if (!effects.run || !effects.room) return;
   e.state = 'dead';
   e.deadT = 0.35;
@@ -580,17 +587,19 @@ export function resolveEnemyDeath(effects: DamageEffects, e: Enemy): void {
     getBloodToneForEnemy(e.kind)
   );
 
-  const mult = getLootMultiplier(effects.save, effects.run, effects.room.affix?.id);
-  const baseC = e.isBoss ? 80 : e.kind === 'flagellant' ? 24 : 13;
-  const cendres = Math.round(baseC * (e.elite !== 'none' ? 1.7 : 1) * mult);
-  effects.run.loot.cendres += cendres;
+  if (grantLoot) {
+    const mult = getLootMultiplier(effects.save, effects.run, effects.room.affix?.id);
+    const baseC = e.isBoss ? 80 : e.kind === 'flagellant' ? 24 : 13;
+    const cendres = Math.round(baseC * (e.elite !== 'none' ? 1.7 : 1) * mult);
+    effects.run.loot.cendres += cendres;
 
-  const ferChance = (e.elite !== 'none' ? 0.85 : 0.25) + (effects.run.relics.includes('cinder_magnet') ? 0.15 : 0);
-  if (e.isBoss || effects.gameplayRandom() < ferChance) {
-    effects.run.loot.fer += e.isBoss ? 2 : 1;
-  }
-  if (e.isBoss || effects.gameplayRandom() < 0.08 + (effects.save.buildings.vigie || 0) * 0.03) {
-    effects.run.loot.larmes += 1;
+    const ferChance = (e.elite !== 'none' ? 0.85 : 0.25) + (effects.run.relics.includes('cinder_magnet') ? 0.15 : 0);
+    if (e.isBoss || effects.gameplayRandom() < ferChance) {
+      effects.run.loot.fer += e.isBoss ? 2 : 1;
+    }
+    if (e.isBoss || effects.gameplayRandom() < 0.08 + (effects.save.buildings.vigie || 0) * 0.03) {
+      effects.run.loot.larmes += 1;
+    }
   }
 
   if (effects.run.blessings.includes('vampiric')) {
