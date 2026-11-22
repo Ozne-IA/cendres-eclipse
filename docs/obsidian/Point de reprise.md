@@ -67,7 +67,7 @@ Six scénarios à graine fixe contrôlent la parade parfaite, le renvoi des proj
 
 ## Exercices de la Cour (C14)
 
-Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consigne, l’objectif, les commandes et la réussite. Le même menu permet de rejouer l’exercice ou de reprendre l’entraînement libre. Les critères actuels reprennent le backlog et peuvent être affinés avec la passation L18 de Luc. [[Validation#Exercices de la Cour (C14)]]
+Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consigne, l’objectif, les commandes et la réussite. Le même menu permet de rejouer l’exercice ou de reprendre l’entraînement libre. Les critères détaillés de Luc sont repris dans [[Validation#Critères avancés de la Cour (L18)]]. [[Validation#Exercices de la Cour (C14)]]
 
 ## Suite connue
 
