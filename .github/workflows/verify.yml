@@ -28,6 +28,10 @@ jobs:
         run: npm ci
       - name: TypeScript checks
         run: npm run lint
+      - name: Strict TypeScript for selected game modules
+        run: npm run typecheck:strict
+      - name: ESLint for selected game modules
+        run: npm run lint:eslint
       - name: Unit tests
         run: npm test
       - name: Production build

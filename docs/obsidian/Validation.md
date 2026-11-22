@@ -85,6 +85,12 @@ Le build passe de 149,47 à 138,07 Kio gzip au démarrage (−7,6 %). Tous les s
 
 `npm run test:e2e` couvre l’ouverture et le focus manette pendant un chargement retardé, le retour à l’écran précédent après un échec de chargement, puis l’ouverture des écrans différés et le lancement d’une expédition hors ligne après installation du cache. Un essai Chromium a également vérifié le chargement du décor classique lorsque l’image cinématique échoue.
 
+## TypeScript strict et ESLint (C12)
+
+Lancer `npm run lint`, `npm run typecheck:strict` et `npm run lint:eslint`. Le premier contrôle le dépôt. Le second utilise `tsconfig.strict.json` pour vérifier les commandes, l’horloge, l’interpolation, l’aléatoire, la caméra, le profilage, les traces de sang et les formats de sauvegarde et de mise à jour. TypeScript suit les imports de ces fichiers. ESLint applique ses règles de syntaxe et de contrôle du flux aux entrées explicites avec le parseur TypeScript de Babel. La CI lance les trois vérifications. ESLint 9 fonctionne avec le minimum Node 22.12 documenté pour le développement. Cette branche d’ESLint est en fin de support. ESLint 10 demande au moins Node 22.13 sur la branche 22 et un parseur compatible.
+
+Pour ajouter un module isolé, inscrire son fichier et, si pertinent, ses tests dans `files` de `tsconfig.strict.json`. Relancer les trois commandes sur Node 22.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

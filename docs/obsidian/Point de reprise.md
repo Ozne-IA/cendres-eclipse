@@ -57,11 +57,15 @@ La capture des positions, les collisions, le vieillissement des traces de sang e
 
 Le Bastion, les options et le lanceur PC chargent leur JavaScript à l’ouverture. Le JavaScript demandé au démarrage passe de 149,47 à 138,07 Kio gzip. La page de titre charge son illustration en priorité et réduit le poids de ses requêtes d’images de 63 % dans l’essai Chromium sans service worker. Le cache hors ligne inclut l’illustration, les décors et les trois écrans différés. [[Validation#Chargement et budget de taille (C11)]]
 
+## TypeScript strict et ESLint (C12)
+
+La CI applique TypeScript strict à 12 modules de jeu, dont deux dépendances partagées, et quatre fichiers de tests. ESLint contrôle les fichiers listés dans `tsconfig.strict.json`. Le contrôle TypeScript général continue de couvrir le dépôt. [[Validation#TypeScript strict et ESLint (C12)]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
-- Côté Codex, reprendre C12 en introduisant TypeScript strict et ESLint progressivement, à partir des modules isolés.
+- Côté Codex, reprendre C13 avec des scénarios de combat déterministes autour des parades, renvois, esquives, postures, attaques multicibles et invulnérabilités.
 - Essais matériels à effectuer sur PC. Le [[Protocole d'essai matériel]] couvre le ZIP publié sur un autre PC Windows (L01), la fluidité à 60 et 120/144 Hz (L14), le son (L15) et les manettes et claviers physiques (L16).
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.
