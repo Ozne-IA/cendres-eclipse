@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["vite/client", "node"]
+  },
+  "include": [],
+  "files": [
+    "src/game/bloodDecals.ts",
+    "src/game/bloodDecals.test.ts",
+    "src/game/camera.ts",
+    "src/game/frameProfile.ts",
+    "src/game/frameProfile.test.ts",
+    "src/game/input.ts",
+    "src/game/input.test.ts",
+    "src/game/menuNavigation.ts",
+    "src/game/random.ts",
+    "src/game/renderInterpolation.ts",
+    "src/game/saveFormat.ts",
+    "src/game/simulationClock.ts",
+    "src/game/updateFormat.ts",
+    "src/game/updateFormat.test.ts"
+  ]
+}
