@@ -8,7 +8,7 @@ import { renderAtmosphericColorGrading, renderLowHpVignette, renderMinimap } fro
 import { computeCombatDepthFocus, renderDeepParallaxLayers, renderForegroundParallax } from './parallax';
 import type { ParticlePool } from './particles';
 import type { PositionInterpolator } from './renderInterpolation';
-import { renderHazards, renderProps, renderTerrainAndTorches } from './roomRender';
+import { renderCourseMarkers, renderHazards, renderProps, renderTerrainAndTorches } from './roomRender';
 import { renderBackdropAndEclipse, renderMidgroundArchitecture } from './sceneryRender';
 import { getTitleHeroArtwork } from './textures';
 import { renderTitleArtworkBackdrop, renderTitleShowcase } from './titleRender';
@@ -24,6 +24,7 @@ export interface RenderContextState {
   cameraY: number;
   trauma: number;
   room: RoomData | null;
+  trainingCourseProgress?: number;
   player: Player | null;
   interpolatePosition?: PositionInterpolator;
   run: RunState | null;
@@ -116,6 +117,9 @@ export function renderGameFrame(
 
   sceneryStart = profile?.now() ?? 0;
   renderProps(ctx, room, camX, W, time);
+  if (st.trainingCourseProgress !== undefined) {
+    renderCourseMarkers(ctx, room.groundY, st.trainingCourseProgress);
+  }
 
   profile?.finishTiming('props', sceneryStart);
 

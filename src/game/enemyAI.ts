@@ -4,6 +4,8 @@ import { applyEnemyDamage } from './rules';
 import type { Enemy, Player, Projectile, RoomData, RunState } from './types';
 import type { VfxSystem } from './vfx';
 
+export const MELEE_CHARGE_SPEED = 310;
+
 export interface EnemyEffects {
   readonly room: RoomData | null;
   readonly player: Player | null;
@@ -105,7 +107,9 @@ export function updateEnemies(room: RoomData, player: Player, run: RunState, dt:
       e.stagger = Math.max(0, e.stagger - dt * 6);
     }
 
-    if (e.state === 'staggered') {
+    if (e.trainingRole === 'target') {
+      e.vx = 0;
+    } else if (e.state === 'staggered') {
       e.stateT -= dt;
       e.vx *= 0.84;
       if (e.stateT <= 0) e.state = 'idle';
@@ -207,7 +211,7 @@ export function updateEnemies(room: RoomData, player: Player, run: RunState, dt:
       // Ennemi volant : oscillation organique & flottement vertical adaptatif
       const hoverTargetY = Math.max(room.groundY - 140, Math.min(room.groundY - 50, player.y - 28));
       const hoverOffset = Math.sin(effects.simTime * 2.8 + e.id) * 16;
-      const targetY = hoverTargetY + hoverOffset;
+      const targetY = e.trainingRole ? room.groundY - 48 : hoverTargetY + hoverOffset;
       e.y += (targetY - e.y) * Math.min(1, dt * 2.5);
     }
   }
@@ -256,19 +260,23 @@ function executeEnemyAttack(effects: EnemyEffects, e: Enemy, dx: number, dy: num
   }
 
   if (e.kind === 'watcher' || e.kind === 'arbalest') {
-    const ang = Math.atan2(dy, dx);
+    const isPair = e.trainingRole === 'projectile-pair';
+    const ang = Math.atan2(isPair ? 0 : dy, dx);
     const speed = e.kind === 'arbalest' ? 520 : 340;
-    const shot = effects.acquireProjectile(effects.room.projectiles);
-    shot.x = e.x + e.w / 2;
-    shot.y = e.y + e.h * 0.45;
-    shot.vx = Math.cos(ang) * speed;
-    shot.vy = Math.sin(ang) * speed;
-    shot.r = e.kind === 'arbalest' ? 6 : 8;
-    shot.dmg = e.dmg;
-    shot.friendly = false;
-    shot.color = e.kind === 'arbalest' ? '#ff4d63' : '#e06b2b';
-    shot.kind = e.kind === 'arbalest' ? 'bolt' : 'orb';
-    shot.life = 2.2;
+    const count = isPair ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const shot = effects.acquireProjectile(effects.room.projectiles);
+      shot.x = e.x + e.w / 2 - i * Math.cos(ang) * 38;
+      shot.y = e.y + e.h * 0.45;
+      shot.vx = Math.cos(ang) * speed;
+      shot.vy = Math.sin(ang) * speed;
+      shot.r = e.kind === 'arbalest' ? 6 : 8;
+      shot.dmg = e.dmg;
+      shot.friendly = false;
+      shot.color = e.kind === 'arbalest' ? '#ff4d63' : '#e06b2b';
+      shot.kind = e.kind === 'arbalest' ? 'bolt' : 'orb';
+      shot.life = 2.2;
+    }
     return;
   }
 
@@ -310,5 +318,5 @@ function executeEnemyAttack(effects: EnemyEffects, e: Enemy, dx: number, dy: num
     return;
   }
 
-  e.vx = e.facing * (e.kind === 'flagellant' ? 280 : 310);
+  e.vx = e.facing * (e.kind === 'flagellant' ? 280 : MELEE_CHARGE_SPEED);
 }

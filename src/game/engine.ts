@@ -24,6 +24,7 @@ import { FrameProfile } from './frameProfile';
 import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
 import type { TrainingExerciseId } from './trainingExercises';
+import { TrainingSession } from './trainingSession';
 import { VfxSystem } from './vfx';
 import {
   bankRunIntoSave,
@@ -104,8 +105,7 @@ export class CendresEngine {
   private lastBankedRun: RunState | null = null;
   private room: RoomData | null = null;
   private player: Player | null = null;
-  private trainingExercise?: NonNullable<HudSnapshot['trainingExercise']>;
-  private trainingMovement = { distance: 0, jumped: false };
+  private trainingExercise?: TrainingSession;
 
   private camera = new RoomCamera();
   private hitStop = 0;
@@ -153,7 +153,8 @@ export class CendresEngine {
       hurtPlayer: (damage, sourceX) => hurtPlayer(this.combatEffects, damage, sourceX),
       registerComboHit: (hits) => this.registerComboHit(hits),
       onEnemyKilled: (enemy) => this.onEnemyKilled(enemy),
-      get onTrainingAction() { return engine.trainingExercise ? engine.completeTrainingExercise : undefined; },
+      get onTrainingAction() { return engine.trainingExercise?.onCombatAction; },
+      get onTrainingProjectile() { return engine.trainingExercise?.onProjectileAction; },
       rumble: (weak, strong, duration, enabled) => this.input.rumble(weak, strong, duration, enabled),
       stopFor: (seconds) => { this.hitStop = seconds; },
       slowFor: (seconds) => this.clock.slowFor(seconds),
@@ -486,9 +487,7 @@ export class CendresEngine {
   startTrainingMode(exercise?: TrainingExerciseId): void {
     this.cb.onRunSummary(null);
     AudioFX.ui();
-    this.trainingExercise = exercise ? { id: exercise, complete: false } : undefined;
-    this.trainingMovement.distance = 0;
-    this.trainingMovement.jumped = false;
+    this.trainingExercise = exercise ? new TrainingSession(exercise) : undefined;
     this.run = createRunState(this.save, this.gameplayRandom, true);
     if (exercise) this.run.loot.cendres = 0;
     this.deathDelayTimer = 0;
@@ -769,7 +768,7 @@ export class CendresEngine {
       return;
     }
 
-    const wasExerciseComplete = this.trainingExercise?.complete;
+    const trainingVersion = this.trainingExercise?.version;
     const inp = this.gameplayInputs.consume(held);
     this.run.elapsedSec += dt;
     this.freeDashTimer = Math.max(0, this.freeDashTimer - dt);
@@ -867,6 +866,7 @@ export class CendresEngine {
 
     if (player.dashBuf && player.dashCd <= 0 && player.dashT <= 0 && player.dashesLeft > 0 && run.stam >= dashCost) {
       player.dashBuf = false;
+      this.trainingExercise?.beginDash();
       if (dashCost === 0 && this.save.oath === 'pelerin') this.freeDashTimer = 4.0;
       run.stam -= dashCost;
       player.stamRegenDelay = 0.4;
@@ -903,7 +903,9 @@ export class CendresEngine {
       weapon.speedMult *
       (run.relics.includes('wind_spur') ? 1.1 : 1) *
       (room.affix?.id === 'tempered_ash' ? 1.12 : 1);
+    if (player.attackT <= 0) this.trainingExercise?.setArtAttack(false);
     if (inp.skill && player.skillCd <= 0 && player.attackT <= 0 && run.stam >= weapon.artStamCost) {
+      this.trainingExercise?.setArtAttack(true);
       executeWeaponArt(this.combatEffects);
     } else if (inp.heavy && player.attackT <= 0 && player.dashT <= 0 && run.stam >= 26) {
       run.stam -= 26;
@@ -950,18 +952,8 @@ export class CendresEngine {
       player.attackBuf = false;
     }
 
-    const beforeMoveX = player.x;
-    const wasDashing = player.dashT > 0;
-    const jumped = this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
-    if (this.trainingExercise?.id === 'movement' && !this.trainingExercise.complete) {
-      this.trainingMovement.jumped ||= jumped;
-      if (!wasDashing && inp.moveX !== 0) {
-        this.trainingMovement.distance += Math.max(0, (player.x - beforeMoveX) * Math.sign(inp.moveX));
-      }
-      if (this.trainingMovement.jumped && this.trainingMovement.distance >= player.w * 3) {
-        this.completeTrainingExercise('movement');
-      }
-    }
+    this.movement.update(player, room, run, this.save, inp, this.simTime, dt);
+    this.trainingExercise?.updateCourse(player, room.groundY, dt);
 
     updateRoomHazards(room, player, dt, this.roomEffects);
 
@@ -983,17 +975,11 @@ export class CendresEngine {
     this.camera.follow(player, room, this.width, this.height, dt);
 
     this.hudSyncTimer += dt;
-    if (this.hudSyncTimer >= 0.06 || wasExerciseComplete !== this.trainingExercise?.complete) {
+    if (this.hudSyncTimer >= 0.06 || trainingVersion !== this.trainingExercise?.version) {
       this.hudSyncTimer = 0;
       this.pushHud(false);
     }
   }
-
-  private completeTrainingExercise = (id: TrainingExerciseId): void => {
-    if (this.trainingExercise?.id === id && !this.trainingExercise.complete) {
-      this.trainingExercise = { id, complete: true };
-    }
-  };
 
   private onEnemyKilled(enemy: Enemy): void {
     resolveEnemyDeath(this.combatEffects, enemy, !this.trainingExercise);
@@ -1036,12 +1022,17 @@ export class CendresEngine {
     const oathDef = OATHS_DEF[this.save.oath] || OATHS_DEF.argile;
 
     const riposteReady = (this.player?.riposteBuffT ?? 0) > 0;
+    const training = this.player && this.trainingExercise?.snapshot(
+      this.player, this.room, getParryWindowSec(this.save), this.run.critNextAttack, weapon.artStamCost,
+    );
     const hudKey = [
       this.input.lastInputMode, riposteReady, hp, ghostHp, this.run.maxHp, stam, this.run.maxStam,
       this.run.flasks, this.run.depth, cendresTotal, ferTotal, larmesTotal, this.promptText, bannerVisible,
       bossHp, bossStag, this.run.parryStreak, this.run.perfectDodges, this.save.weapon, skillCd,
       this.run.activeSynergies.length, this.achievementToast, this.run.comboHits, showFps ? fpsVal : 0,
-      this.trainingExercise?.id ?? '', this.trainingExercise?.complete ?? false,
+      training?.id ?? '', training?.progress ?? 0, training?.failed ?? false,
+      training?.remainingSeconds ?? 0, training?.parryWindowOpen ?? false, training?.riposteSeconds ?? 0,
+      training?.criticalReady ?? false, training?.artCost ?? 0,
     ];
     if (!force && hudKey.every((value, index) => value === this.lastHudKey[index])) return;
     this.lastHudKey = hudKey;
@@ -1056,7 +1047,7 @@ export class CendresEngine {
       maxFlasks: this.run.maxFlasks,
       depth: this.run.depth,
       isTraining: this.run.isTraining,
-      trainingExercise: this.trainingExercise,
+      trainingExercise: training ?? undefined,
       ascensionLevel: this.run.ascensionLevel,
       biomeName: this.room.biome.name,
       cendresTotal,
@@ -1120,6 +1111,7 @@ export class CendresEngine {
       cameraY: camera.y,
       trauma: this.trauma,
       room: this.room,
+      trainingCourseProgress: this.trainingExercise?.id === 'movement' ? this.trainingExercise.progress : undefined,
       player: this.player,
       interpolatePosition: interpolate,
       run: this.run,

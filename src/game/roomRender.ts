@@ -1,3 +1,4 @@
+import { COURSE_MARKERS } from './trainingSession';
 import { drawDetailedProp } from './propRender';
 import type { PositionInterpolator } from './renderInterpolation';
 import { getTorchGlow } from './renderPrimitives';
@@ -294,4 +295,41 @@ export function renderProps(
     if (pr.x + pr.w < camX - 100 || pr.x > camX + W + 100) continue;
     drawDetailedProp(ctx, pr, time);
   }
+}
+
+
+export function renderCourseMarkers(ctx: CanvasRenderingContext2D, groundY: number, progress: number): void {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.lineWidth = 2;
+
+  for (let i = 0; i < COURSE_MARKERS.length; i++) {
+    const { x, height } = COURSE_MARKERS[i];
+    const y = groundY - height;
+    const active = i === progress;
+    const reached = i < progress;
+    ctx.fillStyle = active ? '#ffda82' : reached ? '#294735' : '#221b19';
+    ctx.strokeStyle = active ? '#fff1bc' : reached ? '#a9d1a6' : '#a69888';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - 13);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y - 32, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = active ? '#281a0a' : '#f8eddd';
+    ctx.fillText(String(i + 1), x, y - 32);
+    if (reached) {
+      ctx.beginPath();
+      ctx.moveTo(x + 16, y - 15);
+      ctx.lineTo(x + 20, y - 11);
+      ctx.lineTo(x + 27, y - 21);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
 }
