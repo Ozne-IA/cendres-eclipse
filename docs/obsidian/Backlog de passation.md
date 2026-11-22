@@ -114,7 +114,7 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 - [ ] **L15** — Écouter casque et haut-parleurs. Relever masquage des attaques, transitions et écarts de volume.
 - [ ] **L16** — Tester manettes Xbox et DualSense physiques et claviers AZERTY/QWERTY.
 - [ ] L17 — Observer un nouveau joueur pendant les dix premières minutes, de la découverte de la Cour à la lecture de la parade et de la sortie.
-- [ ] L18 — Définir les exercices, consignes et critères de réussite de la Cour. Codex intègre.
+- [x] L18 — Définir les exercices, consignes et critères de réussite de la Cour. Propositions de Luc validées par l’utilisateur le 22 novembre 2026. Codex intègre les ajustements. [[L18 Cour - consignes et criteres]]
 - [ ] L19 — Comparer plusieurs graines et relever sorties confuses, vides, répétitions et densité des rencontres.
 - [ ] L20 — Auditer la lisibilité du HUD, du focus, des dialogues et des télégraphes sur plusieurs PC.
 - [ ] L21 — Équilibrer premier retour au Bastion, prix, gains et intérêt des améliorations sur plusieurs expéditions.
