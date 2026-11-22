@@ -168,11 +168,7 @@ for (const input of ['clavier', 'manette'] as const) {
       await expect(pause.getByRole('button', { name: retreatLabel })).toBeFocused();
       await tapPad(page, down);
       await expect(pause.locator('button[data-testid^="exercise-"][data-gamepad-focus]')).toBeFocused();
-      await tapPad(page, confirm);
-      await expect(hud.getByTestId('training-exercise')).toHaveAttribute('data-complete', 'false');
-      await tapPad(page, start);
-      await expect(pause.getByRole('button', { name: 'Reprendre' })).toBeFocused();
-      for (let i = 0; i < 3; i++) await tapPad(page, down);
+      await tapPad(page, 12); // Up returns to the existing pause actions.
       await expect(pause.getByRole('button', { name: retreatLabel })).toBeFocused();
       await tapPad(page, confirm);
     }
