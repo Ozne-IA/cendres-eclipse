@@ -17,6 +17,7 @@ Cendres de l’Éclipse est un roguelike d’action 2D. Le joueur alterne entre 
 - [[Decisions|Décisions]] conserve les changements intégrés et leur raison d’être.
 - [[Validation]] décrit les contrôles à effectuer avant de fusionner une modification.
 - [[Passation Luc]] conserve la passation d’origine de Claude Code à Codex.
+- [[Messages Codex et Luc]] rassemble les messages de coordination entre les deux.
 
 ## Graphe du code
 

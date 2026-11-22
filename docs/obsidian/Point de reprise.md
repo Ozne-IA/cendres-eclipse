@@ -68,6 +68,7 @@ Six scénarios à graine fixe contrôlent la parade parfaite, le renvoi des proj
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
+- Voir [[Messages Codex et Luc]] pour la passation de C01 à C13 et la coordination entre C14 et L18.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
 - Côté Codex, reprendre C14 avec les exercices de la Cour d’entraînement, leurs critères de réussite et une reprise rapide.
 - Essais matériels à effectuer sur PC. Le [[Protocole d'essai matériel]] couvre le ZIP publié sur un autre PC Windows (L01), la fluidité à 60 et 120/144 Hz (L14), le son (L15) et les manettes et claviers physiques (L16).
