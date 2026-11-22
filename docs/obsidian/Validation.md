@@ -91,6 +91,16 @@ Lancer `npm run lint`, `npm run typecheck:strict` et `npm run lint:eslint`. Le p
 
 Pour ajouter un module isolé, inscrire son fichier et, si pertinent, ses tests dans `files` de `tsconfig.strict.json`. Relancer les trois commandes sur Node 22.
 
+## Régressions de combat (C13)
+
+Lancer `npm test` ou `node --import tsx --test src/game/combatDefense.test.ts src/game/combatOffense.test.ts`. Les six scénarios passent des entrées au moteur à 60 Hz. Ils utilisent la même préparation d’expédition à graine fixe que les tests C08.
+
+- La parade parfaite protège les PV, crédite la parade et ouvre la riposte. Le projectile renvoyé inverse sa trajectoire et inflige ses dégâts à un pas suivant.
+- Une esquive traversant deux tirs ne crédite qu’une action parfaite. Des impacts successifs ne blessent à nouveau qu’après la fin de l’invulnérabilité.
+- L’attaque brise la posture au seuil exact et interrompt l’ennemi jusqu’à la récupération. Un même coup touche chaque cible admissible une fois, y compris celle qui entre à portée pendant le coup.
+
+Six défauts introduits séparément dans une copie temporaire du moteur ont déclenché les échecs attendus. Ils portaient sur le crédit de parade, l’inversion du tir, le déclenchement de l’esquive, l’invulnérabilité, le seuil de posture et les dégâts répétés sur une cible.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

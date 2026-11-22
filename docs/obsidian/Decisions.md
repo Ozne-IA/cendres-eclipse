@@ -42,6 +42,8 @@ tags:
 
 - **Étendre les contrôles par module.** Les entrées de `tsconfig.strict.json` définissent le périmètre initial. TypeScript contrôle aussi les dépendances importées et ESLint applique ses règles aux entrées explicites. Les deux vérifications passent en CI avec le contrôle TypeScript général. [[Validation#TypeScript strict et ESLint (C12)]]
 
+- **Tester le combat à travers les entrées du moteur.** Les scénarios construisent une rencontre reproductible avec une graine fixe et passent les commandes à la simulation à 60 Hz. Ils couvrent les interactions entre les règles d’attaque, de défense et d’invulnérabilité. [[Validation#Régressions de combat (C13)]]
+
 Pour suivre ces choix dans le projet, voir [[Architecture]] et [[Validation]].
 
 ## Deux lanceurs, version et dépendances (L06, L11, L13)

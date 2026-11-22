@@ -61,11 +61,15 @@ Le Bastion, les options et le lanceur PC chargent leur JavaScript à l’ouvertu
 
 La CI applique TypeScript strict à 12 modules de jeu, dont deux dépendances partagées, et quatre fichiers de tests. ESLint contrôle les fichiers listés dans `tsconfig.strict.json`. Le contrôle TypeScript général continue de couvrir le dépôt. [[Validation#TypeScript strict et ESLint (C12)]]
 
+## Régressions de combat (C13)
+
+Six scénarios à graine fixe contrôlent la parade parfaite, le renvoi des projectiles, l’esquive parfaite, la durée d’invulnérabilité, la rupture de posture et les attaques multicibles. Ils utilisent les entrées et les pas de simulation du jeu. [[Validation#Régressions de combat (C13)]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.
 - L’audit du 21/11/2026 proposait aussi des captures dans les tests de bout en bout, ESLint et mode `strict`, budget de taille en CI, Dependabot, remappage des touches et pictogrammes (AZERTY/QWERTY), mode daltonien et ARIA, textes en dictionnaire pour l’anglais, mode sans fin et défi du jour, comptage des images à budget.
-- Côté Codex, reprendre C13 avec des scénarios de combat déterministes autour des parades, renvois, esquives, postures, attaques multicibles et invulnérabilités.
+- Côté Codex, reprendre C14 avec les exercices de la Cour d’entraînement, leurs critères de réussite et une reprise rapide.
 - Essais matériels à effectuer sur PC. Le [[Protocole d'essai matériel]] couvre le ZIP publié sur un autre PC Windows (L01), la fluidité à 60 et 120/144 Hz (L14), le son (L15) et les manettes et claviers physiques (L16).
 - Décider de l’hébergement local des polices.
 - Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.
