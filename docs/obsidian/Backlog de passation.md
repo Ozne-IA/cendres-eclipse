@@ -102,7 +102,7 @@ Au début d’un lot, annoncer les identifiants pris et travailler sur une branc
 - [x] L06 — Vérifier deux lanceurs ouverts dans la même installation et sérialiser les mises à jour si nécessaire.
 - [ ] L07 — Enrichir le bandeau de mise à jour avec taille, notes de version, progression, reprise après erreur et validation à la manette.
 - [ ] L08 — Étudier la signature des manifestes, la rotation des clés et les lanceurs déjà distribués.
-- [ ] L09 — Tester retour arrière, fichiers inchangés ou vides, coupures réseau, manque d’espace et lecture seule.
+- [x] L09 — Tester retour arrière, fichiers inchangés ou vides, coupures réseau, manque d’espace et lecture seule. (`test/updater-failures.test.mjs` : bascule qui échoue, dossier verrouillé, disque plein ; les autres cas étaient déjà dans `test/updater.test.mjs`.)
 - [ ] L10 — Préparer des profils de sauvegarde avec nom, date, export, import et confirmations. Après L04–L05.
 - [x] L11 — Harmoniser version du jeu, affichage, tag et version du lanceur.
 - [ ] L12 — Documenter publication, reprise et dépannage du premier démarrage. Clarifier l’emplacement des sauvegardes.
