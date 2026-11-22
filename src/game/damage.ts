@@ -4,7 +4,7 @@ import { startAttack } from './combat';
 import { WEAPONS_DEF } from './data';
 import type { ParticlePool } from './particles';
 import { applyEnemyDamage, getLootMultiplier, getPlayerDamageStats } from './rules';
-import type { TrainingExerciseId } from './trainingExercises';
+import type { TrainingCombatAction, TrainingProjectileAction } from './trainingSession';
 import type { Enemy, Player, Projectile, RoomData, RunState, SaveData, WeaponDef } from './types';
 import type { VfxSystem } from './vfx';
 
@@ -31,7 +31,8 @@ export interface DamageEffects {
   updateSave: (updater: (save: SaveData) => SaveData) => void;
   showBanner: (title: string, sub: string, color: string, duration: number) => void;
   pushHud: (force: boolean) => void;
-  onTrainingAction?: (action: TrainingExerciseId) => void;
+  onTrainingAction?: (action: TrainingCombatAction) => void;
+  onTrainingProjectile?: (action: TrainingProjectileAction, projectile: Projectile) => void;
 }
 
 export function resolveMeleeAttack(
@@ -120,6 +121,7 @@ export function resolveMeleeAttack(
         }
 
         applyEnemyDamage(run, e, finalDmg);
+        if (!blockedByShield) effects.onTrainingAction?.('meleeHit');
         e.stagger += finalStag;
         e.hitFlashT = 0.06;
         e.vx = player.facing * (isHeavy ? 230 : 120);
@@ -284,6 +286,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
     shot.color = '#ffd470';
     shot.kind = 'crescent';
     shot.life = 1.0;
+    effects.onTrainingProjectile?.('artCast', shot);
     effects.vfx.spawnImpactFlare(cx + player.facing * 24, cy, 78, '#ffd470', 'gold', 0.25);
   } else if (wDef.key === 'belfry_greatsword') {
     startAttack(player, effects.vfx, wDef.reachPx, 'heavy', 0.34);
@@ -293,6 +296,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
     for (const e of room.enemies) {
       if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 175) {
         applyEnemyDamage(run, e, 54);
+        effects.onTrainingAction?.('artHit');
         e.stagger += 75;
         e.hitFlashT = 0.08;
         if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
@@ -321,6 +325,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
     for (const e of room.enemies) {
       if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 145) {
         applyEnemyDamage(run, e, 44);
+        effects.onTrainingAction?.('artHit');
         e.sunderT = 5.0;
         if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
         if (run.blessings.includes('lunar_frost')) e.chillT = 3.0;
@@ -336,6 +341,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
     for (const e of room.enemies) {
       if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 135) {
         applyEnemyDamage(run, e, 46);
+        effects.onTrainingAction?.('artHit');
         e.chillT = 4.0;
         if (run.blessings.includes('cinder_burn')) e.burnT = 3.0;
         if (run.blessings.includes('sunder_steel')) e.sunderT = 4.0;
@@ -356,6 +362,7 @@ export function executeWeaponArt(effects: DamageEffects): void {
     for (const e of room.enemies) {
       if (e.hp > 0 && e.state !== 'dead' && Math.abs(e.x + e.w / 2 - cx) < 150) {
         applyEnemyDamage(run, e, 42);
+        effects.onTrainingAction?.('artHit');
         e.stagger = e.maxStagger;
         e.state = 'staggered';
         e.stateT = 2.4;
@@ -366,7 +373,6 @@ export function executeWeaponArt(effects: DamageEffects): void {
       }
     }
   }
-  effects.onTrainingAction?.('art');
   effects.pushHud(true);
 }
 
@@ -382,7 +388,7 @@ export function hurtPlayer(effects: DamageEffects, rawDmg: number, sourceX: numb
     if (player.invulnT > 0.14) {
       player.invulnT = 0.14;
       run.perfectDodges += 1;
-      effects.onTrainingAction?.('dodge');
+      effects.onTrainingAction?.('perfectDodge');
       run.stam = Math.min(run.maxStam, run.stam + 14);
       run.critNextAttack = true;
       effects.slowFor(0.22);
@@ -486,6 +492,7 @@ export function hurtPlayer(effects: DamageEffects, rawDmg: number, sourceX: numb
     effects.particles.addText(player.x + 14, player.y - 12, `-${dmg}`, '#ff4d5e', 1.1);
   }
 
+  effects.onTrainingAction?.('hitTaken');
   run.damageTaken += Math.min(run.hp, dmg);
   run.hp = Math.max(0, run.hp - dmg);
   player.invulnT = 0.65;

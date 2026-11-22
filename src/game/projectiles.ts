@@ -1,6 +1,7 @@
 import { AudioFX } from './audio';
 import type { ParticlePool } from './particles';
 import { applyEnemyDamage } from './rules';
+import type { TrainingProjectileAction } from './trainingSession';
 import type { Enemy, Player, Projectile, RoomData, RunState } from './types';
 import type { VfxSystem } from './vfx';
 
@@ -11,7 +12,7 @@ export interface ProjectileEffects {
   registerComboHit: (hits: number) => void;
   onEnemyKilled: (enemy: Enemy) => void;
   stopFor: (seconds: number) => void;
-  onTrainingAction?: (action: 'reflect') => void;
+  onTrainingProjectile?: (action: TrainingProjectileAction, shot: Projectile) => void;
 }
 
 // Limit retained idle storage while allowing every attack in a burst to spawn.
@@ -26,6 +27,7 @@ export class ProjectilePool {
       friendly: false, color: '', kind: 'orb', life: 0,
     };
     shot.telegraphT = undefined;
+    if (shot.trainingOrigin !== undefined) shot.trainingOrigin = undefined;
     active.push(shot);
     return shot;
   }
@@ -83,7 +85,7 @@ export class ProjectilePool {
       ) {
         if (player.parryT > 0) {
           pr.friendly = true;
-          effects.onTrainingAction?.('reflect');
+          effects.onTrainingProjectile?.('reflected', pr);
           pr.vx *= -1.5;
           pr.vy *= -1.5;
           pr.dmg = Math.round(pr.dmg * (run.relics.includes('ember_ring') ? 2.4 : 2.0));
@@ -96,6 +98,7 @@ export class ProjectilePool {
           effects.particles.addText(player.x + 14, player.y - 14, 'RENVOI !', '#ffd470', 1.1);
         } else {
           effects.hurtPlayer(pr.dmg, pr.x);
+          if (player.dashT > 0) effects.onTrainingProjectile?.('dashContact', pr);
           this.release(room.projectiles, i);
         }
       } else if (pr.friendly) {
@@ -109,6 +112,7 @@ export class ProjectilePool {
             pr.y - pr.r < e.y + e.h
           ) {
             applyEnemyDamage(run, e, pr.dmg);
+            effects.onTrainingProjectile?.('enemyHit', pr);
             e.hitFlashT = 0.06;
             if (run.blessings.includes('cinder_burn')) e.burnT = Math.max(e.burnT, 3.0);
             if (run.blessings.includes('sunder_steel')) e.sunderT = Math.max(e.sunderT, 4.0);

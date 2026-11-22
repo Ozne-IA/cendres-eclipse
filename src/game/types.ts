@@ -1,4 +1,4 @@
-import type { TrainingExerciseId } from './trainingExercises';
+import type { TrainingExerciseSnapshot } from './trainingExercises';
 
 export type GamePhase =
   | 'title'
@@ -302,6 +302,7 @@ export interface RoomProp {
 }
 
 export interface Enemy {
+  trainingRole?: 'target' | 'projectile-pair' | 'reflection';
   id: number;
   kind: EnemyKind;
   name: string;
@@ -337,6 +338,7 @@ export interface Enemy {
 }
 
 export interface Projectile {
+  trainingOrigin?: 'reflection' | 'art';
   x: number;
   y: number;
   vx: number;
@@ -481,7 +483,7 @@ export interface HudSnapshot {
   maxFlasks: number;
   depth: number;
   isTraining?: boolean;
-  trainingExercise?: { id: TrainingExerciseId; complete: boolean };
+  trainingExercise?: TrainingExerciseSnapshot;
   ascensionLevel: number;
   biomeName: string;
   cendresTotal: number;

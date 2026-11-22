@@ -1,6 +1,6 @@
 # L18 : consignes et critères de la Cour d'Entraînement
 
-Auteur : Luc. L’utilisateur a validé les propositions des six exercices le 22 novembre 2026. L’intégration reste à faire côté Codex. Les modalités ci-dessous qui n’ont pas été précisées restent ouvertes.
+Auteur : Luc. L’utilisateur a validé les propositions des six exercices le 22 novembre 2026. Voir [[Validation#Critères avancés de la Cour (L18)]] pour les modalités retenues dans le jeu.
 Destinataire : Codex, pour le lot C14 (intégration dans la Cour).
 
 ## Principes communs
@@ -56,7 +56,7 @@ Destinataire : Codex, pour le lot C14 (intégration dans la Cour).
 - **Reprise rapide** : le Souffle se régénère en quelques secondes ; l'exercice reprend à l'appui sur la touche.
 - **Affichage** : coût en Souffle de l'Art et jauge de Souffle.
 
-## Ce qui reste à décider (côté utilisateur)
+## Points soumis à validation dans la proposition de Luc
 
 - Les touches exactes pour chaque reprise rapide (voir les contrôles AZERTY/QWERTY, L16).
 - Le temps accepté pour l'exercice de déplacement (20 s est une proposition).

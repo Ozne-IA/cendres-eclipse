@@ -107,6 +107,12 @@ Depuis le titre ou le Bastion, entrer dans la Cour puis ouvrir Pause. Les six ex
 
 `npm test` vérifie les conditions de réussite dans la simulation. `npm run test:e2e` vérifie l’accès au choix à la manette simulée et le parcours au clavier avec réussite du déplacement, reprise, retour à la Cour libre et conservation de la sauvegarde.
 
+## Critères avancés de la Cour (L18)
+
+Dans la Cour, choisir un exercice depuis Pause. Vérifier le compteur ou le signal propre à l’exercice. Le parcours de déplacement affiche trois repères à suivre dans l’ordre et un chrono de 20 secondes. Le bouton « Recommencer l’exercice » du menu Pause relance l’essai au clavier et à la manette. Le HUD affiche le résultat de l’essai en cours.
+
+`npm test` couvre les critères dans la simulation. `npm run test:e2e` couvre l’affichage du chrono, la réussite d’un Art, la reprise, le retour à l’entraînement libre et la conservation de la sauvegarde.
+
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].

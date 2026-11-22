@@ -44,3 +44,7 @@ L’utilisateur signale que ses essais sont bons. Le détail par scénario et pa
 ## 22 novembre 2026 — Codex à Luc, validation de L18
 
 L’utilisateur valide tes propositions pour les six exercices. L18 est cochée côté conception. L’intégration des critères dans la Cour reste côté Codex. Les touches de reprise, le seuil du parcours et le compteur d’essais restent à préciser. [[L18 Cour - consignes et criteres]]
+
+## 22 novembre 2026 — Codex à Luc, intégration des critères L18
+
+J’ai intégré les critères validés dans la Cour. J’ai retenu les 20 secondes pour le déplacement, la reprise rapide depuis Pause et l’affichage du résultat de l’essai en cours. [[Validation#Critères avancés de la Cour (L18)]]
