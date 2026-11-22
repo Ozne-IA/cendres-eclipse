@@ -28,7 +28,8 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
   const hasBuild = hud.blessings.length + hud.relics.length + hud.activeSynergies.length > 0;
   const lowStamina = stamPct <= 20;
   const showCombatHint = hud.isTraining || hud.riposteReady;
-  const exercise = hud.trainingExercise && TRAINING_EXERCISES.find(({ id }) => id === hud.trainingExercise?.id);
+  const drill = hud.trainingExercise;
+  const exercise = drill && TRAINING_EXERCISES.find(({ id }) => id === drill.id);
   const onGamepad = hud.inputMode === 'Manette';
   const healKey = onGamepad ? '↑ Croix dir.' : formatKeyLabel(keyBindings.heal);
   const skillKey = onGamepad ? 'RB / R1' : formatKeyLabel(keyBindings.skill);
@@ -95,10 +96,14 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
             </div>
           </div>
 
+          {drill?.id === 'riposte' && drill.riposteSeconds !== undefined && drill.riposteSeconds > 0 && (
+            <div className="hud-riposte-clock">Riposte prête <strong>{drill.riposteSeconds.toFixed(1)} s</strong></div>
+          )}
+
           {/* Breath / Stamina */}
           <div className="mb-2">
             <div className="flex justify-between items-baseline text-[11px] uppercase tracking-wider text-[#b0a494] mb-1">
-              <span>{lowStamina ? 'Souffle faible' : 'Souffle'}</span>
+              <span>{lowStamina ? 'Souffle faible' : 'Souffle'}{drill?.artCost !== undefined && ` · Coût de l’Art ${drill.artCost}`}</span>
               <span className={`font-mono-num ${lowStamina ? 'text-[#ffd470]' : 'text-[#cde0d2]'}`}>
                 {hud.stam} / {hud.maxStam}
               </span>
@@ -269,20 +274,31 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
             <div
               className="bg-[#0c0910]/95 border border-[#79603f] px-4 py-2 text-center text-xs md:text-sm text-[#efe3d2]"
               data-testid="combat-hint"
-              aria-live="polite"
+              aria-live={exercise ? undefined : 'polite'}
             >
-              {exercise ? (
-                <div data-testid="training-exercise" data-complete={hud.trainingExercise?.complete} className="max-w-xl">
-                  <strong className="font-display text-[#ffd470]">{exercise.title}</strong>
-                  {hud.trainingExercise?.complete ? (
-                    <p>Exercice réussi ! Ouvrez la pause pour recommencer ou choisir un autre exercice.</p>
+              {exercise && drill ? (
+                <div data-testid="training-exercise" data-complete={drill.complete} data-progress={drill.progress}
+                  data-failed={drill.failed} className="hud-drill max-w-xl text-left">
+                  <div className="hud-drill-heading">
+                    <strong className="font-display">{exercise.title}</strong>
+                    {drill.target !== undefined && <span aria-label="Progression">{drill.progress ?? 0} / {drill.target}</span>}
+                  </div>
+                  {drill.complete || drill.failed ? (
+                    <p role="status">
+                      <strong>{drill.complete ? 'Exercice réussi !' : 'Essai terminé.'}</strong>
+                      {exercise.id === 'dodge' && drill.complete && (drill.criticalReady ? ' Esquive parfaite · Coup critique armé.' : ' Esquive parfaite.')}
+                    </p>
                   ) : (
                     <>
                       <p>{exercise.instruction} <span className="text-[#ffd470]">{exerciseKeys}</span></p>
                       <p className="text-[#e5be6e]">Objectif · {exercise.goal}</p>
-                      {exercise.id === 'riposte' && hud.riposteReady && <strong>Riposte prête.</strong>}
+                      {drill.parryWindowOpen !== undefined && <strong className="hud-drill-window" data-open={drill.parryWindowOpen}>
+                        {drill.parryWindowOpen ? 'Parez maintenant' : 'Attendez la frappe'}
+                      </strong>}
+                      {drill.remainingSeconds !== undefined && <strong className="hud-drill-time">Temps restant · {Math.ceil(drill.remainingSeconds)} s</strong>}
                     </>
                   )}
+                  <small>Échec sans perte · Pause ({onGamepad ? 'Start' : 'Échap'}) pour recommencer</small>
                 </div>
               ) : hud.riposteReady ? (
                 <><strong className="text-[#ffd470]">Riposte prête.</strong> Attaquez avec {attackKey}.</>

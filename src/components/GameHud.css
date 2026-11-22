@@ -47,3 +47,22 @@
   .hud-banner h1 { font-size: clamp(1.125rem, 4.8vh, 1.5rem); }
   .hud-banner p { margin-top: .125rem; font-size: .75rem; }
 }
+.hud-drill-heading, .hud-riposte-clock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #ffd470;
+}
+.hud-drill-heading {
+  padding-bottom: .2rem;
+  margin-bottom: .25rem;
+  border-bottom: 1px solid #57432e;
+}
+.hud-drill-heading span, .hud-drill-time, .hud-riposte-clock strong {
+  font-variant-numeric: tabular-nums;
+}
+.hud-drill small { display: block; color: #c1b4a1; }
+.hud-drill-window { color: #ffa496; }
+.hud-drill-window[data-open="true"], .hud-drill-time { color: #ffd470; }
+.hud-riposte-clock { font-size: .75rem; margin: -.4rem 0 .3rem; }
