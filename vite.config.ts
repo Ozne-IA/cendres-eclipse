@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {BIOME_BACKDROP_URLS, BIOME_BACKDROP_V2_URLS, TITLE_HERO_ARTWORK_URL} from './src/artwork.ts';
 
 export default defineConfig(() => {
   return {
@@ -19,19 +20,23 @@ export default defineConfig(() => {
             .filter((fileName) => fileName.endsWith('.js') || fileName.endsWith('.css'))
             .sort()
             .map((fileName) => `/${fileName}`);
-          const backdropRoot = 'src/assets/images';
-          const backdropHash = createHash('sha256');
-          for (const directory of [backdropRoot, backdropRoot + '/v2']) {
-            for (const file of fs.readdirSync(path.resolve(import.meta.dirname, directory)).sort()) {
-              if (!file.startsWith('biome_') || !file.endsWith('.jpg')) continue;
-              assets.push(`/${directory}/${file}`);
-              backdropHash.update(fs.readFileSync(path.resolve(import.meta.dirname, directory, file)));
-            }
+          const artworkHash = createHash('sha256');
+          const artworkUrls = [
+            TITLE_HERO_ARTWORK_URL,
+            ...Object.values(BIOME_BACKDROP_URLS),
+            ...Object.values(BIOME_BACKDROP_V2_URLS),
+          ];
+          for (const url of artworkUrls) {
+            const file = path.resolve(import.meta.dirname, url.startsWith('/src/') ? `.${url}` : `./public${url}`);
+            // A missing cinematic asset remains optional at runtime and during installation.
+            if (!fs.existsSync(file)) continue;
+            assets.push(url);
+            artworkHash.update(fs.readFileSync(file));
           }
           const worker = fs.readFileSync(new URL('./src/pwa/sw.js', import.meta.url), 'utf8');
           const buildVersion = createHash('sha256')
             .update(worker)
-            .update(backdropHash.digest())
+            .update(artworkHash.digest())
             .update(JSON.stringify(assets))
             .update(fs.readFileSync(new URL('./index.html', import.meta.url)))
             .digest('hex')

@@ -1,21 +1,5 @@
+import { BIOME_BACKDROP_URLS, BIOME_BACKDROP_V2_URLS, TITLE_HERO_ARTWORK_URL } from '../artwork';
 import type { BiomeDef } from './types';
-
-// === Classic (original) backdrop paths — kept intact ===
-const BIOME_BACKDROP_URLS: Record<string, string> = {
-  catacombes: '/src/assets/images/biome_catacombes_bg_1795125904324.jpg',
-  viaduc: '/src/assets/images/biome_viaduc_bg_1795125905664.jpg',
-  fleche: '/src/assets/images/biome_fleche_bg_1795125905927.jpg',
-  sanctuaire: '/src/assets/images/biome_sanctuaire_bg_1795125905684.jpg',
-};
-
-// === NEW cinematic v2 backdrops (non-destructive) ===
-// If a v2 file is missing, the system automatically falls back to the classic version.
-const BIOME_BACKDROP_V2_URLS: Record<string, string> = {
-  catacombes: '/src/assets/images/v2/biome_catacombes_v2.jpg',
-  viaduc: '/src/assets/images/v2/biome_viaduc_v2.jpg',
-  fleche: '/src/assets/images/v2/biome_fleche_v2.jpg',
-  sanctuaire: '/src/assets/images/v2/biome_sanctuaire_v2.jpg',
-};
 
 let preferCinematicArt = true;
 
@@ -27,9 +11,9 @@ export function getPreferCinematicArt(): boolean {
   return preferCinematicArt;
 }
 
-const TITLE_HERO_ARTWORK_URL = '/assets/aistudio/Creating_video_game_hero_concept_082510a8_2K_39b1471f.webp';
 let titleArtworkImg: HTMLImageElement | null = null;
 let titleArtworkReady = false;
+let titleArtworkFailed = false;
 
 export function getTitleHeroArtwork(): HTMLImageElement | null {
   if (typeof Image === 'undefined') return null;
@@ -41,6 +25,9 @@ export function getTitleHeroArtwork(): HTMLImageElement | null {
   img.onload = () => {
     titleArtworkReady = true;
   };
+  img.onerror = () => {
+    titleArtworkFailed = true;
+  };
   img.src = TITLE_HERO_ARTWORK_URL;
   titleArtworkImg = img;
   return null;
@@ -48,6 +35,7 @@ export function getTitleHeroArtwork(): HTMLImageElement | null {
 
 const loadedBackdrops = new Map<string, HTMLImageElement>();
 const backdropReady = new Set<string>();
+const failedCinematicBackdrops = new Set<string>();
 const bakedSeamlessCache = new Map<string, HTMLCanvasElement>();
 
 /**
@@ -62,27 +50,24 @@ export function getBiomeBackdrop(biomeId: string): HTMLImageElement | null {
   const key = BIOME_BACKDROP_URLS[biomeId] ? biomeId : 'catacombes';
 
   // --- Try cinematic v2 first ---
-  if (preferCinematicArt && BIOME_BACKDROP_V2_URLS[key]) {
+  if (preferCinematicArt && BIOME_BACKDROP_V2_URLS[key] && !failedCinematicBackdrops.has(key)) {
     const v2Key = `v2:${key}`;
-    if (loadedBackdrops.has(v2Key)) {
-      if (backdropReady.has(v2Key)) {
-        return loadedBackdrops.get(v2Key)!;
-      }
-      // v2 is still loading or failed → fall through to classic
-    } else {
+    if (backdropReady.has(v2Key)) return loadedBackdrops.get(v2Key)!;
+    if (!loadedBackdrops.has(v2Key)) {
       const imgV2 = new Image();
       imgV2.decoding = 'async';
       imgV2.onload = () => {
         backdropReady.add(v2Key);
       };
       imgV2.onerror = () => {
-        // Explicitly do not mark ready so we keep falling back
+        failedCinematicBackdrops.add(key);
         console.info(`[textures] cinematic backdrop not found for "${key}", using classic`);
       };
       imgV2.src = BIOME_BACKDROP_V2_URLS[key];
       loadedBackdrops.set(v2Key, imgV2);
-      // This frame returns null / classic; next frames will pick v2 once ready
     }
+    // Reuse a classic backdrop already loaded, for example before a settings change.
+    return backdropReady.has(key) ? loadedBackdrops.get(key)! : null;
   }
 
   // --- Classic fallback (original behaviour) ---
@@ -106,7 +91,8 @@ export function getSeamlessBakedBackdrop(
   isTitle: boolean
 ): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
-  const img = getBiomeBackdrop(biome.id);
+  // Draw the procedural background while the title hero is still loading.
+  const img = isTitle && !titleArtworkFailed ? null : getBiomeBackdrop(biome.id);
   const hasImg = !!(img && img.naturalWidth > 0);
   const cacheKey = `${biome.id}|${W}|${H}|${img?.src ?? 'gradient'}|${isTitle ? 1 : 0}|${preferCinematicArt ? 'c' : 'o'}`;
   const existing = bakedSeamlessCache.get(cacheKey);
