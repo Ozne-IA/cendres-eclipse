@@ -1,10 +1,5 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { BlessingModal } from './components/BlessingModal';
-import { GameHud } from './components/GameHud';
-import { GameOverModal } from './components/GameOverModal';
 import type { BeforeInstallPromptEvent } from './components/LauncherModal';
-import { MerchantModal } from './components/MerchantModal';
-import { PauseModal } from './components/PauseModal';
 import { TitleScreen } from './components/TitleScreen';
 import { UpdateNotice } from './components/UpdateNotice';
 import { CendresEngine } from './game/engine';
@@ -22,6 +17,7 @@ import type {
 
 const BastionModal = lazy(() => import('./components/BastionModal').then(({ BastionModal }) => ({ default: BastionModal })));
 const GameMenuModal = lazy(() => import('./components/GameMenuModal').then(({ GameMenuModal }) => ({ default: GameMenuModal })));
+const GameplayUi = lazy(() => import('./components/GameplayUi').then(({ GameplayUi }) => ({ default: GameplayUi })));
 const LauncherModal = lazy(() => import('./components/LauncherModal').then(({ LauncherModal }) => ({ default: LauncherModal })));
 
 class DeferredMenuBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -163,8 +159,14 @@ export default function App() {
           inactive={menuOpen || launcherOpen}
           save={save}
           installPrompt={installPrompt}
-          onStartRun={() => engineRef.current?.startNewRun()}
-          onStartTraining={() => engineRef.current?.startTrainingMode()}
+          onStartRun={() => {
+            void import('./components/GameplayUi');
+            engineRef.current?.startNewRun();
+          }}
+          onStartTraining={() => {
+            void import('./components/GameplayUi');
+            engineRef.current?.startTrainingMode();
+          }}
           onOpenBastion={() => engineRef.current?.openBastion()}
           onOpenMenu={() => setMenuOpen(true)}
           onOpenLauncher={() => setLauncherOpen(true)}
@@ -172,55 +174,21 @@ export default function App() {
         />
       )}
 
-      {phase === 'playing' && hud && (
-        <GameHud
-          hud={hud}
-          keyBindings={save.settings?.keyBindings}
-          muted={save.muted}
-          onToggleMute={() => engineRef.current?.toggleMute()}
-          onOpenPause={() => engineRef.current?.openPause()}
-        />
-      )}
-
-      {phase === 'blessing' && hud && (
-        <BlessingModal
-          depth={hud.depth}
-          isAfterBoss={hud.depth % 3 === 0}
-          ownedIds={[...hud.blessings, ...hud.relics]}
-          choices={blessingChoices}
-          onSelect={(id) => engineRef.current?.selectBlessing(id)}
-          onExtractVictory={() => engineRef.current?.extractVictory()}
-        />
-      )}
-
-      {phase === 'merchant' && merchantRun && (
-        <MerchantModal
-          run={merchantRun}
-          onBuy={(type, id) => engineRef.current?.buyMerchantItem(type, id)}
-          onClose={() => engineRef.current?.closeMerchant()}
-        />
-      )}
-
-      {phase === 'paused' && !menuOpen && !launcherOpen && (
-        <PauseModal
-          hud={hud}
-          onResume={() => engineRef.current?.resumeGame()}
-          onRestart={() => {
-            if (hud?.isTraining) engineRef.current?.startTrainingMode(hud.trainingExercise?.id);
-            else engineRef.current?.startNewRun();
-          }}
-          onOpenMenu={() => setMenuOpen(true)}
-          onStartTraining={(exercise) => engineRef.current?.startTrainingMode(exercise)}
-          onReturnBastion={() => engineRef.current?.extractReturnBastion()}
-        />
-      )}
-
-      {phase === 'gameover' && runSummary && (
-        <GameOverModal
-          summary={runSummary}
-          onPlayAgain={() => engineRef.current?.startNewRun()}
-          onOpenBastion={() => engineRef.current?.openBastion()}
-        />
+      {phase !== 'title' && phase !== 'bastion' && (
+        <Suspense fallback={null}>
+          <GameplayUi
+            phase={phase}
+            save={save}
+            hud={hud}
+            blessingChoices={blessingChoices}
+            merchantRun={merchantRun}
+            runSummary={runSummary}
+            menuOpen={menuOpen}
+            launcherOpen={launcherOpen}
+            engine={engineRef.current}
+            onOpenMenu={() => setMenuOpen(true)}
+          />
+        </Suspense>
       )}
 
       {deferredMenu && (

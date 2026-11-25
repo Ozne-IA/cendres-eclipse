@@ -1,3 +1,4 @@
+import { dot, mkGrad, poly } from './renderPrimitives';
 import { getColoredGlow } from './textures';
 import type { BiomeDef } from './types';
 
@@ -92,20 +93,13 @@ export function getParallaxHorizonStrip(biome: BiomeDef, H: number): HTMLCanvasE
   const baseLine = stripH - 12;
 
   // Soft vertical-gradient silhouette colors for authentic aerial perspective
-  const silGrad = ctx.createLinearGradient(0, 14, 0, stripH);
-  if (biome.id === 'viaduc') {
-    silGrad.addColorStop(0, 'rgba(18, 30, 44, 0.34)');
-    silGrad.addColorStop(1, 'rgba(10, 16, 24, 0.78)');
-  } else if (biome.id === 'fleche') {
-    silGrad.addColorStop(0, 'rgba(36, 14, 22, 0.36)');
-    silGrad.addColorStop(1, 'rgba(16, 7, 12, 0.80)');
-  } else if (biome.id === 'sanctuaire') {
-    silGrad.addColorStop(0, 'rgba(34, 24, 16, 0.34)');
-    silGrad.addColorStop(1, 'rgba(14, 10, 8, 0.78)');
-  } else {
-    silGrad.addColorStop(0, 'rgba(20, 14, 26, 0.32)');
-    silGrad.addColorStop(1, 'rgba(9, 7, 13, 0.78)');
-  }
+  const gradStops: Record<string, [string, string]> = {
+    viaduc: ['rgba(18,30,44,.34)', 'rgba(10,16,24,.78)'],
+    fleche: ['rgba(36,14,22,.36)', 'rgba(16,7,12,.8)'],
+    sanctuaire: ['rgba(34,24,16,.34)', 'rgba(14,10,8,.78)'],
+  };
+  const [topC, botC] = gradStops[biome.id] ?? ['rgba(20,14,26,.32)', 'rgba(9,7,13,.78)'];
+  const silGrad = mkGrad(ctx, 0, 14, 0, stripH, null, [[0, topC], [1, botC]]);
 
   const rimCol =
     biome.id === 'viaduc'
@@ -141,33 +135,11 @@ export function getParallaxHorizonStrip(biome: BiomeDef, H: number): HTMLCanvasE
       ctx.fill();
     } else if (biome.id === 'fleche') {
       // Jagged obsidian cathedral spires & swept flying buttresses
-      ctx.beginPath();
-      ctx.moveTo(x + 6, stripH);
-      ctx.lineTo(x + 26, topY + 58);
-      ctx.lineTo(x + segW * 0.44, topY + 6);
-      ctx.lineTo(x + segW * 0.66, topY + 64);
-      ctx.lineTo(x + segW - 16, topY + 28);
-      ctx.lineTo(x + segW + 2, stripH);
-      ctx.closePath();
-      ctx.fill();
+      poly(ctx, [x + 6, stripH, x + 26, topY + 58, x + segW * 0.44, topY + 6, x + segW * 0.66, topY + 64, x + segW - 16, topY + 28, x + segW + 2, stripH], silGrad);
     } else if (biome.id === 'sanctuaire') {
       // Tapered solar obelisks & distant ruined astrolabe crowns
-      ctx.beginPath();
-      ctx.moveTo(x + 18, stripH);
-      ctx.lineTo(x + 36, topY + 28);
-      ctx.lineTo(x + 56, topY);
-      ctx.lineTo(x + 76, topY + 28);
-      ctx.lineTo(x + 94, stripH);
-      ctx.closePath();
-      ctx.fill();
-      if (i % 2 === 0) {
-        ctx.strokeStyle = rimCol;
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.arc(x + 56, topY + 40, 22, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.lineWidth = 1;
-      }
+      poly(ctx, [x + 18, stripH, x + 36, topY + 28, x + 56, topY, x + 76, topY + 28, x + 94, stripH], silGrad);
+      if (i % 2 === 0) dot(ctx, x + 56, topY + 40, 22, undefined, rimCol, 1.6);
     } else {
       // Catacombes: tapered gothic lancet spires & ruined pointed vaults
       ctx.beginPath();
@@ -197,11 +169,7 @@ export function getParallaxHorizonStrip(biome: BiomeDef, H: number): HTMLCanvasE
   }
 
   // Soft bottom atmospheric haze blending horizon cleanly into Plan 2 mist
-  const veil = ctx.createLinearGradient(0, stripH * 0.35, 0, stripH);
-  veil.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  veil.addColorStop(0.7, biome.fogColor);
-  veil.addColorStop(1, 'rgba(7, 6, 9, 0.72)');
-  ctx.fillStyle = veil;
+  ctx.fillStyle = mkGrad(ctx, 0, stripH * 0.35, 0, stripH, null, [[0, 'rgba(0,0,0,0)'], [0.7, biome.fogColor], [1, 'rgba(7,6,9,.72)']]);
   ctx.fillRect(0, Math.round(stripH * 0.35), W, stripH);
 
   horizonStripCache.set(key, c);
@@ -302,17 +270,9 @@ export function renderForegroundParallax(
   const p5 = computeParallaxOffset(camX, camY, time, PARALLAX_LAYERS.foreground, tileW, trauma);
   const startX = -Math.round(p5.wrapX) - tileW;
 
-  ctx.fillStyle = 'rgba(4, 3, 7, 0.88)';
   for (let bx = startX; bx < W + tileW; bx += tileW) {
     // Upper gothic stone overhang bracket & hanging chain
-    ctx.beginPath();
-    ctx.moveTo(bx, 0);
-    ctx.lineTo(bx + 54, 0);
-    ctx.lineTo(bx + 32, 76);
-    ctx.lineTo(bx + 8, 96);
-    ctx.lineTo(bx - 14, 58);
-    ctx.closePath();
-    ctx.fill();
+    poly(ctx, [bx, 0, bx + 54, 0, bx + 32, 76, bx + 8, 96, bx - 14, 58], 'rgba(4,3,7,.88)');
 
     // Hanging iron chain silhouette
     const chainX = bx + 420;
@@ -326,14 +286,7 @@ export function renderForegroundParallax(
     ctx.lineWidth = 1;
 
     // Lower near-camera foreground stone spire silhouette (kept low at bottom edge)
-    ctx.fillStyle = 'rgba(4, 3, 7, 0.9)';
-    ctx.beginPath();
-    ctx.moveTo(bx + 210, H);
-    ctx.lineTo(bx + 228, H - 46);
-    ctx.lineTo(bx + 258, H - 32);
-    ctx.lineTo(bx + 276, H);
-    ctx.closePath();
-    ctx.fill();
+    poly(ctx, [bx + 210, H, bx + 228, H - 46, bx + 258, H - 32, bx + 276, H], 'rgba(4,3,7,.9)');
   }
 
   // Soft out-of-focus foreground bokeh embers drifting rapidly at 1.32x parallax

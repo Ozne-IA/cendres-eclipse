@@ -10,8 +10,7 @@ import type { ParticlePool } from './particles';
 import type { PositionInterpolator } from './renderInterpolation';
 import { renderCourseMarkers, renderHazards, renderProps, renderTerrainAndTorches } from './roomRender';
 import { renderBackdropAndEclipse, renderMidgroundArchitecture } from './sceneryRender';
-import { getTitleHeroArtwork } from './textures';
-import { renderTitleArtworkBackdrop, renderTitleShowcase } from './titleRender';
+import { renderTitleFrame } from './titleRender';
 import type { ArmorSkinKey, GameSettings, Player, RoomData, RunState, WeaponKey } from './types';
 import { renderScreenVfx, type VfxSystem } from './vfx';
 
@@ -47,20 +46,15 @@ export function renderGameFrame(
   const fogQuality = st.settings?.fogQuality ?? 'high';
 
   if (isTitle) {
-    const titleArt = getTitleHeroArtwork();
-    if (titleArt) {
-      const titleStart = profile?.now() ?? 0;
-      renderTitleArtworkBackdrop(ctx, titleArt, b, W, H, time, fogQuality);
-      profile?.finishTiming('titleArtwork', titleStart);
-      return;
-    }
+    renderTitleFrame(ctx, st, profile);
+    return;
   }
 
-  const camX = isTitle ? Math.sin(time * 0.14) * 90 + 160 : st.cameraX;
-  const camY = isTitle ? 120 : st.cameraY;
+  const camX = st.cameraX;
+  const camY = st.cameraY;
 
   let sceneryStart = profile?.now() ?? 0;
-  const eclipseX = renderBackdropAndEclipse(ctx, b, W, H, camX, camY, time, isTitle, st.trauma);
+  renderBackdropAndEclipse(ctx, b, W, H, camX, camY, time, false, st.trauma);
 
   const parallaxOn = st.settings?.parallaxEnabled !== false;
   const bloodIntensity = st.settings?.bloodIntensity ?? 'high';
@@ -73,28 +67,21 @@ export function renderGameFrame(
 
   sceneryStart = profile?.now() ?? 0;
   if (parallaxOn) {
-    renderDeepParallaxLayers(ctx, b, W, H, camX, isTitle ? 0 : camY, time, st.trauma * shakeMult);
+    renderDeepParallaxLayers(ctx, b, W, H, camX, camY, time, st.trauma * shakeMult);
   }
-  renderDeepAtmosphericDecor(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
+  renderDeepAtmosphericDecor(ctx, b, W, H, camX, camY, time, false, fogQuality);
 
   profile?.finishTiming('distantScenery', sceneryStart);
 
   sceneryStart = profile?.now() ?? 0;
-  renderMidgroundArchitecture(ctx, W, H, camX, camY, time, isTitle, st.trauma * shakeMult, eclipseX);
+  renderMidgroundArchitecture(ctx, W, H, camX, camY, time, false, st.trauma * shakeMult, 0);
 
   profile?.finishTiming('midgroundArchitecture', sceneryStart);
 
   sceneryStart = profile?.now() ?? 0;
-  renderMidAtmosphereAndDust(ctx, b, W, H, camX, isTitle ? 0 : camY, time, isTitle, fogQuality);
+  renderMidAtmosphereAndDust(ctx, b, W, H, camX, camY, time, false, fogQuality);
 
   profile?.finishTiming('midgroundAtmosphere', sceneryStart);
-
-  if (isTitle) {
-    sceneryStart = profile?.now() ?? 0;
-    renderTitleShowcase(ctx, W, H, time);
-    profile?.finishTiming('titleShowcase', sceneryStart);
-    return;
-  }
 
   if (!st.room || !st.player) return;
   const { room } = st;

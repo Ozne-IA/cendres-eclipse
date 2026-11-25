@@ -18,11 +18,12 @@ import { ParticlePool } from './particles';
 import { ProjectilePool, updateOrbitalWisp, type ProjectileEffects } from './projectiles';
 import { createSeededRandom } from './random';
 import { RenderInterpolation } from './renderInterpolation';
-import { renderGameFrame } from './renderer';
+import type { RenderContextState } from './renderer';
 import { interactWithProps, updateRoomHazards, type RoomHazardEffects, type RoomInteractionEffects } from './room';
 import { FrameProfile } from './frameProfile';
 import { MAX_FRAME_TIME, SimulationClock } from './simulationClock';
 import { setPreferCinematicArt } from './textures';
+import { renderTitleFrame } from './titleRender';
 import type { TrainingExerciseId } from './trainingExercises';
 import { TrainingSession } from './trainingSession';
 import { VfxSystem } from './vfx';
@@ -120,6 +121,8 @@ export class CendresEngine {
   private achievementToastT = 0;
   private deathDelayTimer = 0;
   private smoothedFps = 60;
+  private renderGameplayFrame?: (ctx: CanvasRenderingContext2D, st: RenderContextState, profile?: FrameProfile) => void;
+  private gameplayRendererPromise?: Promise<void>;
 
   private readonly combatEffects: EnemyEffects & ProjectileEffects & DamageEffects;
   private readonly roomEffects: RoomHazardEffects & RoomInteractionEffects;
@@ -466,6 +469,7 @@ export class CendresEngine {
   }
 
   startNewRun(): void {
+    this.ensureGameplayRenderer();
     this.cb.onRunSummary(null);
     AudioFX.ui();
     this.updateSave((s) => ({
@@ -485,6 +489,7 @@ export class CendresEngine {
   }
 
   startTrainingMode(exercise?: TrainingExerciseId): void {
+    this.ensureGameplayRenderer();
     this.cb.onRunSummary(null);
     AudioFX.ui();
     this.trainingExercise = exercise ? new TrainingSession(exercise) : undefined;
@@ -1095,6 +1100,18 @@ export class CendresEngine {
     });
   }
 
+  private ensureGameplayRenderer(): void {
+    if (this.renderGameplayFrame || this.gameplayRendererPromise) return;
+    this.gameplayRendererPromise = import('./renderer')
+      .then(({ renderGameFrame }) => {
+        this.renderGameplayFrame = renderGameFrame;
+        this.canvasNeedsRender = true;
+      })
+      .catch(() => {
+        this.gameplayRendererPromise = undefined;
+      });
+  }
+
   private render(): void {
     const alpha = this.phase === 'playing' || this.phase === 'title' ? this.clock.alpha : 1;
     const interpolate = <T extends { x: number; y: number }>(position: T): T =>
@@ -1102,7 +1119,7 @@ export class CendresEngine {
     const camera = interpolate(this.camera);
     this.ctx.save();
     this.ctx.setTransform(this.canvas.width / this.width, 0, 0, this.canvas.height / this.height, 0, 0);
-    renderGameFrame(this.ctx, {
+    const frameState: RenderContextState = {
       phase: this.phase,
       time: this.previousSimTime + (this.simTime - this.previousSimTime) * alpha,
       width: this.width,
@@ -1121,7 +1138,16 @@ export class CendresEngine {
       blood: this.blood,
       vfx: this.vfx,
       settings: this.save.settings,
-    }, this.profile);
+    };
+    if (this.phase === 'title') {
+      renderTitleFrame(this.ctx, frameState, this.profile);
+    } else if (this.renderGameplayFrame) {
+      this.renderGameplayFrame(this.ctx, frameState, this.profile);
+    } else {
+      this.ensureGameplayRenderer();
+      this.ctx.fillStyle = '#070609';
+      this.ctx.fillRect(0, 0, this.width, this.height);
+    }
     this.ctx.restore();
     this.canvasNeedsRender = false;
   }

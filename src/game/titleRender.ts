@@ -1,8 +1,11 @@
-import { renderMidAtmosphereAndDust } from './atmosphere';
+import { renderDeepAtmosphericDecor, renderMidAtmosphereAndDust } from './atmosphere';
 import { BIOMES } from './data';
-import { getTorchGlow } from './renderPrimitives';
-import { getCoronaSprite } from './sceneryRender';
-import { getColoredGlow, getStonePattern } from './textures';
+import type { FrameProfile } from './frameProfile';
+import { renderDeepParallaxLayers } from './parallax';
+import { dot, getTorchGlow, mkGrad, poly } from './renderPrimitives';
+import type { RenderContextState } from './renderer';
+import { getCoronaSprite, renderBackdropAndEclipse, renderMidgroundArchitecture } from './sceneryRender';
+import { getColoredGlow, getStonePattern, getTitleHeroArtwork } from './textures';
 import type { BiomeDef } from './types';
 import { drawPlantedRelicSword, drawWeaponSprite } from './weaponRender';
 
@@ -14,11 +17,7 @@ export function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H:
   ctx.fillStyle = stonePat || '#151118';
   ctx.fillRect(0, groundY, W, H - groundY);
 
-  const terraceGrad = ctx.createLinearGradient(0, groundY, 0, H);
-  terraceGrad.addColorStop(0, 'rgba(7, 6, 9, 0.14)');
-  terraceGrad.addColorStop(0.28, 'rgba(7, 6, 9, 0.56)');
-  terraceGrad.addColorStop(1, 'rgba(6, 5, 8, 0.94)');
-  ctx.fillStyle = terraceGrad;
+  ctx.fillStyle = mkGrad(ctx, 0, groundY, 0, H, null, [[0, 'rgba(7,6,9,.14)'], [0.28, 'rgba(7,6,9,.56)'], [1, 'rgba(6,5,8,.94)']]);
   ctx.fillRect(0, groundY, W, H - groundY);
 
   // Carved stone cornice & brass frieze edge
@@ -82,17 +81,7 @@ export function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H:
   ctx.fillRect(bx - 16, groundY - 26, 6, 26);
   ctx.fillRect(bx + 10, groundY - 26, 6, 26);
   ctx.fillRect(bx - 4, groundY - 26, 8, 22);
-  ctx.fillStyle = '#332826';
-  ctx.beginPath();
-  ctx.moveTo(bx - 27, groundY - 37);
-  ctx.lineTo(bx + 27, groundY - 37);
-  ctx.lineTo(bx + 19, groundY - 23);
-  ctx.lineTo(bx - 19, groundY - 23);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#6c533f';
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
+  poly(ctx, [bx - 27, groundY - 37, bx + 27, groundY - 37, bx + 19, groundY - 23, bx - 19, groundY - 23], '#332826', '#6c533f', 1.4);
   ctx.lineWidth = 1;
 
   // Multi-tongue roaring flame & rising ember sparks
@@ -114,10 +103,7 @@ export function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H:
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = '#fff3b8';
-  ctx.beginPath();
-  ctx.arc(bx, groundY - 45, 7.5, 0, Math.PI * 2);
-  ctx.fill();
+  dot(ctx, bx, groundY - 45, 7.5, '#fff3b8');
 
   for (let s = 0; s < 8; s++) {
     const sy = ((time * 32 + s * 17) % 86);
@@ -193,27 +179,10 @@ export function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H:
 
   ctx.fillStyle = '#3b3f4a';
   ctx.fillRect(-8, -20, 16, 11);
-  ctx.fillStyle = '#631b26';
-  ctx.beginPath();
-  ctx.moveTo(-4.5, -19);
-  ctx.lineTo(4.5, -19);
-  ctx.lineTo(5.5, -4);
-  ctx.lineTo(1, -8);
-  ctx.lineTo(-2, -3);
-  ctx.lineTo(-5, -7);
-  ctx.closePath();
-  ctx.fill();
+  poly(ctx, [-4.5, -19, 4.5, -19, 5.5, -4, 1, -8, -2, -3, -5, -7], '#631b26');
 
   // Engraved Eclipse Cuirass, Cross-Belt & Hip Pouch
-  ctx.fillStyle = '#2c303a';
-  ctx.beginPath();
-  ctx.moveTo(-10.5, -15);
-  ctx.lineTo(-9, -36 + bob);
-  ctx.lineTo(9, -36 + bob);
-  ctx.lineTo(10.5, -15);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  poly(ctx, [-10.5, -15, -9, -36 + bob, 9, -36 + bob, 10.5, -15], '#2c303a', '#09070b', 1);
 
   ctx.strokeStyle = '#c89b4b';
   ctx.lineWidth = 1.1;
@@ -243,30 +212,8 @@ export function renderTitleShowcase(ctx: CanvasRenderingContext2D, W: number, H:
   }
 
   // Jagged Crowned Gothic Fluted Visor Helm
-  ctx.fillStyle = '#383d48';
-  ctx.beginPath();
-  ctx.moveTo(-7.2, -48 + bob);
-  ctx.lineTo(7.2, -48 + bob);
-  ctx.lineTo(7.5, -38 + bob);
-  ctx.lineTo(0, -33.5 + bob);
-  ctx.lineTo(-7.5, -38 + bob);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#09070b';
-  ctx.stroke();
-
-  ctx.fillStyle = '#8b6f47';
-  ctx.beginPath();
-  ctx.moveTo(-7, -47 + bob);
-  ctx.lineTo(-8, -54 + bob);
-  ctx.lineTo(-3.5, -49.5 + bob);
-  ctx.lineTo(0, -56.5 + bob);
-  ctx.lineTo(3.5, -49.5 + bob);
-  ctx.lineTo(8, -54 + bob);
-  ctx.lineTo(7, -47 + bob);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  poly(ctx, [-7.2, -48 + bob, 7.2, -48 + bob, 7.5, -38 + bob, 0, -33.5 + bob, -7.5, -38 + bob], '#383d48', '#09070b', 1);
+  poly(ctx, [-7, -47 + bob, -8, -54 + bob, -3.5, -49.5 + bob, 0, -56.5 + bob, 3.5, -49.5 + bob, 8, -54 + bob, 7, -47 + bob], '#8b6f47', '#09070b', 1);
 
   // Breather Grille & Fierce Molten Ember Eyes
   ctx.strokeStyle = '#100c14';
@@ -317,18 +264,10 @@ export function renderTitleArtworkBackdrop(
   ctx.drawImage(art, dx, dy, dw, dh);
 
   // Subtle top/bottom vignette & left-third dark-plum reading scrim protecting title typography & controls
-  const leftScrim = ctx.createLinearGradient(0, 0, W * 0.62, 0);
-  leftScrim.addColorStop(0, 'rgba(7, 5, 10, 0.94)');
-  leftScrim.addColorStop(0.46, 'rgba(8, 6, 12, 0.78)');
-  leftScrim.addColorStop(0.76, 'rgba(9, 7, 13, 0.32)');
-  leftScrim.addColorStop(1, 'rgba(9, 7, 13, 0)');
-  ctx.fillStyle = leftScrim;
+  ctx.fillStyle = mkGrad(ctx, 0, 0, W * 0.62, 0, null, [[0, 'rgba(7,5,10,.94)'], [0.46, 'rgba(8,6,12,.78)'], [0.76, 'rgba(9,7,13,.32)'], [1, 'rgba(9,7,13,0)']]);
   ctx.fillRect(0, 0, W, H);
 
-  const bottomScrim = ctx.createLinearGradient(0, H * 0.72, 0, H);
-  bottomScrim.addColorStop(0, 'rgba(7, 5, 10, 0)');
-  bottomScrim.addColorStop(1, 'rgba(7, 5, 10, 0.76)');
-  ctx.fillStyle = bottomScrim;
+  ctx.fillStyle = mkGrad(ctx, 0, H * 0.72, 0, H, null, [[0, 'rgba(7,5,10,0)'], [1, 'rgba(7,5,10,.76)']]);
   ctx.fillRect(0, H * 0.72, W, H * 0.28);
 
   // Live additive Solar Eclipse corona pulse aligned to the painted Eclipse in the 2K concept art
@@ -360,4 +299,48 @@ export function renderTitleArtworkBackdrop(
 
   // Live drifting volumetric mist & glowing rising ember particles across the painted ruin terrace
   renderMidAtmosphereAndDust(ctx, biome, W, H, time * 14, 0, time, true, fogQuality);
+}
+
+export function renderTitleFrame(
+  ctx: CanvasRenderingContext2D,
+  st: RenderContextState,
+  profile?: FrameProfile,
+): void {
+  const { width: W, height: H, time } = st;
+  const b = st.room ? st.room.biome : BIOMES[0];
+  const fogQuality = st.settings?.fogQuality ?? 'high';
+  const titleArt = getTitleHeroArtwork();
+  if (titleArt) {
+    const titleStart = profile?.now() ?? 0;
+    renderTitleArtworkBackdrop(ctx, titleArt, b, W, H, time, fogQuality);
+    profile?.finishTiming('titleArtwork', titleStart);
+    return;
+  }
+
+  const camX = Math.sin(time * 0.14) * 90 + 160;
+  const camY = 120;
+  let sceneryStart = profile?.now() ?? 0;
+  const eclipseX = renderBackdropAndEclipse(ctx, b, W, H, camX, camY, time, true, st.trauma);
+  const parallaxOn = st.settings?.parallaxEnabled !== false;
+  const shakeMult = st.settings?.screenShakeScale ?? 1;
+  profile?.finishTiming('backdropAndEclipse', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
+  if (parallaxOn) {
+    renderDeepParallaxLayers(ctx, b, W, H, camX, 0, time, st.trauma * shakeMult);
+  }
+  renderDeepAtmosphericDecor(ctx, b, W, H, camX, 0, time, true, fogQuality);
+  profile?.finishTiming('distantScenery', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
+  renderMidgroundArchitecture(ctx, W, H, camX, camY, time, true, st.trauma * shakeMult, eclipseX);
+  profile?.finishTiming('midgroundArchitecture', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
+  renderMidAtmosphereAndDust(ctx, b, W, H, camX, 0, time, true, fogQuality);
+  profile?.finishTiming('midgroundAtmosphere', sceneryStart);
+
+  sceneryStart = profile?.now() ?? 0;
+  renderTitleShowcase(ctx, W, H, time);
+  profile?.finishTiming('titleShowcase', sceneryStart);
 }
