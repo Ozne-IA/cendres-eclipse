@@ -119,6 +119,11 @@ export function GameMenuModal({
 
   const handleDownloadSave = () => {
     const json = onExportSave();
+    const nativeSave = (window as Window & { cendresAndroidSave?: { postMessage: (data: string) => void } }).cendresAndroidSave;
+    if (nativeSave) {
+      nativeSave.postMessage(json);
+      return;
+    }
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

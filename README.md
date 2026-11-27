@@ -107,6 +107,12 @@ npm run start:pc
 ```
 Le jeu s'ouvre automatiquement dans une fenêtre applicative dédiée et sauvegarde votre progression directement dans `cendres-eclipse-save.json`. Si ce fichier est absent ou corrompu, le lanceur utilise la dernière copie valide disponible dans `cendres-eclipse-save.json.bak`.
 
+### Android
+
+L’APK Android embarque le jeu, avec des commandes tactiles. Installez `Cendres-Eclipse-Android.apk` depuis les [versions GitHub](https://github.com/Ozne-IA/cendres-eclipse/releases) lorsque cet asset est disponible. Au lancement, le jeu vérifie si une version plus récente est disponible. Android vous demande de confirmer son installation. Le jeu reste jouable sans connexion après installation.
+
+Pour tester une modification, récupérer `android-preview` dans les résultats de l’action **Verify Android APK**. C’est un APK de test avec une identité Android distincte. Le guide de compilation et de signature est dans [la note Android](docs/obsidian/Android.md).
+
 ### 3. Distribuer le jeu et le mettre à jour sans tout retélécharger
 
 Les joueurs téléchargent **une seule fois** `Cendres-Eclipse-<version>.zip` depuis la page [Releases](https://github.com/Ozne-IA/cendres-eclipse/releases) (il leur faut seulement Node.js 22.12 ou plus récent), puis lancent `Lancer_Cendres_Eclipse.bat`.

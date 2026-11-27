@@ -77,7 +77,7 @@ Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consig
 - Côté Codex, reprendre C15 avec la répétition des Gardiens découverts dans la Cour. C14 est jouable. Les propositions L18 de Luc ont été validées le 22 novembre 2026. La Cour applique les critères de [[L18 Cour - consignes et criteres]], documentés dans [[Validation#Critères avancés de la Cour (L18)]].
 - L’utilisateur signale que ses essais sur PC sont bons le 22 novembre 2026. Les résultats détaillés par scénario restent à consigner dans le [[Protocole d'essai matériel]].
 - Décider de l’hébergement local des polices.
-- Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. Téléphone et tablette restent hors cible.
+- Développer le bestiaire et les phases des boss, puis préparer la démo itch.io, la licence et les crédits. L’APK de test et la publication Android signée sont décrits dans [[Android]].
 
 ## Mise à jour
 
