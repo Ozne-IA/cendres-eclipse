@@ -7,7 +7,7 @@ const KiB = 1024;
 const MiB = 1024 * KiB;
 const limits = {
   startupJavaScript: 145 * KiB,
-  totalJavaScript: 165 * KiB,
+  totalJavaScript: 170 * KiB,
   distribution: 6.25 * MiB,
 };
 

@@ -79,7 +79,7 @@ Un essai Chromium distinct isole le changement dans `actorRender.ts`. Il rejoue 
 
 ## Chargement et budget de taille (C11)
 
-Lancer `npm run build` puis `node scripts/check-build-budget.mjs`, comme en CI. Le script additionne la taille gzip des scripts référencés par le HTML de production et des modules préchargés par Vite. Le plafond est de 145 Kio pour ce JavaScript initial, de 165 Kio gzip pour tous les scripts publiés et de 6,25 Mio bruts pour tous les fichiers de `dist/`.
+Lancer `npm run build` puis `node scripts/check-build-budget.mjs`, comme en CI. Le script additionne la taille gzip des scripts référencés par le HTML de production et des modules préchargés par Vite. Le plafond est de 145 Kio pour ce JavaScript initial, de 170 Kio gzip pour tous les scripts publiés depuis l’ajout des commandes tactiles et de 6,25 Mio bruts pour tous les fichiers de `dist/`.
 
 Le build passe de 149,47 à 138,07 Kio gzip au démarrage (−7,6 %). Tous les scripts totalisent 155,55 Kio gzip et la distribution 5,87 Mio bruts. Dans Chromium, avec le service worker désactivé, les images demandées par le titre passent de trois à une et de 1 831 912 à 671 500 octets. L’installation du service worker télécharge séparément les décors des biomes, l’illustration du titre et les modules JavaScript, y compris les écrans différés, pour permettre une première expédition hors ligne.
 
