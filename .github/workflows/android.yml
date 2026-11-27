@@ -32,8 +32,12 @@ jobs:
       - name: Build and verify preview APK
         run: |
           gradle -p android :app:assembleDebug
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify android/app/build/outputs/apk/debug/app-debug.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk Cendres-Eclipse-Android-preview.apk
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          unzip -p "$APK" assets/index.html | cmp - dist/index.html
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > apk-info.txt
+          grep -F "package: name='com.ozneia.cendreseclipse.debug'" apk-info.txt
+          cp "$APK" Cendres-Eclipse-Android-preview.apk
       - uses: actions/upload-artifact@v7
         with:
           name: android-preview
