@@ -7,6 +7,8 @@ test('Android limits canvas pixels without changing game coordinates', () => {
   assert.equal(androidCanvasPixelRatio(960, 540, 2.5), 1);
   assert.equal(androidCanvasPixelRatio(960, 540, 0.8), 0.8);
   assert.equal(androidCanvasPixelRatio(1920, 1080, 2), 2 / 3);
+  assert.equal(androidCanvasPixelRatio(1920, 1080, 2, 'playing'), 0.5);
+  assert.equal(androidCanvasPixelRatio(1920, 1080, 2, 'paused'), 0.5);
 });
 
 test('Android replaces legacy graphics defaults while keeping progression and other options', () => {

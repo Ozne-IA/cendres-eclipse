@@ -116,3 +116,10 @@ Dans la Cour, choisir un exercice depuis Pause. Vérifier le compteur ou le sign
 Pour vérifier la navigation Graphify, reconstruire et exporter le graphe selon [[Accueil]], puis lancer `python .agents/skills/graphify/scripts/run.py path CendresEngine InputHub`. Le trajet passe par `engine.ts`. Dans le Canvas, les cartes doivent pointer vers les notes du dossier `Graphify/`.
 
 Revenir à [[Accueil]] ou consulter [[Architecture]].
+
+## Approche des ennemis sur Android
+
+- En Cour, rester immobile pendant que plusieurs ennemis commencent à bouger. Observer la cadence avant le premier impact.
+- Répéter avec le pavé tactile, puis avec un clavier externe et enfin en maintenant une direction sur un périphérique et en attaquant avec l’autre.
+- Comparer avec un coup réussi et une parade parfaite. Les pauses d’impact font partie de la simulation et peuvent être perceptibles même si la cadence de dessin reste stable.
+- Dans Chromium, profiler sous l’origine WebView Android et distinguer le temps de soumission Canvas, la rasterisation et la cadence d’affichage. Confirmer le ressenti sur la tablette. [[Android#Aperçu combat]]

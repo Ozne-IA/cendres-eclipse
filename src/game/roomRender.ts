@@ -14,16 +14,17 @@ export function renderTerrainAndTorches(
   W: number,
   time: number,
   interpolate: PositionInterpolator,
+  reduceOverdraw = false,
 ): void {
   // 1. Forged-Iron Wall Sconces & Torches with Warm Volumetric Glow
   const glowSprite = getTorchGlow();
   for (const t of room.torches) {
     if (t.x < camX - 200 || t.x > camX + W + 200) continue;
     const flick = 1 + Math.sin(time * 9.5 + t.x * 0.13) * 0.085;
-    const r = 148 * flick;
+    const r = (reduceOverdraw ? 96 : 148) * flick;
     if (glowSprite) {
       ctx.save();
-      ctx.globalCompositeOperation = 'screen';
+      if (!reduceOverdraw) ctx.globalCompositeOperation = 'screen';
       ctx.globalAlpha = 0.62;
       ctx.drawImage(glowSprite, Math.round(t.x - r), Math.round(t.y - r), Math.round(r * 2), Math.round(r * 2));
       ctx.restore();

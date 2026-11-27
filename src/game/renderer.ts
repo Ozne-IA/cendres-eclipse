@@ -33,6 +33,7 @@ export interface RenderContextState {
   blood?: BloodSystem;
   vfx?: VfxSystem;
   settings?: GameSettings;
+  reduceOverdraw?: boolean;
 }
 
 export function renderGameFrame(
@@ -40,7 +41,7 @@ export function renderGameFrame(
   st: RenderContextState,
   profile?: FrameProfile,
 ): void {
-  const { width: W, height: H, time } = st;
+  const { width: W, height: H, time, reduceOverdraw } = st;
   const isTitle = st.phase === 'title';
   const b = st.room ? st.room.biome : BIOMES[0];
   const fogQuality = st.settings?.fogQuality ?? 'high';
@@ -54,7 +55,7 @@ export function renderGameFrame(
   const camY = st.cameraY;
 
   let sceneryStart = profile?.now() ?? 0;
-  renderBackdropAndEclipse(ctx, b, W, H, camX, camY, time, false, st.trauma);
+  renderBackdropAndEclipse(ctx, b, W, H, camX, camY, time, false, st.trauma, reduceOverdraw);
 
   const parallaxOn = st.settings?.parallaxEnabled !== false;
   const bloodIntensity = st.settings?.bloodIntensity ?? 'high';
@@ -69,7 +70,7 @@ export function renderGameFrame(
   if (parallaxOn) {
     renderDeepParallaxLayers(ctx, b, W, H, camX, camY, time, st.trauma * shakeMult);
   }
-  renderDeepAtmosphericDecor(ctx, b, W, H, camX, camY, time, false, fogQuality);
+  renderDeepAtmosphericDecor(ctx, b, W, H, camX, camY, time, false, fogQuality, reduceOverdraw);
 
   profile?.finishTiming('distantScenery', sceneryStart);
 
@@ -95,7 +96,7 @@ export function renderGameFrame(
   ctx.translate(-Math.round(camX - sx), -Math.round(camY - sy));
 
   sceneryStart = profile?.now() ?? 0;
-  renderTerrainAndTorches(ctx, room, b, camX, W, time, interpolate);
+  renderTerrainAndTorches(ctx, room, b, camX, W, time, interpolate, reduceOverdraw);
 
   profile?.finishTiming('terrainAndTorches', sceneryStart);
 
@@ -112,7 +113,7 @@ export function renderGameFrame(
 
   renderEnemiesAndShadows(ctx, room, player, camX, W, time, showEnemyBars, interpolate);
   renderProjectiles(ctx, room.projectiles, interpolate);
-  renderPlayer(ctx, player, st.weapon, st.run, time, st.armorSkin);
+  renderPlayer(ctx, player, st.weapon, st.run, time, st.armorSkin, reduceOverdraw);
   renderWorldEffects(ctx, st.particles, camX, W, bloodIntensity, vfxQuality, st.blood, st.vfx);
 
   ctx.restore();
@@ -132,9 +133,11 @@ export function renderGameFrame(
 
   renderLowHpVignette(ctx, st.run, W, H, time);
 
-  sceneryStart = profile?.now() ?? 0;
-  renderAtmosphericColorGrading(ctx, b, W, H);
-  profile?.finishTiming('colorGrading', sceneryStart);
+  if (!reduceOverdraw) {
+    sceneryStart = profile?.now() ?? 0;
+    renderAtmosphericColorGrading(ctx, b, W, H);
+    profile?.finishTiming('colorGrading', sceneryStart);
+  }
 
   // Attack cues stay legible over particles, foreground fog, and color grading.
   ctx.save();

@@ -69,6 +69,10 @@ Six scénarios à graine fixe contrôlent la parade parfaite, le renvoi des proj
 
 Le menu Pause de la Cour donne accès à six exercices. Le HUD affiche la consigne, l’objectif, les commandes et la réussite. Le même menu permet de rejouer l’exercice ou de reprendre l’entraînement libre. Les critères détaillés de Luc sont repris dans [[Validation#Critères avancés de la Cour (L18)]]. [[Validation#Exercices de la Cour (C14)]]
 
+## Fluidité des combats sur Android
+
+Branche `codex/android-combat`. Le rendu Android réduit les pixels rasterisés en partie et allège les effets de lumière. La revue des commandes confirme que maintenir plusieurs entrées ne déclenche pas de rafraîchissement du HUD. Le test sur tablette doit comparer l’approche des ennemis sans commande, le déplacement tactile et clavier, puis les pauses d’impact. [[Android#Aperçu combat]]
+
 ## Suite connue
 
 - Voir le [[Backlog de passation]] pour la liste complète, les premières tâches et la convention de retour entre Codex et Luc.

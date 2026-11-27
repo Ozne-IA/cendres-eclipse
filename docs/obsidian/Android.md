@@ -38,3 +38,11 @@ Dans Chromium en rendu logiciel, à 1 200 × 800 CSS et DPR 2, le Canvas passe d
 Le clavier et le tactile peuvent être utilisés ensemble. En cas de directions opposées, la dernière entrée horizontale prend la priorité. Les répétitions d’une touche maintenue ne changent pas le mode de commandes.
 
 L’aperçu « Cendres — aperçu fluide » s’installe à côté du premier APK d’essai. Pour récupérer une partie existante, utiliser l’export JSON dans l’ancien aperçu puis l’import dans le nouveau.
+
+## Aperçu combat
+
+En partie, l’APK limite le Canvas à environ 0,52 million de pixels et utilise cette résolution pour le cache des décors. Il simplifie le halo du joueur, la lumière des torches et la correction de couleur en plein écran. Les indications d’attaque et de faible santé restent affichées. Le titre conserve son budget d’environ 0,92 million de pixels.
+
+Dans Chromium en rendu logiciel, avec cinq ennemis préparant une attaque, le Canvas de 1 200 × 800 CSS passe de 1 176 × 784 à 882 × 588. Le temps médian de rasterisation forcée pour 60 dessins passe de 1 035 à 352 ms sur ce scénario. La cadence réelle reste à mesurer sur la tablette.
+
+Pour vérifier les saccades sur la tablette, laisser plusieurs ennemis s’approcher sans appuyer sur une commande. Comparer ensuite le déplacement avec le tactile, avec le clavier, puis avec une commande de chaque type. Essayer enfin un coup et une parade parfaite séparément pour repérer les pauses d’impact.

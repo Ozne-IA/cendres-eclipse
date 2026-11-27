@@ -132,7 +132,7 @@ export class CendresEngine {
     private readonly gameplayRandom = createSeededRandom(Math.random() * 0x100000000)
   ) {
     this.canvas = canvas;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', this.isAndroid ? { alpha: false } : undefined);
     if (!context) throw new Error('Canvas 2D context unavailable');
     this.ctx = context;
     this.cb = callbacks;
@@ -351,7 +351,7 @@ export class CendresEngine {
     const h = Math.max(240, Math.round(rect.height || window.innerHeight));
     this.devicePixelRatio = window.devicePixelRatio || 1;
     const pixelRatio = this.isAndroid
-      ? androidCanvasPixelRatio(w, h, this.devicePixelRatio)
+      ? androidCanvasPixelRatio(w, h, this.devicePixelRatio, this.phase)
       : Math.min(this.devicePixelRatio, MAX_CANVAS_PIXEL_RATIO);
     const backingWidth = Math.round(w * pixelRatio);
     const backingHeight = Math.round(h * pixelRatio);
@@ -368,7 +368,9 @@ export class CendresEngine {
   };
 
   private setPhase(next: GamePhase): void {
+    const changesCanvasBudget = this.isAndroid && (this.phase === 'title') !== (next === 'title');
     this.phase = next;
+    if (changesCanvasBudget) this.handleResize();
     this.clock.clearFrame();
     this.interpolation.clear();
     this.previousSimTime = this.simTime;
@@ -1148,6 +1150,7 @@ export class CendresEngine {
       blood: this.blood,
       vfx: this.vfx,
       settings: this.save.settings,
+      reduceOverdraw: this.isAndroid,
     };
     if (this.phase === 'title') {
       renderTitleFrame(this.ctx, frameState, this.profile);

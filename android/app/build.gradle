@@ -83,7 +83,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix '.fluidite'
+            applicationIdSuffix '.combat'
             versionNameSuffix '-debug'
         }
         if (isSigningConfigured) {
