@@ -103,7 +103,7 @@ export function interactWithProps(
   player: Player,
   run: RunState,
   interactPressed: boolean,
-  usingGamepad: boolean,
+  inputMode: string,
   effects: RoomInteractionEffects,
 ): string | undefined {
   let prompt = '';
@@ -116,7 +116,7 @@ export function interactWithProps(
       Math.abs(player.x + player.w / 2 - (pr.x + pr.w / 2)) < 58 &&
       Math.abs(player.y + player.h - (pr.y + pr.h)) < 70;
     if (!near) continue;
-    action ??= usingGamepad
+    action ??= inputMode === 'Tactile' ? '[Agir]' : inputMode === 'Manette'
       ? '[A / Croix]'
       : `[${formatKeyLabel(effects.save.settings?.keyBindings?.interact ?? DEFAULT_KEY_BINDINGS.interact)}]`;
 

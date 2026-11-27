@@ -86,3 +86,25 @@ test('a controller tap between simulation ticks fires once and retains the lates
   assert.equal(catchUp.interact, false);
   assert.equal(catchUp.jumpReleased, false);
 });
+
+test('simultaneous touch controls retain holds and deliver a short tap once', () => {
+  const input = new InputHub();
+  input.setTouch('right', true);
+  input.setTouch('down', true);
+  input.setTouch('parry', true);
+  input.setTouch('jump', true);
+  input.setTouch('jump', false);
+  const first = input.poll();
+  assert.equal(input.lastInputMode, 'Tactile');
+  assert.equal(first.moveX, 1);
+  assert.ok(first.down && first.jump && first.jumpReleased && first.parry && first.parryHeld);
+  input.setTouch('parry', true);
+  const held = input.poll();
+  assert.equal(held.parryHeld, true);
+  assert.equal(held.parry || held.jump || held.jumpHeld || held.jumpReleased, false);
+  input.setTouch('skill', true);
+  input.clearAll();
+  const cleared = input.poll();
+  assert.equal(cleared.moveX, 0);
+  assert.equal(cleared.down || cleared.parryHeld || cleared.skill, false);
+});

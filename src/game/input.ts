@@ -1,5 +1,5 @@
 import { DEFAULT_KEY_BINDINGS } from './data';
-import type { GamepadMenuCommand, InputState, KeyBindings } from './types';
+import type { GamepadMenuCommand, InputState, KeyAction, KeyBindings } from './types';
 
 export function formatKeyLabel(code: string): string {
   if (!code) return '?';
@@ -44,7 +44,12 @@ export class GameplayInputBuffer {
   }
 }
 
+const TOUCH_ACTIONS = ['jump', 'dash', 'attack', 'heavy', 'parry', 'skill', 'heal', 'interact'] as const;
+
 export class InputHub {
+  private touchHeld = new Set<KeyAction>();
+  private touchJust = new Set<KeyAction>();
+
   private keys = new Set<string>();
   private keysJust = new Set<string>();
   private mouseHeld = new Set<number>();
@@ -57,9 +62,20 @@ export class InputHub {
   private previousMenuDirection: GamepadMenuCommand | null = null;
   private active = false;
   private bindings: KeyBindings = { ...DEFAULT_KEY_BINDINGS };
-  public lastInputMode = 'Clavier / Souris';
+  public lastInputMode = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+    ? 'Tactile' : 'Clavier / Souris';
 
   constructor(private readonly onClear?: () => void) {}
+
+  setTouch(control: KeyAction, held: boolean): void {
+    if (held) {
+      if (!this.touchHeld.has(control)) this.touchJust.add(control);
+      this.touchHeld.add(control);
+      this.lastInputMode = 'Tactile';
+    } else {
+      this.touchHeld.delete(control);
+    }
+  }
 
   setKeyBindings(bindings: KeyBindings): void {
     this.bindings = { ...DEFAULT_KEY_BINDINGS, ...bindings };
@@ -84,9 +100,9 @@ export class InputHub {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
-    this.lastInputMode = 'Clavier / Souris';
     const target = e.target as HTMLElement | null;
     if (target && target.closest('[data-ui-interactive="true"]')) return;
+    this.lastInputMode = 'Clavier / Souris';
     if (!this.mouseHeld.has(e.button)) this.mouseJust.add(e.button);
     this.mouseHeld.add(e.button);
   };
@@ -134,6 +150,8 @@ export class InputHub {
   }
 
   clearAll(): void {
+    this.touchHeld.clear();
+    this.touchJust.clear();
     this.keys.clear();
     this.keysJust.clear();
     this.mouseHeld.clear();
@@ -212,6 +230,16 @@ export class InputHub {
     if (this.keysJust.has(b.interact) || this.keysJust.has('Enter')) inp.interact = true;
     if (this.keysJust.has('Escape') || this.keysJust.has('KeyP')) inp.pause = true;
     if (this.keysJust.has('KeyM')) inp.mute = true;
+
+    if (!inMenu) {
+      for (const action of TOUCH_ACTIONS) inp[action] ||= this.touchJust.has(action);
+      inp.moveX = Math.sign(inp.moveX + Number(this.touchHeld.has('right')) - Number(this.touchHeld.has('left')));
+      inp.down ||= this.touchHeld.has('down');
+      inp.upHeld ||= this.touchHeld.has('up');
+      inp.jumpHeld ||= this.touchHeld.has('jump');
+      inp.parryHeld ||= this.touchHeld.has('parry');
+    }
+    this.touchJust.clear();
 
     if (pad) {
       this.pollGamepad(pad, inp, inMenu);

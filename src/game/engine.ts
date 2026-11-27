@@ -50,6 +50,7 @@ import type {
   GameSettings,
   HudSnapshot,
   InputState,
+  KeyAction,
   Player,
   Projectile,
   RoomData,
@@ -377,6 +378,10 @@ export class CendresEngine {
       this.canvas.focus();
     }
     this.cb.onPhaseChange(next);
+  }
+
+  setTouchControl(control: KeyAction, pressed: boolean): void {
+    if (this.phase === 'playing') this.input.setTouch(control, pressed);
   }
 
   isUsingGamepad(): boolean {
@@ -992,7 +997,7 @@ export class CendresEngine {
 
   private handlePropsInteraction(inp: InputState): void {
     if (!this.room || !this.player || !this.run) return;
-    const prompt = interactWithProps(this.room, this.player, this.run, inp.interact, this.isUsingGamepad(), this.roomEffects);
+    const prompt = interactWithProps(this.room, this.player, this.run, inp.interact, this.input.lastInputMode, this.roomEffects);
     if (prompt !== undefined && prompt !== this.promptText) {
       this.promptText = prompt;
       this.pushHud(true);

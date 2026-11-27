@@ -1,0 +1,53 @@
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-directions, .touch-actions {
+  position: absolute;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 4px;
+}
+.touch-controls button {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  border: 1px solid #907651;
+  background: #17111be8;
+  color: #f5e2bf;
+  border-radius: 12px;
+  min-height: 44px;
+  font: 600 13px var(--font-display, serif);
+}
+.touch-controls button[data-pressed] { background: #714920; border-color: #ffe5a5; color: white; }
+.touch-directions {
+  left: max(12px, env(safe-area-inset-left));
+  grid-template-columns: repeat(3, clamp(44px, 5vw, 58px));
+  grid-template-areas: ". up ." "left . right" ". down .";
+}
+.touch-directions button { font: 24px sans-serif; }
+.touch-directions [data-control=up] { grid-area: up; }
+.touch-directions [data-control=left] { grid-area: left; }
+.touch-directions [data-control=right] { grid-area: right; }
+.touch-directions [data-control=down] { grid-area: down; }
+.touch-actions {
+  right: max(12px, env(safe-area-inset-right));
+  grid-template-columns: repeat(4, clamp(50px, 6vw, 68px));
+}
+.touch-actions [data-control=attack]:not([data-pressed]) { background-color: #55242bea; border-color: #c87e77; }
+.touch-actions [data-control=parry] { border-color: #7695b8; }
+.touch-controls ~ .game-hud .hud-utilities button { min-height: 44px; min-width: 44px; }
+.touch-controls ~ .game-hud .hud-boss,
+.touch-controls ~ .game-hud .hud-context { max-width: min(60vw, calc(100vw - 570px)); }
+@media (max-width: 760px) {
+  .touch-controls ~ .game-hud .hud-context,
+  .touch-controls ~ .game-hud .hud-boss { max-width: 80vw; bottom: 154px; }
+  .touch-controls ~ .game-hud .hud-boss { position: absolute; }
+}
+@media (max-width: 480px) {
+  .touch-actions { grid-template-columns: repeat(3, 50px); }
+}
