@@ -1,0 +1,25 @@
+name: Publish tested Android combat preview
+on:
+  push:
+    branches: [codex/publish-android-combat]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-preview
+          run-id: 45993254330
+          github-token: ${{ github.token }}
+      - name: Verify and publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          unzip -tq Cendres-Eclipse-Android-preview.apk
+          mv Cendres-Eclipse-Android-preview.apk Cendres-Eclipse-Android-combat.apk
+          gh release create android-combat-20261127 Cendres-Eclipse-Android-combat.apk --target f8a12933ab6f1817af11810dd1839d07a2d6913d --prerelease --latest=false --title "Android — aperçu combat" --notes "Aperçu du rendu allégé en combat. S’installe à côté de l’aperçu fluide. Pour transférer la progression, exportez la sauvegarde JSON dans l’ancienne application puis importez-la dans l’aperçu combat."
