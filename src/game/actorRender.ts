@@ -86,9 +86,10 @@ export function renderPlayer(
   run: RunState | null,
   time: number,
   armorSkin?: ArmorSkinKey,
+  reduceOverdraw = false,
 ): void {
   // 11b. Pilgrim Cinder Lantern Glow (Subtle warm radiant aura around protagonist)
-  const pilgrimAura = getColoredGlow('amber');
+  const pilgrimAura = reduceOverdraw ? null : getColoredGlow('amber');
   if (pilgrimAura) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';

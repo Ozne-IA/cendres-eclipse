@@ -33,11 +33,16 @@ export function renderBackdropAndEclipse(
   time: number,
   isTitle: boolean,
   trauma: number,
+  reduceOverdraw = false,
 ): number {
-  const bakedBg = getSeamlessBakedBackdrop(b, W, H, isTitle);
+  // Cache the background at the actual raster size on Android.
+  const bw = reduceOverdraw ? Math.min(W, ctx.canvas.width) : W;
+  const bh = reduceOverdraw ? Math.min(H, ctx.canvas.height) : H;
+  const bakedBg = getSeamlessBakedBackdrop(b, bw, bh, isTitle);
   if (bakedBg) {
-    const sx = Math.floor(((camX * 0.05) % (W * 2) + W * 2) % (W * 2));
-    ctx.drawImage(bakedBg, sx, 0, W, H, 0, 0, W, H);
+    const scroll = camX * 0.05 * (bw / W);
+    const sx = Math.floor((scroll % (bw * 2) + bw * 2) % (bw * 2));
+    ctx.drawImage(bakedBg, sx, 0, bw, bh, 0, 0, W, H);
   } else {
     ctx.fillStyle = b.skyTop;
     ctx.fillRect(0, 0, W, H);

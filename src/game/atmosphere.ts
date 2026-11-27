@@ -297,11 +297,12 @@ export function renderDeepAtmosphericDecor(
   camY: number,
   time: number,
   isTitle: boolean,
-  quality: QualityLevel = 'high'
+  quality: QualityLevel = 'high',
+  reduceOverdraw = false,
 ): void {
   if (quality === 'off') return;
-  // 1. Subtle shifting volumetric god-rays anchored at 0.22x depth
-  const ray = getGodRaySprite();
+  // Android keeps the background's baked rays and the animated fog ribbons.
+  const ray = reduceOverdraw ? null : getGodRaySprite();
   if (ray) {
     const raySpan = 1600;
     const baseShift = (((camX * 0.22 + time * 4) % raySpan) + raySpan) % raySpan;

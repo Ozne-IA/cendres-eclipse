@@ -1,9 +1,10 @@
 import { DEFAULT_SETTINGS } from './data';
-import type { GameSettings, SaveData } from './types';
+import type { GamePhase, GameSettings, SaveData } from './types';
 
 export const ANDROID_ASSET_ORIGIN = 'https://appassets.androidplatform.net';
 
-const MAX_ANDROID_CANVAS_PIXELS = 1280 * 720;
+const MAX_TITLE_CANVAS_PIXELS = 1280 * 720;
+const MAX_GAMEPLAY_CANVAS_PIXELS = 960 * 540;
 
 export const ANDROID_GRAPHICS_DEFAULTS = {
   fogQuality: 'medium',
@@ -12,8 +13,11 @@ export const ANDROID_GRAPHICS_DEFAULTS = {
 } satisfies Partial<GameSettings>;
 
 // Keep the CSS size and game coordinates. Only the Canvas backing store gets smaller.
-export function androidCanvasPixelRatio(width: number, height: number, devicePixelRatio: number): number {
-  return Math.min(devicePixelRatio, 1, Math.sqrt(MAX_ANDROID_CANVAS_PIXELS / (width * height)));
+export function androidCanvasPixelRatio(
+  width: number, height: number, devicePixelRatio: number, phase: GamePhase = 'title',
+): number {
+  const budget = phase === 'title' ? MAX_TITLE_CANVAS_PIXELS : MAX_GAMEPLAY_CANVAS_PIXELS;
+  return Math.min(devicePixelRatio, 1, Math.sqrt(budget / (width * height)));
 }
 
 export function initializeAndroidGraphics(save: SaveData): SaveData {
