@@ -1,0 +1,27 @@
+name: Publish public Android preview
+on:
+  push:
+    branches: [codex/publish-android-preview]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-preview
+          run-id: 45974213079
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified test APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -e
+          apk=Cendres-Eclipse-Android-preview.apk
+          test -s "$apk"
+          unzip -tq "$apk"
+          gh release create android-preview-20261127 "$apk" --target 11b56f5a59c2c6f11162304e6163823d915779bc --prerelease --latest=false --title "Cendres de l’Éclipse — aperçu Android" --notes "APK d’essai avec commandes tactiles. Téléchargez le fichier .apk puis ouvrez-le sur votre tablette. La future version officielle Android aura une identité distincte."
