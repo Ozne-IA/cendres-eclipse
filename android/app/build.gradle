@@ -1,0 +1,115 @@
+import groovy.json.JsonSlurper
+
+plugins {
+    id 'com.android.application'
+}
+
+def gameRoot = rootProject.projectDir.parentFile
+def gameVersion = new JsonSlurper().parse(new File(gameRoot, 'package.json')).version
+if (!(gameVersion ==~ /[1-9][0-9]{0,3}\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})/)) {
+    throw new GradleException('package.json doit définir une version majeure.mineure.correctif prise en charge par Android.')
+}
+def (major, minor, patch) = gameVersion.tokenize('.').collect { it.toInteger() }
+def gameVersionCode = major * 1_000_000L + minor * 1_000L + patch
+if (gameVersionCode > 2_100_000_000L) {
+    throw new GradleException('Le code de version excède la limite Android.')
+}
+
+def signingVariables = [
+    'ANDROID_KEYSTORE_PATH',
+    'ANDROID_KEYSTORE_PASSWORD',
+    'ANDROID_KEY_ALIAS',
+    'ANDROID_KEY_PASSWORD',
+]
+def signingValues = signingVariables.collectEntries { variable ->
+    [(variable): providers.environmentVariable(variable).orNull]
+}
+def isSigningConfigured = signingValues.values().every { it }
+if (!isSigningConfigured && signingValues.values().any { it }) {
+    throw new GradleException('La signature Android requiert les quatre variables ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.')
+}
+
+def webAssets = layout.buildDirectory.dir('generated/gameAssets')
+def launcherResources = layout.buildDirectory.dir('generated/launcherResources')
+def dist = new File(gameRoot, 'dist')
+
+def verifyGameBuild = tasks.register('verifyGameBuild') {
+    doLast {
+        if (!new File(dist, 'index.html').isFile() || !new File(dist, 'assets').isDirectory()) {
+            throw new GradleException('Exécutez npm run build à la racine du dépôt avant de compiler l’APK.')
+        }
+    }
+}
+
+def bundleGame = tasks.register('bundleGame', Sync) {
+    // Check the build even when Sync would skip an empty source tree.
+    dependsOn verifyGameBuild
+    from(dist) {
+        exclude 'sw.js'
+    }
+    into webAssets
+}
+
+def copyLauncherIcon = tasks.register('copyLauncherIcon', Sync) {
+    from(new File(gameRoot, 'public/pwa-192x192.png')) {
+        rename { 'ic_launcher.png' }
+    }
+    into launcherResources.map { it.dir('drawable-nodpi') }
+}
+
+android {
+    namespace 'com.ozneia.cendreseclipse'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        applicationId 'com.ozneia.cendreseclipse'
+        minSdk 26
+        targetSdk 35
+        versionCode gameVersionCode.intValue()
+        versionName gameVersion
+    }
+
+    signingConfigs {
+        if (isSigningConfigured) {
+            release {
+                storeFile file(signingValues.ANDROID_KEYSTORE_PATH)
+                storePassword signingValues.ANDROID_KEYSTORE_PASSWORD
+                keyAlias signingValues.ANDROID_KEY_ALIAS
+                keyPassword signingValues.ANDROID_KEY_PASSWORD
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        if (isSigningConfigured) {
+            release {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir(webAssets)
+            res.srcDir(launcherResources)
+        }
+    }
+}
+
+tasks.named('preBuild') {
+    dependsOn(bundleGame, copyLauncherIcon)
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

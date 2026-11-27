@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cendres de l’Éclipse</string>
+    <string name="save_export_failed">Impossible d’exporter cette sauvegarde.</string>
+    <string name="file_picker_failed">Impossible d’ouvrir le sélecteur de fichiers.</string>
+    <string name="external_link_failed">Aucun navigateur disponible pour ouvrir ce lien.</string>
+</resources>
