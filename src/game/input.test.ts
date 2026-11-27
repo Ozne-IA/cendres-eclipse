@@ -108,3 +108,56 @@ test('simultaneous touch controls retain holds and deliver a short tap once', ()
   assert.equal(cleared.moveX, 0);
   assert.equal(cleared.down || cleared.parryHeld || cleared.skill, false);
 });
+
+test('keyboard and touch share movement and actions without repeats stealing direction or reviving cleared keys', t => {
+  const keyboard = new EventTarget();
+  for (const [name, value] of Object.entries({ window: keyboard, document: new EventTarget(), Element: class {} })) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+    t.after(() => {
+      if (original) Object.defineProperty(globalThis, name, original);
+      else Reflect.deleteProperty(globalThis, name);
+    });
+  }
+  const input = new InputHub();
+  input.mount();
+  const key = (type: 'keyup' | 'keydown', code: string, repeat = false) =>
+    keyboard.dispatchEvent(Object.assign(new Event(type), { code, repeat }));
+
+  input.setTouch('right', true);
+  key('keydown', 'ArrowLeft');
+  input.setTouch('attack', true);
+  const mixed = input.poll();
+  assert.equal(mixed.moveX, -1);
+  assert.ok(mixed.attack);
+  key('keydown', 'ArrowLeft', true);
+  assert.equal(input.lastInputMode, 'Tactile');
+  key('keyup', 'ArrowLeft');
+  assert.equal(input.poll().moveX, 1);
+  keyboard.dispatchEvent(Object.assign(new Event('mousedown'), {
+    button: 0, sourceCapabilities: { firesTouchEvents: true },
+  }));
+  assert.equal(input.poll().attack, false);
+  assert.equal(input.lastInputMode, 'Tactile');
+
+  input.setTouch('right', false);
+  key('keydown', 'KeyA');
+  input.setTouch('right', true);
+  key('keydown', 'Space');
+  const jump = input.poll();
+  assert.equal(jump.moveX, 1);
+  assert.ok(jump.jump && jump.jumpHeld);
+  input.setTouch('right', false);
+  assert.equal(input.poll().moveX, -1);
+
+  keyboard.dispatchEvent(new Event('blur'));
+  key('keydown', 'KeyA', true);
+  key('keydown', 'Space', true);
+  const cleared = input.poll();
+  assert.equal(cleared.moveX, 0);
+  assert.equal(cleared.jump || cleared.jumpHeld, false);
+  key('keyup', 'KeyA');
+  key('keydown', 'KeyA');
+  assert.equal(input.poll().moveX, -1);
+  input.unmount();
+});

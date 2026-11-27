@@ -90,12 +90,12 @@ export function TouchControls({ engine }: { engine: CendresEngine }) {
       onContextMenu={e => e.preventDefault()}>
       <div role="group" aria-label="Déplacement" className="touch-directions">
         {directions.map(([control, label, description]) => (
-          <button type="button" key={control} data-control={control} aria-label={description}>{label}</button>
+          <button type="button" tabIndex={-1} key={control} data-control={control} aria-label={description}>{label}</button>
         ))}
       </div>
       <div role="group" aria-label="Actions" className="touch-actions">
         {actions.map(([control, label]) => (
-          <button type="button" key={control} data-control={control}>{label}</button>
+          <button type="button" tabIndex={-1} key={control} data-control={control}>{label}</button>
         ))}
       </div>
     </div>

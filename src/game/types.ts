@@ -123,6 +123,7 @@ export interface SaveRecords {
 
 export interface SaveData {
   version: number;
+  androidGraphicsInitialized?: true;
   res: ResourceBag;
   buildings: Record<BuildingKey, number>;
   npcsUnlocked: Record<NpcKey, boolean>;

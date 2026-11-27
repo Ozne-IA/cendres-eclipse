@@ -49,6 +49,7 @@ const TOUCH_ACTIONS = ['jump', 'dash', 'attack', 'heavy', 'parry', 'skill', 'hea
 export class InputHub {
   private touchHeld = new Set<KeyAction>();
   private touchJust = new Set<KeyAction>();
+  private touchDirectionIsLatest = false;
 
   private keys = new Set<string>();
   private keysJust = new Set<string>();
@@ -69,7 +70,9 @@ export class InputHub {
 
   setTouch(control: KeyAction, held: boolean): void {
     if (held) {
-      if (!this.touchHeld.has(control)) this.touchJust.add(control);
+      if (this.touchHeld.has(control)) return;
+      this.touchJust.add(control);
+      if (control === 'left' || control === 'right') this.touchDirectionIsLatest = true;
       this.touchHeld.add(control);
       this.lastInputMode = 'Tactile';
     } else {
@@ -90,7 +93,12 @@ export class InputHub {
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
       e.preventDefault();
     }
-    if (!e.repeat && !this.keys.has(k)) this.keysJust.add(k);
+    // Repeats may arrive after a touch press or after pause/blur cleared the keyboard.
+    if (e.repeat || this.keys.has(k)) return;
+    if (k === this.bindings.left || k === this.bindings.right || k === 'ArrowLeft' || k === 'ArrowRight') {
+      this.touchDirectionIsLatest = false;
+    }
+    this.keysJust.add(k);
     this.keys.add(k);
     this.lastInputMode = 'Clavier / Souris';
   };
@@ -99,7 +107,8 @@ export class InputHub {
     this.keys.delete(e.code);
   };
 
-  private onMouseDown = (e: MouseEvent): void => {
+  private onMouseDown = (e: MouseEvent & { sourceCapabilities?: { firesTouchEvents: boolean } }): void => {
+    if (e.sourceCapabilities?.firesTouchEvents) return;
     const target = e.target as HTMLElement | null;
     if (target && target.closest('[data-ui-interactive="true"]')) return;
     this.lastInputMode = 'Clavier / Souris';
@@ -233,7 +242,8 @@ export class InputHub {
 
     if (!inMenu) {
       for (const action of TOUCH_ACTIONS) inp[action] ||= this.touchJust.has(action);
-      inp.moveX = Math.sign(inp.moveX + Number(this.touchHeld.has('right')) - Number(this.touchHeld.has('left')));
+      const touchX = Number(this.touchHeld.has('right')) - Number(this.touchHeld.has('left'));
+      if (touchX && (!inp.moveX || this.touchDirectionIsLatest)) inp.moveX = touchX;
       inp.down ||= this.touchHeld.has('down');
       inp.upHeld ||= this.touchHeld.has('up');
       inp.jumpHeld ||= this.touchHeld.has('jump');

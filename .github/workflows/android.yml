@@ -37,7 +37,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
           unzip -p "$APK" assets/index.html | cmp - dist/index.html
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > apk-info.txt
-          grep -F "package: name='com.ozneia.cendreseclipse.debug'" apk-info.txt
+          grep -F "package: name='com.ozneia.cendreseclipse.fluidite'" apk-info.txt
           cp "$APK" Cendres-Eclipse-Android-preview.apk
       - uses: actions/upload-artifact@v7
         with:

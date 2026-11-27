@@ -28,3 +28,28 @@ test('tablette · déplacer et lancer un Art ensemble puis ouvrir la pause', asy
   await expect(controls).toBeVisible();
   await expect(controls.locator('[data-pressed]')).toHaveCount(0);
 });
+
+test('tablette · alterner clavier physique et tactile sans perdre les commandes', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Cour d[’']Entraînement/i }).tap();
+  const hud = page.getByTestId('game-hud');
+  const controls = page.getByTestId('touch-controls');
+  const canvas = page.getByTestId('game-canvas');
+  await page.keyboard.down('ArrowRight');
+  await expect(hud.getByText('[C]', { exact: true })).toBeVisible();
+  await controls.getByRole('button', { name: 'Art', exact: true }).tap();
+  await expect(hud.getByText('[Art]', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('hud-skill-status')).toHaveText(/[\d.]+ s/);
+  await page.keyboard.down('ArrowRight'); // hardware repeat while the thumb plays
+  await page.keyboard.up('ArrowRight');
+  await expect(hud.getByText('[Art]', { exact: true })).toBeVisible();
+  await expect(canvas).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('pause-modal')).toBeVisible();
+  await page.getByRole('button', { name: /Reprendre/i }).tap();
+  await page.keyboard.press('Space');
+  await expect(hud.getByText('[C]', { exact: true })).toBeVisible();
+  await controls.getByRole('button', { name: 'Parade' }).tap();
+  await expect(hud.getByText('[Art]', { exact: true })).toBeVisible();
+});

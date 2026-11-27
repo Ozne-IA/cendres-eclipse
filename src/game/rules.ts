@@ -286,6 +286,7 @@ export function mergeSave(raw: Partial<SaveData> | null | undefined): SaveData {
   return {
     ...base,
     version: 2,
+    ...(source.androidGraphicsInitialized === true ? { androidGraphicsInitialized: true } : {}),
     res,
     buildings,
     npcsUnlocked,

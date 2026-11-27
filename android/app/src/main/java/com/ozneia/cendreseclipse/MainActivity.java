@@ -122,6 +122,8 @@ public final class MainActivity extends Activity {
             });
         }
         setContentView(container);
+        game.setFocusableInTouchMode(true);
+        game.requestFocus();
         game.loadUrl(GAME_ORIGIN + "/index.html");
         ReleaseUpdateChecker.check(this);
     }

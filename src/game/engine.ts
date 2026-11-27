@@ -1,3 +1,4 @@
+import { ANDROID_ASSET_ORIGIN, ANDROID_GRAPHICS_DEFAULTS, androidCanvasPixelRatio, initializeAndroidGraphics } from './androidGraphics';
 import { AudioFX } from './audio';
 import { BloodSystem } from './bloodDecals';
 import { RoomCamera } from './camera';
@@ -74,10 +75,6 @@ export interface EngineCallbacks {
 const MAX_CANVAS_PIXEL_RATIO = 2;
 const PLAYER_SPAWN_X = 110;
 
-function canvasPixelRatio(): number {
-  return Math.min(window.devicePixelRatio || 1, MAX_CANVAS_PIXEL_RATIO);
-}
-
 export class CendresEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -95,7 +92,8 @@ export class CendresEngine {
   private rafId: number | null = null;
   private destroyed = false;
   private resizeObs: ResizeObserver | null = null;
-  private pixelRatio = 1;
+  private devicePixelRatio = 1;
+  private readonly isAndroid = typeof window !== 'undefined' && window.location.origin === ANDROID_ASSET_ORIGIN;
   private canvasNeedsRender = false;
   private profile?: FrameProfile;
   private width = 1280;
@@ -189,7 +187,8 @@ export class CendresEngine {
       },
       openBastion: () => this.openBastion(),
     };
-    this.save = loadSave();
+    const save = loadSave();
+    this.save = this.isAndroid ? initializeAndroidGraphics(save) : save;
     this.applySettingsSideEffects();
   }
 
@@ -270,7 +269,7 @@ export class CendresEngine {
     const tick = (now: number): void => {
       if (this.destroyed) return;
       // Zoom and display changes can change the DPR while the layout size stays fixed.
-      if (this.pixelRatio !== canvasPixelRatio()) this.handleResize();
+      if (this.devicePixelRatio !== (window.devicePixelRatio || 1)) this.handleResize();
       const rawDt = (now - last) / 1000;
       last = now;
       if (rawDt > 0.001 && rawDt < 0.25) {
@@ -317,7 +316,8 @@ export class CendresEngine {
           this.render();
           const renderMs = performance.now() - t0;
           profile?.recordTiming('render', renderMs);
-          if (renderMs > 8 || rawDt > 0.032) {
+          // On Android, a slow display cadence can otherwise skip every other frame even with a cheap render.
+          if (renderMs > 8 || (!this.isAndroid && rawDt > 0.032)) {
             cooldownFrames = 1;
           }
         }
@@ -349,9 +349,12 @@ export class CendresEngine {
     const rect = this.canvas.getBoundingClientRect();
     const w = Math.max(320, Math.round(rect.width || window.innerWidth));
     const h = Math.max(240, Math.round(rect.height || window.innerHeight));
-    this.pixelRatio = canvasPixelRatio();
-    const backingWidth = Math.round(w * this.pixelRatio);
-    const backingHeight = Math.round(h * this.pixelRatio);
+    this.devicePixelRatio = window.devicePixelRatio || 1;
+    const pixelRatio = this.isAndroid
+      ? androidCanvasPixelRatio(w, h, this.devicePixelRatio)
+      : Math.min(this.devicePixelRatio, MAX_CANVAS_PIXEL_RATIO);
+    const backingWidth = Math.round(w * pixelRatio);
+    const backingHeight = Math.round(h * pixelRatio);
     if (
       this.width !== w || this.height !== h ||
       this.canvas.width !== backingWidth || this.canvas.height !== backingHeight
@@ -428,6 +431,7 @@ export class CendresEngine {
       ...s,
       settings: {
         ...DEFAULT_SETTINGS,
+        ...(this.isAndroid ? ANDROID_GRAPHICS_DEFAULTS : {}),
         keyBindings: { ...DEFAULT_KEY_BINDINGS },
       },
     }));
@@ -440,7 +444,7 @@ export class CendresEngine {
   importSaveData(rawText: string): boolean {
     const imported = importSaveJson(rawText);
     if (!imported) return false;
-    this.save = imported;
+    this.save = this.isAndroid ? { ...imported, androidGraphicsInitialized: true } : imported;
     this.applySettingsSideEffects();
     persistSave(this.save);
     this.syncPcDiskSave(this.save);
@@ -450,7 +454,8 @@ export class CendresEngine {
 
   resetSave(): void {
     this.cb.onRunSummary(null);
-    this.save = defaultSave();
+    const save = defaultSave();
+    this.save = this.isAndroid ? initializeAndroidGraphics(save) : save;
     this.applySettingsSideEffects();
     persistSave(this.save);
     this.syncPcDiskSave(this.save);
