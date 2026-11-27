@@ -1,0 +1,25 @@
+name: Publish public Android fluidity preview
+on:
+  push:
+    branches: [codex/publish-android-fluide]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-preview
+          run-id: 45991652102
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mv Cendres-Eclipse-Android-preview.apk Cendres-Eclipse-Android-fluide.apk
+          unzip -tq Cendres-Eclipse-Android-fluide.apk
+          gh release create android-fluide-20261127 Cendres-Eclipse-Android-fluide.apk --target 5bed3e7deb58f127ad7745ba7b688f6fcacdc665 --prerelease --latest=false --title "Cendres de l’Éclipse — aperçu Android fluide" --notes "Rendu allégé pour tablette. Le clavier et le tactile peuvent être utilisés ensemble. Cet aperçu s’installe à côté du précédent. Pour déplacer une partie existante, utilisez l’export puis l’import JSON."
