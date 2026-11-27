@@ -17,11 +17,12 @@ interface GameHudProps {
   hud: HudSnapshot;
   keyBindings?: KeyBindings;
   muted: boolean;
+  touchScreen?: boolean;
   onToggleMute: () => void;
   onOpenPause: () => void;
 }
 
-export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onToggleMute, onOpenPause }: GameHudProps) {
+export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, touchScreen, onToggleMute, onOpenPause }: GameHudProps) {
   const hpPct = Math.max(0, Math.min(100, (hud.hp / Math.max(1, hud.maxHp)) * 100));
   const ghostPct = Math.max(hpPct, Math.min(100, (hud.ghostHp / Math.max(1, hud.maxHp)) * 100));
   const stamPct = Math.max(0, Math.min(100, (hud.stam / Math.max(1, hud.maxStam)) * 100));
@@ -31,17 +32,19 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
   const drill = hud.trainingExercise;
   const exercise = drill && TRAINING_EXERCISES.find(({ id }) => id === drill.id);
   const onGamepad = hud.inputMode === 'Manette';
-  const healKey = onGamepad ? '↑ Croix dir.' : formatKeyLabel(keyBindings.heal);
-  const skillKey = onGamepad ? 'RB / R1' : formatKeyLabel(keyBindings.skill);
-  const parryKey = onGamepad ? 'LB / L1' : `${formatKeyLabel(keyBindings.parry)} ou clic droit`;
-  const attackKey = onGamepad ? 'X / Carré' : `${formatKeyLabel(keyBindings.attack)} ou clic gauche`;
-  const dodgeKey = onGamepad ? 'B / Rond' : formatKeyLabel(keyBindings.dash);
+  const touch = touchScreen && hud.inputMode === 'Tactile';
+  const pauseKey = touch ? 'Ⅱ' : onGamepad ? 'Start' : 'Échap';
+  const healKey = touch ? 'Fiole' : onGamepad ? '↑ Croix dir.' : formatKeyLabel(keyBindings.heal);
+  const skillKey = touch ? 'Art' : onGamepad ? 'RB / R1' : formatKeyLabel(keyBindings.skill);
+  const parryKey = touch ? 'Parade' : onGamepad ? 'LB / L1' : `${formatKeyLabel(keyBindings.parry)} ou clic droit`;
+  const attackKey = touch ? 'Frappe' : onGamepad ? 'X / Carré' : `${formatKeyLabel(keyBindings.attack)} ou clic gauche`;
+  const dodgeKey = touch ? 'Esquive' : onGamepad ? 'B / Rond' : formatKeyLabel(keyBindings.dash);
   const exerciseKeys = exercise && {
     parry: parryKey,
     riposte: `${parryKey} → ${attackKey}`,
     reflect: parryKey,
     dodge: dodgeKey,
-    movement: onGamepad ? 'Stick gauche · A / Croix' : `${formatKeyLabel(keyBindings.left)} / ${formatKeyLabel(keyBindings.right)} · ${formatKeyLabel(keyBindings.jump)}`,
+    movement: touch ? '← / → · Saut' : onGamepad ? 'Stick gauche · A / Croix' : `${formatKeyLabel(keyBindings.left)} / ${formatKeyLabel(keyBindings.right)} · ${formatKeyLabel(keyBindings.jump)}`,
     art: skillKey,
   }[exercise.id];
   const skillReady = hud.skillCd <= 0.05;
@@ -217,7 +220,7 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 pointer-events-auto">
+          <div data-ui-interactive="true" className="flex flex-col gap-1.5 pointer-events-auto">
             <button
               type="button"
               tabIndex={-1}
@@ -264,7 +267,7 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
       </div>
 
       {(hud.promptText || showCombatHint) && (
-        <div className={`fixed left-1/2 -translate-x-1/2 flex w-max max-w-[calc(100vw-2rem)] flex-col items-center gap-2 ${hud.boss ? 'bottom-28' : showCombatHint ? 'bottom-4' : 'bottom-20'}`}>
+        <div className={`hud-context fixed left-1/2 -translate-x-1/2 flex w-max max-w-[calc(100vw-2rem)] flex-col items-center gap-2 ${hud.boss ? 'bottom-28' : showCombatHint ? 'bottom-4' : 'bottom-20'}`}>
           {hud.promptText && (
             <div className="bg-[#0c0910]/95 border border-[#d4a853] px-4 py-2 text-center text-xs md:text-sm text-[#e5be6e] tracking-wide shadow-[0_6px_24px_rgba(0,0,0,0.85)]">
               {hud.promptText}
@@ -298,14 +301,14 @@ export function GameHud({ hud, keyBindings = DEFAULT_KEY_BINDINGS, muted, onTogg
                       {drill.remainingSeconds !== undefined && <strong className="hud-drill-time">Temps restant · {Math.ceil(drill.remainingSeconds)} s</strong>}
                     </>
                   )}
-                  <small>Échec sans perte · Pause ({onGamepad ? 'Start' : 'Échap'}) pour recommencer</small>
+                  <small>Échec sans perte · Pause ({pauseKey}) pour recommencer</small>
                 </div>
               ) : hud.riposteReady ? (
                 <><strong className="text-[#ffd470]">Riposte prête.</strong> Attaquez avec {attackKey}.</>
               ) : (
                 <>Repérez le triangle. Juste avant l’impact, déviez avec {parryKey} ou esquivez avec {dodgeKey}.</>
               )}
-              {hud.isTraining && !exercise && <p className="text-xs text-[#e5be6e]">Choisissez un exercice dans le menu Pause ({onGamepad ? 'Start' : 'Échap'}).</p>}
+              {hud.isTraining && !exercise && <p className="text-xs text-[#e5be6e]">Choisissez un exercice dans le menu Pause ({pauseKey}).</p>}
             </div>
           )}
         </div>

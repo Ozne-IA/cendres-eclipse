@@ -1,4 +1,5 @@
 import { BlessingModal } from './BlessingModal';
+import { TouchControls, useTouchScreen } from './TouchControls';
 import { GameHud } from './GameHud';
 import { GameOverModal } from './GameOverModal';
 import { MerchantModal } from './MerchantModal';
@@ -38,11 +39,14 @@ export function GameplayUi({
   engine,
   onOpenMenu,
 }: GameplayUiProps) {
+  const touchScreen = useTouchScreen();
   return (
     <>
+      {phase === 'playing' && touchScreen && engine && <TouchControls engine={engine} />}
       {phase === 'playing' && hud && (
         <GameHud
           hud={hud}
+          touchScreen={touchScreen}
           keyBindings={save.settings?.keyBindings}
           muted={save.muted}
           onToggleMute={() => engine?.toggleMute()}
